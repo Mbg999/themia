@@ -4,7 +4,7 @@ Database search helpers — vector (pgvector cosine) and BM25 (tsvector).
 from __future__ import annotations
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import cast, func, select
+from sqlalchemy import cast, func, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,9 @@ def vector_search(engine: Engine, embedding: list[float], top_k: int = 10) -> li
         .limit(top_k)
     )
     with Session(engine) as session:
+        # probes=1 (pgvector default) scans only 1 of lists lists → ~1% recall.
+        # 10 gives good recall/speed balance; tune together with lists in the index.
+        session.execute(text("SET LOCAL ivfflat.probes = 10"))
         rows = session.execute(stmt).scalars().all()
         return list(rows)
 

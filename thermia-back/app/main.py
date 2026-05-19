@@ -83,8 +83,16 @@ async def analyze(
             detail="El archivo debe ser un PDF válido.",
         )
 
-    # --- Extract text ---
+    # --- File size guard (before reading into memory) ---
+    _MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > _MAX_PDF_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="El archivo PDF no puede superar los 10 MB.",
+        )
+
+    # --- Extract text ---
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         pages_text = [p.extract_text() or "" for p in pdf.pages]
     full_text = "\n".join(pages_text).strip()

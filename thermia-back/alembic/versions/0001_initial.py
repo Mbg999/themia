@@ -34,10 +34,12 @@ def upgrade() -> None:
         """
     )
 
-    # ivfflat index on embedding for approximate nearest-neighbour search
+    # ivfflat index on embedding for approximate nearest-neighbour search.
+    # lists=50 is tuned for ~10k-50k chunks (rule of thumb: sqrt(doc_count)).
+    # Query-time probes are set in searcher.py before each ANN query.
     op.execute(
         "CREATE INDEX idx_documents_embedding ON documents "
-        "USING ivfflat (embedding vector_cosine_ops)"
+        "USING ivfflat (embedding vector_cosine_ops) WITH (lists=50)"
     )
 
     # GIN index on tsvector for full-text search

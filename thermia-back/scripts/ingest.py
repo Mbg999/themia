@@ -403,12 +403,12 @@ def main(argv: list[str] | None = None) -> None:
     cohere_client = cohere.Client(cohere_api_key)
 
     engine = get_engine()
-    Session = sessionmaker(bind=engine)
+    session_factory = sessionmaker(bind=engine)
 
     if args.reset:
-        from sqlalchemy.orm import Session as _Session
+        from sqlalchemy.orm import Session
         from app.db.models import Document
-        with _Session(engine) as session:
+        with Session(engine) as session:
             session.query(Document).delete()
             session.commit()
         log.info("documents table truncated.")
@@ -445,7 +445,7 @@ def main(argv: list[str] | None = None) -> None:
             for i, emb in enumerate(embeddings):
                 chunks[i]["embedding"] = emb
 
-            upsert_documents(Session, chunks)
+            upsert_documents(session_factory, chunks)
             total_inserted += len(chunks)
             log.info("  [ok] %s — %d chunks upserted.", rel_path, len(chunks))
 

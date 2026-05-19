@@ -276,7 +276,9 @@ class TestVectorSearch:
         assert len(result) == 2
 
     def test_vector_search_calls_execute(self):
-        """vector_search calls session.execute (i.e. issues a query)."""
+        """vector_search issues the probes SET and the SELECT query."""
+        from sqlalchemy.sql.elements import TextClause
+        from sqlalchemy.sql.selectable import Select
         from app.retrieval.searcher import vector_search
 
         mock_engine = MagicMock()
@@ -288,7 +290,11 @@ class TestVectorSearch:
         with patch("app.retrieval.searcher.Session", return_value=mock_session):
             vector_search(mock_engine, [0.1] * 1024, top_k=5)
 
-        mock_session.execute.assert_called_once()
+        assert mock_session.execute.call_count == 2
+        first_arg = mock_session.execute.call_args_list[0][0][0]
+        second_arg = mock_session.execute.call_args_list[1][0][0]
+        assert isinstance(first_arg, TextClause)   # SET LOCAL ivfflat.probes
+        assert isinstance(second_arg, Select)       # ANN query
 
 
 # ---------------------------------------------------------------------------
