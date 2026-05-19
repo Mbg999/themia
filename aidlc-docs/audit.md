@@ -88,3 +88,35 @@
 - [Rationalization-rejected] frontend depends on retrieval-api (HTTP contract), not db-layer directly
 
 ## 2026-05-19T10:28:00+00:00 INCEPTION - UNIT DECOMPOSER COMPLETE
+
+## 2026-05-19T10:30:00+00:00 CONSTRUCTION - PRE-BUILD SKILL SYNC
+- [Skills] sync: 2 workspaces (., thermia-front); 10 installed/updated, 32 skipped
+- [Skills] warnings: python-executor security check (non-blocking); angular-developer security check (non-blocking)
+- [Skills] resolved 13 build-relevant skills: using-agent-skills, incremental-implementation, test-driven-development, source-driven-development, frontend-ui-engineering, api-and-interface-design, environment-detection, validator-retry, debugging-and-error-recovery, codegraph-aware-exploration, angular-developer, python-testing-patterns, vitest
+
+## 2026-05-19T10:30:43+00:00 CONSTRUCTION - Unit Graph
+- [UnitGraph] Wave 0: [db-layer]
+- [UnitGraph] Wave 1: [ingestion-pipeline, retrieval-api] — parallel
+- [UnitGraph] Wave 2: [docker-infra, frontend] — parallel
+- [UnitGraph] critical path: db-layer → retrieval-api → frontend
+
+## 2026-05-19T10:37:45+00:00 CONSTRUCTION - User Decision (code-generator plan — db-layer)
+- [User] Approved db-layer code-generation plan (5 tasks, 8 slices)
+
+## 2026-05-19T10:58:21+00:00 CONSTRUCTION - User Amendment (db-layer generated — SSH auth)
+- [User] SSH auth changed from SSH key (SSH_KEY_PATH/ssh_pkey) to password (SSH_PASSWORD/ssh_password)
+- [Amendment] connection.py, config.py, .env.example, tests/test_db.py updated
+- [Tests] 9/9 pass after amendment
+
+## 2026-05-19T11:02:59+00:00 CONSTRUCTION - User Approval (db-layer generated — Sub-stage 2)
+- [Approval] User approved amended db-layer generated code (SSH password auth)
+- [Real DB] .env with credentials available; alembic migration will be verified
+
+## 2026-05-19T11:26:36+00:00 CONSTRUCTION - Build & Test Complete (db-layer)
+- [Tests] 9/9 unit tests passed
+- [Migration] alembic upgrade head → 0001 applied on VPS postgres via SSH tunnel
+- [Fix] alembic/env.py routes through get_engine() for SSH tunnel support
+- [Fix] paramiko<3 pinned; sshtunnel 0.4.0 compatibility restored
+- [Fix] allow_agent=False, host_pkey_directories=[] prevent ~/.ssh/ key scan
+- [Change] DB_USER, DB_PASSWORD, DB_NAME parameterized in connection URL
+

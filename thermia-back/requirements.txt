@@ -1,0 +1,12 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0.0
+alembic>=1.14.0
+pgvector>=0.3.0
+psycopg2-binary>=2.9.0
+sshtunnel>=0.4.0
+paramiko<3  # sshtunnel 0.4.0 uses paramiko.DSSKey removed in paramiko 3.x
+python-dotenv>=1.0.0
+pytest>=8.0.0
+pytest-mock>=3.14.0
+httpx>=0.27.0

@@ -2,3 +2,4 @@
 .aidlc-orchestrator/runs/
 .aidlc-orchestrator/knowledge/
 .codegraph/
+__pycache__/
