@@ -51,3 +51,40 @@
 - [Orchestrator] reviewer_pool=[reviewer-code, reviewer-security, reviewer-performance, reviewer-simplifier]
 - [Orchestrator] merge_codegen_gate=false — plan and codegen are separate gates
 
+
+## 2026-05-19T10:19:08+00:00 INCEPTION - STORY WRITER START
+- [Orchestrator] spawned (inline, single-pass)
+- [Skill] using-agent-skills: PASS — skill file resolved; process followed
+- [Skill] spec-driven-development: PASS — personas + stories grounded in requirements §8 User Scenarios
+- [Decision] question gate skipped — requirements are comprehensive depth and contain full user scenario data (§8, 4 scenarios); no open persona/journey questions
+- [Pass2-direct] 3 personas generated: Ana (tenant), Carlos (autónomo), Laura (empleada)
+- [Pass2-direct] 5 user stories generated: US-1 through US-5; 14 acceptance criteria
+
+## 2026-05-19T10:19:49+00:00 INCEPTION - STORY WRITER COMPLETE
+
+## 2026-05-19T10:25:32+00:00 INCEPTION - User Decision (workflow-planner)
+- [User] Approved 2026-05-19t09-35-00z-thermia-mvp-execution-plan.md (38 tasks, 5 units, 3 layers)
+
+
+## 2026-05-19T10:20:01+00:00 INCEPTION - WORKFLOW PLANNER START
+- [Orchestrator] spawned (inline)
+- [Skill] using-agent-skills: PASS — skill file resolved; process followed
+- [Skill] planning-and-task-breakdown: PASS — 38 tasks; 5 units; every leaf task has ≥2 AC; valid DAG
+- [Skill] requirements-intelligence (plan-stage): PASS — pre-mortem applied; 3 risks surfaced
+- [PlanPreMortem] PR-1: Cohere input_type mismatch — mitigation: smoke test at ingestion
+- [PlanPreMortem] PR-2: vector dimension contract at db-layer/L1 boundary — mitigation: startup validation
+- [PlanPreMortem] PR-3: BM25 Spanish tokenization — AC strengthened in API-T7
+- [MermaidValidated] graph TD diagram syntax validated
+- [Coverage] all 10 requirements ACs covered by plan task ACs
+
+## 2026-05-19T10:25:32+00:00 INCEPTION - WORKFLOW PLANNER COMPLETE
+
+## 2026-05-19T10:25:59+00:00 INCEPTION - UNIT DECOMPOSER START
+- [Orchestrator] spawned (inline)
+- [Skill] using-agent-skills: PASS — skill file resolved; process followed
+- [Skill] planning-and-task-breakdown: PASS — 5 unit specs; all with purpose, interfaces, dependencies, ACs, DoD
+- [DependencyGraph] db-layer→[]; ingestion-pipeline→[db-layer]; retrieval-api→[db-layer]; frontend→[retrieval-api]; docker-infra→[retrieval-api,ingestion-pipeline]
+- [DependencyCheck] no dangling refs; no cycles; wave schedule: L0=[db-layer], L1=[ingestion-pipeline,retrieval-api], L2=[frontend,docker-infra]
+- [Rationalization-rejected] frontend depends on retrieval-api (HTTP contract), not db-layer directly
+
+## 2026-05-19T10:28:00+00:00 INCEPTION - UNIT DECOMPOSER COMPLETE

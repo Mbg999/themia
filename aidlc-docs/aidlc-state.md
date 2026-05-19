@@ -14,7 +14,7 @@
 - **CodeGraph**: indexed — 691 nodes, 39 files, backend: native
 
 ## Current Stage
-`INCEPTION - Requirements Analysis (complete) — awaiting /factory-plan`
+`INCEPTION - Workflow Planning (complete) — awaiting /factory-build`
 
 ## Code Location Rules
 - Source of truth: `thermia-front/` (Angular frontend)
@@ -24,7 +24,7 @@
 ## Stage Progress
 - [x] Workspace Detection — 2026-05-19
 - [x] Requirements Analysis — 2026-05-19
-- [ ] Planning (factory-plan)
+- [x] Planning (factory-plan) — 2026-05-19
 - [ ] Construction (factory-build)
 - [ ] Review (factory-review)
 - [ ] Ship (factory-ship)
