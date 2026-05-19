@@ -161,3 +161,65 @@
 - [Performance] 9 findings: 2 P0 (ivfflat probes never set — ~1% recall; ivfflat missing lists param), 4 P1 (engine per request, sequential DB queries, no embedding cache, no LLM timeout), 3 P2
 - [Simplifier] 7 findings: 1 P0 (Session/session_factory name collision silent bug), 2 P1 (config.py constants dead code, CORS_ORIGINS duplication), 3 P2, 1 P3
 - [Report] aidlc-docs/operations/2026-05-19t09-35-00z-thermia-mvp-review-report.md updated — all 4 reviewers, 57 total findings
+
+## 2026-05-19T15:12:24+00:00 INCEPTION - WORKSPACE SCOUT START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned
+- Project type: brownfield — existing source code found in thermia-back/ (Python/FastAPI) and thermia-front/ (Angular/TypeScript)
+- Source files detected: 13 files at depth <=3 (py: app/__init__.py, app/main.py, app/config.py, scripts/ingest.py, alembic/env.py, tests/conftest.py, tests/test_retrieval.py, tests/test_db.py, tests/test_ingestion.py, tests/__init__.py; ts: thermia-front/vitest-setup.ts, thermia-front/vitest.config.ts, thermia-front/src/main.ts)
+- Languages detected: Python (thermia-back/), TypeScript (thermia-front/)
+- Project structure: monorepo — thermia-back (Python/FastAPI backend), thermia-front (Angular 21.2.0 frontend)
+- Build/manifest files: thermia-back/requirements.txt (FastAPI, uvicorn, SQLAlchemy, Cohere, LangChain, Groq), thermia-front/package.json (Angular 21.2.0, TypeScript, Vitest)
+- [Stack] thermia-back: fastapi, uvicorn, sqlalchemy, alembic, pgvector, psycopg2-binary, cohere, langchain, langchain-groq, python-dotenv
+- [Stack] thermia-front: @angular/core@21.2.0, rxjs@7.8.0, typescript@5.9.2, vitest@4.0.8
+- [CodeGraph] active — nodes: 947, files: 58, backend: native
+- Reverse-engineering artifacts: ABSENT — aidlc-docs/inception/reverse-engineering/ does not exist
+- next_phase determination: brownfield + no RE artifacts => reverse-engineering (mechanical rule applied)
+- [Rationalization-rejected] 'Requirements and plans already exist in aidlc-docs/inception/' — REJECTED. Rule is mechanical: RE artifacts absent => next_phase=reverse-engineering
+- [Rationalization-rejected] 'aidlc-state.md documents the project so RE is unnecessary' — REJECTED. aidlc-state.md is not RE artifacts
+- using-agent-skills: PASS — input validation exit code 0; workspace scan 13 source files; no prose-only assertions
+- codegraph-aware-exploration: N/A — not in skill_paths_resolved; observation-only stage
+
+## 2026-05-19T15:15:08+00:00 INCEPTION - WORKSPACE SCOUT COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+
+## 2026-05-19T15:17:39+00:00 INCEPTION - REVERSE ENGINEER
+- Skipped by user decision: project built by this factory in run 2026-05-19t09-35-00z-thermia-mvp; inception artifacts present
+- Feature scope: narrow backend-only API key rotation for Cohere/Groq; RE would produce redundant documentation
+- manifest.skipped_stages[] updated: [reverse-engineer]
+
+## 2026-05-19T15:38:51+00:00 INCEPTION - REQUIREMENTS ANALYST ANSWERS
+- Q1 [Purpose]: D — Availability primary, plus cost/quota optimisation + operational resilience
+- Q2 [Format]: C — JSON array per provider: COHERE_API_KEYS='["k1","k2"]', GROQ_API_KEYS='["ka","kb"]'
+- Q3 [Failure signals]: C — Any quota-related signal (429, Cohere trial-key message body, Groq daily-token limit, 5xx after retry budget)
+- Q4 [Dead-key policy]: A provider-specific cooldown — Cohere: 1 month; Groq: 1 day
+- Q5 [Exhaustion behaviour]: B — Boot fail-fast if 0 keys; WARN when 1 remains; ERROR + raise when 0
+- Q6 [Rotation strategy]: D — Sticky-then-rotate
+- Q7 [Cohere client design]: B — Single client, swap API key on rotation
+- Q8 [Scope]: B — Runtime + ingestion, same shared key pool
+- Q9 [Acceptance criteria]: A + C + D — unit tests + .env.example docs + structured rotation log
+
+
+## 2026-05-19T15:39:08+00:00 INCEPTION - REQUIREMENTS ANALYST START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned (Pass 2 — answered questions provided via context_pointers)
+- Pass 2 triggered by context_pointers[0] answered questions file; all 9 [Answer]: tags populated
+- Q1=D → §1.2 ordered outcomes: Availability primary, Cost/quota secondary, Operational resilience tertiary
+- Q2=C → FR-2 JSON-array-per-provider env format; legacy single-key fallback with WARN-on-migration
+- Q3=C + Cohere Trial-key example → FR-3 four discrete rotation signals (HTTP 429, Cohere Trial-key body, Groq daily-token quota, persistent 5xx after in-key retry budget)
+- Q4=A provider-specific cool-down → FR-4: Cohere 30d=2592000s, Groq 1d=86400s; in-process only (not persisted)
+- Q5=B → FR-6 boot fail-fast + WARN at 1 healthy + ERROR at 0; no /healthz endpoint (§6 out of scope)
+- Q6=D → FR-5 sticky-then-rotate with declaration-order traversal (JSON array order = priority)
+- Q7=B → FR-8 single Cohere client, swap key on rotation; Groq unaffected (already rebuilt per call)
+- Q8=B → FR-9 wires runtime (embedder + llm) AND ingestion (scripts/ingest.py); same shared KeyPool
+- Q9=A+C+D → AC-1 unit tests (11 cases), AC-2 .env.example doc, AC-3 observability assertions; integration test out of scope
+- Conflict reconciliation: Q4 "1 month" resolved to 30d=2592000s; Q3 "5xx for Groq" resolved as first-attempt-only (llm.py has no in-key retries)
+- Scope discipline: KeyPool stops at Cohere+Groq; OpenAI/Anthropic extension deferred to §6
+- spec-driven-development: PASS — six core areas applied; §8 traceability matrix maps every user answer to FR/NFR/AC
+- idea-refine: PASS — divergent options from Pass 1 converged; rejected alternatives documented at FR-3/FR-4
+- using-agent-skills: PASS — assumptions surfaced; scope discipline observed; artefact produced (408 lines)
+
+## 2026-05-19T15:43:24+00:00 INCEPTION - REQUIREMENTS ANALYST COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+
+## 2026-05-19T15:43:47+00:00 INCEPTION - STORY WRITER
+- story-writer skipped — MEDIUM tier; feature is backend-only infrastructure (no new user journeys to story-map)
+- reviewer_pool: reviewer-code + reviewer-security + reviewer-simplifier (performance skipped for MEDIUM infra feature)
+- merge_codegen_gate: false
+

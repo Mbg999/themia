@@ -13,19 +13,30 @@
 - **Structure**: monorepo — thermia-front (frontend), thermia-back (to be created)
 - **CodeGraph**: indexed — 691 nodes, 39 files, backend: native
 
-## Current Stage
+## Current Stage — Run: 2026-05-19t09-35-00z-thermia-mvp
 `CONSTRUCTION - Complete — awaiting /factory-review`
+
+## Current Stage — Run: 2026-05-19t15-11-46z-api-key-fallback
+`INCEPTION - Complete — awaiting /factory-plan 2026-05-19t15-11-46z-api-key-fallback`
 
 ## Code Location Rules
 - Source of truth: `thermia-front/` (Angular frontend)
-- Backend to be created at: `thermia-back/`
+- Backend: `thermia-back/`
 - AIDLC artifacts: `aidlc-docs/`
 
-## Stage Progress
+## Stage Progress — Run: 2026-05-19t09-35-00z-thermia-mvp
 - [x] Workspace Detection — 2026-05-19
 - [x] Requirements Analysis — 2026-05-19
 - [x] Planning (factory-plan) — 2026-05-19
 - [x] Construction (factory-build) — 2026-05-19
+- [ ] Review (factory-review)
+- [ ] Ship (factory-ship)
+
+## Stage Progress — Run: 2026-05-19t15-11-46z-api-key-fallback (API Key Fallback)
+- [x] Workspace Detection — 2026-05-19
+- [x] Requirements Analysis — 2026-05-19
+- [ ] Planning (factory-plan)
+- [ ] Construction (factory-build)
 - [ ] Review (factory-review)
 - [ ] Ship (factory-ship)
 
