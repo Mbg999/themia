@@ -120,3 +120,12 @@
 - [Fix] allow_agent=False, host_pkey_directories=[] prevent ~/.ssh/ key scan
 - [Change] DB_USER, DB_PASSWORD, DB_NAME parameterized in connection URL
 
+## 2026-05-19T11:32:22+00:00 CONSTRUCTION - User Approval (Wave 1 generated — ingestion-pipeline + retrieval-api)
+- [Approval] User approved Wave 1 generated code
+- [Env] API keys (COHERE_API_KEY, GROQ_API_KEY, API_KEY) added to .env
+
+## 2026-05-19T11:34:15+00:00 CONSTRUCTION - Build & Test Complete (Wave 1: ingestion-pipeline + retrieval-api)
+- [Tests] 51/51 passed across db-layer, ingestion-pipeline, retrieval-api
+- [Install] cohere 6.1.0, gitpython 3.1.50, tiktoken 0.13.0, pdfplumber 0.11.9, langchain 1.3.1, langchain-groq 1.1.2, python-multipart 0.0.29
+- [Smoke] scripts/ingest.py --help OK; from app.main import app OK
+

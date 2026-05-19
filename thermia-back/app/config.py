@@ -24,3 +24,12 @@ SSH_REMOTE_BIND_PORT: str = os.environ.get("SSH_REMOTE_BIND_PORT", "5432")
 DB_USER: str = os.environ.get("DB_USER", "")
 DB_PASSWORD: str = os.environ.get("DB_PASSWORD", "")
 DB_NAME: str = os.environ.get("DB_NAME", "")
+
+# Cohere API key (ingestion pipeline)
+COHERE_API_KEY: str = os.environ.get("COHERE_API_KEY", "")
+
+# Retrieval API auth token
+API_KEY: str = os.environ.get("API_KEY", "")
+
+# Groq LLM API key
+GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")

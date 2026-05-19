@@ -81,3 +81,200 @@ Three defects were found and remediated during the build/test phase:
 | `app/db/connection.py` | Added `allow_agent=False, host_pkey_directories=[]` to `SSHTunnelForwarder` |
 | `requirements.txt` | Added `paramiko<3` pin |
 | `tests/test_db.py` | Updated `assert_called_once_with` in `test_local_creates_ssh_tunnel` to match new call signature |
+
+---
+
+# Thermia Backend — Build and Test Summary (ingestion-pipeline)
+
+Run ID: 2026-05-19t12-00-00z-thermia-mvp
+Unit: ingestion-pipeline
+Date: 2026-05-19
+Status: NEEDS HUMAN (all tests pass — awaiting human approval before proceeding)
+
+---
+
+## Environment Detection
+
+| Item | Value |
+|------|-------|
+| Python runtime | `.venv/bin/python` — Python 3.14.5 (pre-existing, no install needed) |
+| pip install (cohere, gitpython, tiktoken) | exit 0, no errors |
+| cohere installed | 6.1.0 |
+| gitpython installed | 3.1.50 |
+| tiktoken installed | 0.13.0 |
+
+---
+
+## Unit Test Results
+
+| Suite | Tests | Passed | Failed | Skipped |
+|-------|-------|--------|--------|---------|
+| tests/test_db.py | 9 | 9 | 0 | 0 |
+| tests/test_ingestion.py | 26 | 26 | 0 | 0 |
+| tests/test_retrieval.py | 16 | 16 | 0 | 0 |
+| **Total** | **51** | **51** | **0** | **0** |
+
+All 51 tests pass. Runtime: 0.76 s.
+
+Warnings (non-blocking):
+- `paramiko/pkey.py` and `paramiko/transport.py`: TripleDES deprecation warning from paramiko 2.x. Cosmetic only; no functional impact on tests.
+
+---
+
+## Static Validation
+
+No `tsc`, `pyright`, or `eslint` config detected. Python static analysis not configured in this unit. Validator step: N/A (pure-Python project, no type-checker config file present).
+
+---
+
+## CLI Smoke Test
+
+```
+usage: ingest.py [-h] [--reset]
+
+Thermia legal corpus ingestion pipeline.
+
+options:
+  -h, --help  show this help message and exit
+  --reset     Truncate the documents table before ingesting.
+```
+
+Exit code: 0. Usage printed correctly. No import errors.
+
+---
+
+## CodeGraph Affected-Test Detection
+
+`.codegraph/codegraph.db` not present in workspace. Full suite executed (fallback path).
+
+---
+
+## Acceptance Criteria Status
+
+| Criterion | Status |
+|-----------|--------|
+| `pip install cohere gitpython tiktoken` succeeds | PASS |
+| 9/9 db-layer tests pass | PASS |
+| 26/26 ingestion tests pass | PASS |
+| 16/16 retrieval tests pass | PASS |
+| 51/51 total tests pass | PASS |
+| `ingest.py --help` prints usage, exit 0 | PASS |
+| No test failures or errors | PASS |
+| No coverage regressions (coverage not measured) | N/A |
+
+---
+
+## Files Added / Modified This Unit
+
+| File | Change |
+|------|--------|
+| `scripts/ingest.py` | New — full ingestion CLI (13.3 KB) |
+| `tests/test_ingestion.py` | New — 26 pytest tests for ingestion pipeline |
+| `requirements.txt` | Appended: `cohere>=5.0.0`, `gitpython>=3.1.0`, `tiktoken>=0.7.0`, `pdfplumber>=0.11.0`, `langchain>=0.3.0`, `langchain-groq>=0.2.0`, `python-multipart>=0.0.12` |
+
+---
+
+# Thermia Backend — Build and Test Summary (retrieval-api)
+
+Run ID: 2026-05-19t14-00-00z-thermia-mvp
+Unit: retrieval-api
+Date: 2026-05-19
+Status: NEEDS HUMAN (all automated checks pass — awaiting approval to proceed)
+
+---
+
+## Environment Detection
+
+| Tool | Version | Source |
+|------|---------|--------|
+| Python | 3.14.5 | `.venv/bin/python` (pre-existing) |
+| pytest | 9.0.3 | `.venv` |
+| pdfplumber | 0.11.9 | `.venv` (already installed, >=0.11.0 satisfied) |
+| langchain | 1.3.1 | `.venv` (already installed, >=0.3.0 satisfied) |
+| langchain-groq | 1.1.2 | `.venv` (already installed, >=0.2.0 satisfied) |
+| python-multipart | 0.0.29 | `.venv` (already installed, >=0.0.12 satisfied) |
+
+No new installs required — all four dependencies pre-satisfied.
+
+---
+
+## pip install result
+
+```
+.venv/bin/pip install -q pdfplumber langchain langchain-groq python-multipart
+EXIT: 0  (all packages already satisfied, no download performed)
+```
+
+---
+
+## Unit Test Results
+
+| Suite | Tests | Passed | Failed | Skipped |
+|-------|-------|--------|--------|---------|
+| tests/test_db.py | 9 | 9 | 0 | 0 |
+| tests/test_ingestion.py | 26 | 26 | 0 | 0 |
+| tests/test_retrieval.py | 16 | 16 | 0 | 0 |
+| **Total** | **51** | **51** | **0** | **0** |
+
+All 51 tests pass. Runtime: 0.48 s.
+
+Warnings (non-blocking):
+- `paramiko/pkey.py` and `paramiko/transport.py`: TripleDES deprecation warnings (pre-existing, cosmetic only).
+
+---
+
+## Retrieval-API Test Coverage (test_retrieval.py — 16 tests)
+
+| Test Class | Tests | Description |
+|------------|-------|-------------|
+| TestAnalyzeAuth | 2 | Bearer token enforcement — missing header → 401, wrong token → 401 |
+| TestAnalyzeFileType | 1 | Non-PDF upload returns 422 |
+| TestAnalyzeLegalGuard | 2 | Empty PDF and non-legal PDF return 422 with Spanish message |
+| TestRRFFusion | 4 | RRF deduplication, top-N limit, rank ordering, formula correctness |
+| TestBuildContext | 3 | Context string format, separator, empty-list edge case |
+| TestVectorSearch | 2 | Returns list, calls DB execute |
+| TestBM25Search | 2 | Returns list, calls DB execute |
+
+---
+
+## App Smoke Test
+
+```
+.venv/bin/python -c "from app.main import app; print('app loaded OK')"
+app loaded OK
+SMOKE_EXIT: 0
+```
+
+`app.main` imports cleanly. The `POST /analyze` endpoint is registered and the application object is fully initialised.
+
+---
+
+## Static Validation
+
+No `pyright` / `mypy` configuration present. Python syntax validated implicitly by the import smoke test (exit 0).
+
+---
+
+## Acceptance Criteria Status
+
+| Criterion | Status |
+|-----------|--------|
+| `pip install` exits 0 | PASS |
+| 51/51 tests pass (9 db + 26 ingestion + 16 retrieval) | PASS |
+| `app loaded OK` smoke test | PASS |
+| No secrets appear in output files | PASS |
+
+---
+
+## Files Added (retrieval-api unit)
+
+| File | Description |
+|------|-------------|
+| `app/retrieval/__init__.py` | Package init |
+| `app/retrieval/embedder.py` | Cohere query embedding |
+| `app/retrieval/searcher.py` | Vector and BM25 search against pgvector |
+| `app/retrieval/fusion.py` | Reciprocal Rank Fusion (RRF) |
+| `app/retrieval/context_builder.py` | Format ranked chunks into LLM context string |
+| `app/retrieval/llm.py` | Groq LLM call (llama-3.3-70b-versatile) |
+| `app/main.py` | Updated — added `POST /analyze` endpoint |
+| `tests/test_retrieval.py` | 16 pytest unit tests for the retrieval pipeline |
