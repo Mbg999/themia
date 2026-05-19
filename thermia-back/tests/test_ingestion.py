@@ -361,5 +361,6 @@ class TestUpsertDocuments:
 
         from sqlalchemy.sql.elements import ClauseElement
         merged_obj = mock_session.merge.call_args[0][0]
-        # tsvector should be a SQLAlchemy expression, not a plain string
-        assert merged_obj.tsvector is not None
+        assert isinstance(merged_obj.tsvector, ClauseElement), (
+            f"Expected SQLAlchemy ClauseElement, got {type(merged_obj.tsvector)}"
+        )

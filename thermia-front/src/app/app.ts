@@ -10,14 +10,14 @@ import { AnalysisService, AnalysisResponse } from './analysis.service';
 export class App {
   private readonly analysisService: AnalysisService;
 
+  constructor(analysisService?: AnalysisService) {
+    this.analysisService = analysisService ?? inject(AnalysisService);
+  }
+
   readonly selectedFile = signal<File | null>(null);
   readonly isLoading = signal(false);
   readonly result = signal<AnalysisResponse | null>(null);
   readonly error = signal<string | null>(null);
-
-  constructor(analysisService?: AnalysisService) {
-    this.analysisService = analysisService ?? inject(AnalysisService);
-  }
 
   isAnalyzeEnabled(): boolean {
     return this.selectedFile() !== null && !this.isLoading();
@@ -33,6 +33,9 @@ export class App {
       this.error.set(null);
     } else {
       this.selectedFile.set(null);
+      if (file) {
+        this.error.set('Solo se aceptan archivos PDF.');
+      }
     }
   }
 

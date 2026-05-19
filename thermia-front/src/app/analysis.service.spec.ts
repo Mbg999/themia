@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { of } from 'rxjs';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { AnalysisResponse } from './analysis.service';
 
 /**
@@ -58,14 +58,14 @@ describe('AnalysisService', () => {
     expect(result).toEqual(mockResponse);
   });
 
-  it('should set Authorization header with Bearer token', () => {
+  it('should not send Authorization header (nginx adds it server-side)', () => {
     const file = new File(['%PDF-content'], 'test.pdf', { type: 'application/pdf' });
     postSpy.mockReturnValue(of({ resumen: '', implicaciones_legales: [], fundamento_juridico: [] }));
 
     service.analyze(file).subscribe();
 
-    const [, , options] = postSpy.mock.calls[0] as [string, FormData, { headers: HttpHeaders }];
-    expect(options.headers.get('Authorization')).toMatch(/^Bearer /);
+    const [, , options] = postSpy.mock.calls[0] as [string, FormData, Record<string, unknown> | undefined];
+    expect(options).toBeUndefined();
   });
 
   it('should send file as FormData field named "file"', () => {
@@ -95,5 +95,38 @@ describe('AnalysisService', () => {
     expect(result?.resumen).toBe('Legal document summary');
     expect(result?.implicaciones_legales.length).toBe(2);
     expect(result?.fundamento_juridico.length).toBe(1);
+  });
+
+  it('should propagate 401 error from server', () => {
+    const file = new File(['%PDF-content'], 'test.pdf', { type: 'application/pdf' });
+    const httpError = { status: 401, statusText: 'Unauthorized' };
+    postSpy.mockReturnValue(throwError(() => httpError));
+
+    let caughtError: unknown;
+    service.analyze(file).subscribe({ error: (e) => (caughtError = e) });
+
+    expect(caughtError).toEqual(httpError);
+  });
+
+  it('should propagate 422 error from server', () => {
+    const file = new File(['%PDF-content'], 'test.pdf', { type: 'application/pdf' });
+    const httpError = { status: 422, statusText: 'Unprocessable Entity' };
+    postSpy.mockReturnValue(throwError(() => httpError));
+
+    let caughtError: unknown;
+    service.analyze(file).subscribe({ error: (e) => (caughtError = e) });
+
+    expect(caughtError).toEqual(httpError);
+  });
+
+  it('should propagate network error (status 0)', () => {
+    const file = new File(['%PDF-content'], 'test.pdf', { type: 'application/pdf' });
+    const networkError = { status: 0, statusText: 'Unknown Error' };
+    postSpy.mockReturnValue(throwError(() => networkError));
+
+    let caughtError: unknown;
+    service.analyze(file).subscribe({ error: (e) => (caughtError = e) });
+
+    expect(caughtError).toEqual(networkError);
   });
 });

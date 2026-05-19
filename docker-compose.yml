@@ -17,4 +17,6 @@ services:
       - "80:80"
     depends_on:
       - thermia-back
+    env_file:
+      - thermia-back/.env
     restart: unless-stopped

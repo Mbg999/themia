@@ -143,10 +143,22 @@ class TestGetEngineLocalPath:
             with patch.object(conn_mod, "create_engine", side_effect=fake_create_engine):
                 conn_mod.get_engine()
 
-        assert "127.0.0.1" in captured_url["url"]
-        assert "55432" in captured_url["url"]
-        assert "pguser" in captured_url["url"]
-        assert "thermia" in captured_url["url"]
+        # URL.create() returns a SQLAlchemy URL object; inspect its attributes directly
+        # so the assertion is password-safe and works regardless of render format.
+        from sqlalchemy.engine import URL as _URL
+        url = captured_url["url"]
+        if isinstance(url, _URL):
+            assert url.host == "127.0.0.1"
+            assert url.port == 55432
+            assert url.username == "pguser"
+            assert url.database == "thermia"
+        else:
+            # Fallback for plain-string URLs (kept for forward-compat)
+            url_str = str(url)
+            assert "127.0.0.1" in url_str
+            assert "55432" in url_str
+            assert "pguser" in url_str
+            assert "thermia" in url_str
 
 
 class TestGetEngineProductionPath:
@@ -194,6 +206,8 @@ class TestGetEngineDefaults:
             monkeypatch.delenv(var, raising=False)
 
         import app.db.connection as conn_mod
+        # Reset singleton so the mock is actually called (not the cached engine)
+        conn_mod._production_engine = None
 
         with patch.object(conn_mod, "SSHTunnelForwarder") as mock_forwarder_cls:
             with patch.object(conn_mod, "create_engine", return_value=MagicMock()) as mock_ce:
@@ -201,3 +215,4 @@ class TestGetEngineDefaults:
 
         mock_forwarder_cls.assert_not_called()
         mock_ce.assert_called_once_with("postgresql://user:pass@host/db")
+        conn_mod._production_engine = None  # clean up for subsequent tests

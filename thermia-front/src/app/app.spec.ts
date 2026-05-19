@@ -28,11 +28,12 @@ describe('App component logic', () => {
     expect(comp.isAnalyzeEnabled()).toBe(false);
   });
 
-  it('selecting a non-PDF file keeps button disabled', () => {
+  it('selecting a non-PDF file keeps button disabled and shows error', () => {
     const file = new File(['data'], 'doc.docx', { type: 'application/msword' });
     const event = { target: { files: [file] } } as unknown as Event;
     comp.onFileChange(event);
     expect(comp.isAnalyzeEnabled()).toBe(false);
+    expect(comp.error()).toBe('Solo se aceptan archivos PDF.');
   });
 
   it('selecting a .pdf file enables the Analizar button', () => {

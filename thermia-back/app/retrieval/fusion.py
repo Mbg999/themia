@@ -34,12 +34,17 @@ def rrf_fusion(
         at most *top_n* entries.
     """
     scores: dict[str, float] = {}
-    # Map article key → document object (first seen wins for dedup)
-    doc_map: dict[str, object] = {}
+    doc_map: dict[str, Document] = {}
 
     for result_list in (vector_results, bm25_results):
         for rank, doc in enumerate(result_list):
-            article = doc.metadata_.get("article", str(id(doc)))
+            # Stable fallback when article metadata is absent: use source+law+content prefix
+            # so the same chunk is always deduplicated even if it appears in both result lists.
+            article = doc.metadata_.get("article") or (
+                f"{doc.metadata_.get('source_file', '')}|"
+                f"{doc.metadata_.get('law_id', '')}|"
+                f"{hash(doc.content[:100])}"
+            )
             rrf_score = 1.0 / (60 + rank)
             scores[article] = scores.get(article, 0.0) + rrf_score
             if article not in doc_map:

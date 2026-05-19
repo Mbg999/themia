@@ -31,14 +31,15 @@ def _make_pdf_bytes(text: str) -> bytes:
 class TestAnalyzeAuth:
     """Authentication checks for POST /analyze."""
 
-    def _client(self):
+    def _client(self, monkeypatch):
+        monkeypatch.setenv("THERMIA_ENV", "production")
         from fastapi.testclient import TestClient
         from app.main import app
         return TestClient(app)
 
-    def test_no_auth_header_returns_401(self):
+    def test_no_auth_header_returns_401(self, monkeypatch):
         """POST /analyze without Authorization header → 401."""
-        client = self._client()
+        client = self._client(monkeypatch)
         data = {"file": ("doc.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")}
         resp = client.post("/analyze", files=data)
         assert resp.status_code == 401
@@ -46,7 +47,7 @@ class TestAnalyzeAuth:
     def test_wrong_bearer_token_returns_401(self, monkeypatch):
         """POST /analyze with wrong Bearer token → 401."""
         monkeypatch.setenv("API_KEY", "correct-key")
-        client = self._client()
+        client = self._client(monkeypatch)
         data = {"file": ("doc.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")}
         resp = client.post(
             "/analyze",

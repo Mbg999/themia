@@ -50,6 +50,9 @@ log = logging.getLogger(__name__)
 
 _REPO_URL = "https://github.com/legalize-dev/legalize-es"
 _REPO_DIR = Path("/tmp/legalize-es")
+# Pin to a specific commit so upstream changes cannot silently alter ingested data.
+# Update this hash deliberately after reviewing upstream changes.
+_REPO_COMMIT = "2ffdecd513fabf778aaeefdbbca2c5e409de9df6"
 
 # Token thresholds
 _CHUNK_THRESHOLD = 800   # articles ≤ this produce a single chunk
@@ -59,6 +62,8 @@ _OVERLAP = 50            # token overlap between consecutive sub-chunks
 # Cohere rate-limit handling
 _EMBED_BATCH_SIZE = 50              # max texts per embed() call (trial: 100 calls/min)
 _EMBED_RETRY_DELAYS = (10, 30, 60)  # seconds to wait on successive 429s
+# Configurable via EMBED_INTER_BATCH_SLEEP — use 0.05 on paid Cohere tier
+_EMBED_INTER_BATCH_SLEEP = float(os.environ.get("EMBED_INTER_BATCH_SLEEP", "1.0"))
 
 # Tiktoken encoding — cl100k_base is compatible with multilingual models
 _ENC = tiktoken.get_encoding("cl100k_base")
@@ -309,7 +314,7 @@ def generate_embeddings(cohere_client: Any, texts: list[str]) -> list[list[float
             raise last_exc
         # Polite pause between batches to stay well inside the rate limit
         if i + _EMBED_BATCH_SIZE < len(texts):
-            time.sleep(1)
+            time.sleep(_EMBED_INTER_BATCH_SLEEP)
     return all_embeddings
 
 
@@ -330,19 +335,17 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
     so that PostgreSQL computes it server-side.
     """
     import uuid as _uuid
+    from uuid import NAMESPACE_URL as _NAMESPACE_URL
     from sqlalchemy import func, text
     from sqlalchemy.orm import Session
 
     from app.db.models import Document
 
-    # Namespace UUID for deterministic document IDs
-    _NS = _uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # uuid.NAMESPACE_URL
-
     with session_maker() as session:
         for chunk in chunks:
             meta = chunk["metadata"]
             # Derive a stable UUID from (source_file, article) so re-runs merge
-            stable_id = _uuid.uuid5(_NS, f"{meta['source_file']}|{meta['article']}")
+            stable_id = _uuid.uuid5(_NAMESPACE_URL, f"{meta['source_file']}|{meta['article']}")
 
             doc = Document(
                 id=stable_id,
@@ -365,13 +368,17 @@ def _clone_or_pull(repo_dir: Path) -> None:
     if repo_dir.exists():
         try:
             repo = Repo(str(repo_dir))
-            log.info("Pulling latest from %s ...", _REPO_URL)
-            repo.remotes.origin.pull()
-            return
+            log.info("Fetching %s ...", _REPO_URL)
+            repo.remotes.origin.fetch()
         except (InvalidGitRepositoryError, NoSuchPathError):
-            pass
-    log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
-    Repo.clone_from(_REPO_URL, str(repo_dir))
+            log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
+            repo = Repo.clone_from(_REPO_URL, str(repo_dir))
+    else:
+        log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
+        repo = Repo.clone_from(_REPO_URL, str(repo_dir))
+
+    log.info("Checking out pinned commit %s ...", _REPO_COMMIT)
+    repo.git.checkout(_REPO_COMMIT)
 
 
 def _scan_md_files(repo_dir: Path) -> list[Path]:
@@ -420,6 +427,7 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Found %d .md files.", len(md_files))
 
     total_inserted = 0
+    failed_files: list[str] = []
 
     for md_path in md_files:
         rel_path = str(md_path.relative_to(_REPO_DIR))
@@ -451,13 +459,23 @@ def main(argv: list[str] | None = None) -> None:
 
         except Exception as exc:  # noqa: BLE001
             log.error("  [error] %s — %s", rel_path, exc)
+            failed_files.append(rel_path)
             continue
 
     log.info("Ingestion complete. Total chunks upserted: %d", total_inserted)
+    if failed_files:
+        log.error(
+            "Ingestion finished with %d failed file(s):\n  %s",
+            len(failed_files),
+            "\n  ".join(failed_files),
+        )
 
     # Stop SSH tunnel if present
     if hasattr(engine, "tunnel"):
         engine.tunnel.stop()
+
+    if failed_files:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

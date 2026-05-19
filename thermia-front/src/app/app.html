@@ -8,8 +8,8 @@
     <section class="upload-section">
       <div class="file-input-wrapper">
         <label class="file-label" for="file-upload">
-          @if (selectedFile()) {
-            <span class="file-name">{{ selectedFile()!.name }}</span>
+          @if (selectedFile(); as f) {
+            <span class="file-name">{{ f.name }}</span>
           } @else {
             <span class="file-placeholder">Seleccionar documento PDF</span>
           }
@@ -52,17 +52,17 @@
       </div>
     }
 
-    @if (result()) {
+    @if (result(); as r) {
       <div class="result-section">
         <div class="result-card">
           <h2 class="section-heading">Resumen</h2>
-          <p class="result-text">{{ result()!.resumen }}</p>
+          <p class="result-text">{{ r.resumen }}</p>
         </div>
 
         <div class="result-card">
           <h2 class="section-heading">Implicaciones Legales</h2>
           <ul class="result-list">
-            @for (item of result()!.implicaciones_legales; track $index) {
+            @for (item of r.implicaciones_legales; track $index) {
               <li class="result-list-item">{{ item }}</li>
             }
           </ul>
@@ -71,7 +71,7 @@
         <div class="result-card">
           <h2 class="section-heading">Fundamento Jurídico</h2>
           <ul class="result-list citation-list">
-            @for (item of result()!.fundamento_juridico; track $index) {
+            @for (item of r.fundamento_juridico; track $index) {
               <li class="result-list-item">{{ item }}</li>
             }
           </ul>
