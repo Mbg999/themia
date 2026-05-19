@@ -17,7 +17,7 @@
 `CONSTRUCTION - Complete — awaiting /factory-review`
 
 ## Current Stage — Run: 2026-05-19t15-11-46z-api-key-fallback
-`CONSTRUCTION - Complete — awaiting /factory-review 2026-05-19t15-11-46z-api-key-fallback`
+`CONSTRUCTION - Complete (P1 review re-fix) — awaiting /factory-ship 2026-05-19t15-11-46z-api-key-fallback`
 
 ## Code Location Rules
 - Source of truth: `thermia-front/` (Angular frontend)
@@ -37,7 +37,7 @@
 - [x] Requirements Analysis — 2026-05-19
 - [x] Planning (factory-plan) — 2026-05-19
 - [x] Construction (factory-build) — 2026-05-19
-- [ ] Review (factory-review)
+- [x] Review — 2026-05-19 (factory-review)
 - [ ] Ship (factory-ship)
 
 ## Extension Configuration

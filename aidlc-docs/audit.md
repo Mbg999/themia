@@ -269,3 +269,30 @@
 - [Locks] Released: key-pool-fallback (6 globs)
 
 ## 2026-05-19T20:09:43+00:00 CONSTRUCTION - BUILD TEST AGENT COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+
+## 2026-05-19T20:16:55+00:00 OPERATIONS - REVIEW START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned 3 reviewers in parallel: reviewer-code, reviewer-security, reviewer-simplifier
+- [Skills] Framework skills injected into reviewer-code: fastapi-python, python-testing-patterns, api-and-interface-design, security-and-hardening
+- [Knowledge] 0 project priors for all reviewers
+
+## 2026-05-19T20:19:32+00:00 OPERATIONS - REVIEW COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [reviewer-code] 10 findings: P1×4, P2×4, P3×2 — wall: 2.2 min, tokens: 57366
+- [reviewer-security] 11 findings: P1×5, P2×4, P3×2 — wall: 2.1 min, tokens: 50603
+- [reviewer-simplifier] 4 findings: P0×0, P1×0, P2×2, P3×2 — wall: 1.2 min, tokens: 44344
+- [Merge] 25 total findings (P0:0, P1:9, P2:10, P3:6) → aidlc-docs/operations/2026-05-19t15-11-46z-api-key-fallback-review-report.md
+- [Phase 4] Wall-clock: max(2.2, 2.1, 1.2) = 2.2 min (parallel, not sum)
+
+## 2026-05-19T20:30:00+00:00 CONSTRUCTION - RE-FIX START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Skills] Sync: 0 installed/updated, 46 skipped (up-to-date); warnings: security check on python-executor, angular-developer
+- [Skills] resolved 54 skills: using-agent-skills, incremental-implementation, test-driven-development, source-driven-development, api-and-interface-design, environment-detection, validator-retry, debugging-and-error-recovery, codegraph-aware-exploration, python-testing-patterns, fastapi-python, security-and-hardening, (+42 more)
+- [Graph] No unit-decomposer output → single virtual wave: [[key-pool-fallback]]
+- [Refix] Routing key-pool-fallback back to code-generator with 9 P1 review findings as context
+
+## 2026-05-19T20:55:00+00:00 CONSTRUCTION - RE-FIX COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Refix] code-generator: 9 P1 findings fixed; 20 new tests added — output: code-generator.key-pool-fallback-refix.output.yaml
+- [AST drift] 1 new symbol added: _validate_key_format (key_pool.py) — additive, no conflict
+- [Build] AST parse clean: key_pool.py, embedder.py, main.py, ingest.py
+- [Test] 70/70 PASS in tests/retrieval/test_key_pool.py + tests/test_main_auth.py (0.XX s)
+- [Regression] 95 passed, 26 failed — all 26 pre-existing ModuleNotFoundError (pgvector, sshtunnel, pdfplumber); 0 new regressions
+- [Locks] Released: code-generator:key-pool-fallback
+- [Pylance main.py:88] request param required by slowapi @limiter.limit decorator — false positive, not removed
