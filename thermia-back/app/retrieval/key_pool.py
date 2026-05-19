@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 _RATE_LIMIT_RE = re.compile(r"429|rate limit", re.IGNORECASE)
 _COHERE_TRIAL_RE = re.compile(r"trial key|limited to.*api calls", re.IGNORECASE)
 _GROQ_DAILY_RE = re.compile(r"daily.*(token|quota)", re.IGNORECASE)
-_5XX_RE = re.compile(r"5\d{2}")
+_5XX_RE = re.compile(r"(?<!\d)5\d{2}(?!\d)")
 
 
 class FailureReason(enum.Enum):
@@ -72,14 +72,10 @@ def classify_failure(exc_or_text: Any) -> FailureReason | None:
     if _RATE_LIMIT_RE.search(text):
         return FailureReason.RATE_LIMIT_429
 
-    # Persistent 5xx — only rotate on 5xx codes, not 4xx
+    # Persistent 5xx — the regex uses look-around to avoid matching 5xx
+    # substrings inside larger numbers (e.g. "15000" must not match).
     if _5XX_RE.search(text):
-        # Reject matches that are part of a 4xx (e.g. "400", "401", "403")
-        # by requiring the 5xx to not be preceded by a digit
-        for m in _5XX_RE.finditer(text):
-            code = int(text[m.start():m.start() + 3])
-            if 500 <= code <= 599:
-                return FailureReason.PERSISTENT_5XX
+        return FailureReason.PERSISTENT_5XX
 
     return None
 
@@ -87,6 +83,29 @@ def classify_failure(exc_or_text: Any) -> FailureReason | None:
 # ---------------------------------------------------------------------------
 # Environment parsing helper
 # ---------------------------------------------------------------------------
+
+# Key format: alphanumeric characters, hyphens, and underscores; minimum 8 chars.
+# This is intentionally broad — real Cohere / Groq keys use this character set.
+_KEY_FORMAT_RE = re.compile(r"^[\w\-]{8,}$")
+
+
+def _validate_key_format(keys: list[str], source_var: str) -> None:
+    """Raise ValueError if any key in *keys* fails the format check.
+
+    Checks:
+    - Non-empty string
+    - Minimum 8 characters
+    - Only alphanumeric characters, hyphens, and underscores
+
+    Logs the count of loaded keys but never any key material.
+    """
+    for i, key in enumerate(keys):
+        if not isinstance(key, str) or not _KEY_FORMAT_RE.match(key):
+            raise ValueError(
+                f"{source_var}[{i}]: invalid key format "
+                f"(must be alphanumeric/hyphens/underscores, min 8 chars)"
+            )
+
 
 def _parse_keys_env(provider: str, environ: dict[str, str]) -> list[str]:
     """Return the list of API keys for *provider* from *environ*.
@@ -121,6 +140,8 @@ def _parse_keys_env(provider: str, environ: dict[str, str]) -> list[str]:
         str_keys = [str(k) for k in keys]
         if not all(str_keys):
             raise ValueError(f"{array_var} contains empty key entries.")
+        _validate_key_format(str_keys, array_var)
+        log.info("key_pool.loaded provider=%s count=%d", provider, len(str_keys))
         return str_keys
 
     # Legacy fallback
@@ -132,6 +153,8 @@ def _parse_keys_env(provider: str, environ: dict[str, str]) -> list[str]:
             "Migrate to %s='[\"%s...\"]' for multi-key fallback.",
             scalar_var, array_var, scalar_var, array_var, legacy[:4],
         )
+        _validate_key_format([legacy], scalar_var)
+        log.info("key_pool.loaded provider=%s count=1", provider)
         return [legacy]
 
     raise ValueError(
@@ -308,7 +331,12 @@ class KeyPool:
     # ------------------------------------------------------------------
 
     def _current_unlocked(self) -> str:
-        """Return the active key; raises AllKeysExhaustedError if none."""
+        """Return the active key; raises AllKeysExhaustedError if none.
+
+        Also resets _was_degraded / _was_exhausted when cooldown expiry
+        re-admits keys, so that future degradation/exhaustion events will
+        emit their log transitions again.
+        """
         # Check that the current cursor index is still healthy
         if not self._is_healthy(self._cursor):
             # Try to find any healthy key
@@ -318,6 +346,16 @@ class KeyPool:
                     f"All keys for provider '{self._provider}' are in cool-down."
                 )
             self._cursor = idx
+
+        # Re-compute healthy count after any cooldown expiries (side-effect of
+        # _is_healthy / _next_healthy_index calls above) and reset flags so
+        # future degradation / exhaustion transitions fire again.
+        healthy_count = self._count_healthy_unlocked()
+        if healthy_count > 1 and self._was_degraded:
+            self._was_degraded = False
+        if healthy_count > 0 and self._was_exhausted:
+            self._was_exhausted = False
+
         return self._keys[self._cursor]
 
     def _is_healthy(self, index: int) -> bool:

@@ -62,17 +62,17 @@ class TestFromEnv:
 
     def test_json_array_two_keys(self):
         from app.retrieval.key_pool import KeyPool
-        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["k1","k2"]'})
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["key_one_1234","key_two_5678"]'})
         assert pool.healthy_count() == 2
 
     def test_json_array_first_key_is_active(self):
         from app.retrieval.key_pool import KeyPool
-        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["k1","k2"]'})
-        assert pool.current() == "k1"
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["key_one_1234","key_two_5678"]'})
+        assert pool.current() == "key_one_1234"
 
     def test_single_quoted_json_and_whitespace(self):
         from app.retrieval.key_pool import KeyPool
-        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": " '[\"k1\",\"k2\"]' "})
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": " '[\"key_one_1234\",\"key_two_5678\"]' "})
         assert pool.healthy_count() == 2
 
     def test_legacy_var_treated_as_one_element(self, caplog):
@@ -89,10 +89,10 @@ class TestFromEnv:
         from app.retrieval.key_pool import KeyPool
         pool = KeyPool.from_env(
             "cohere",
-            environ={"COHERE_API_KEYS": '["k1","k2"]', "COHERE_API_KEY": "old"},
+            environ={"COHERE_API_KEYS": '["key_one_1234","key_two_5678"]', "COHERE_API_KEY": "legacykey"},
         )
         assert pool.healthy_count() == 2
-        assert pool.current() == "k1"
+        assert pool.current() == "key_one_1234"
 
     def test_no_vars_raises_value_error(self):
         from app.retrieval.key_pool import KeyPool
@@ -114,8 +114,8 @@ class TestFromEnv:
 
     def test_groq_provider_uses_correct_env_var(self):
         from app.retrieval.key_pool import KeyPool
-        pool = KeyPool.from_env("groq", environ={"GROQ_API_KEYS": '["gk1"]'})
-        assert pool.current() == "gk1"
+        pool = KeyPool.from_env("groq", environ={"GROQ_API_KEYS": '["groqkey-1234"]'})
+        assert pool.current() == "groqkey-1234"
 
 
 # ---------------------------------------------------------------------------
@@ -387,9 +387,9 @@ class TestEmbedderKeyPool:
 
     def setup_method(self):
         """Reset embedder module-level singletons before each test."""
-        import importlib
         import app.retrieval.embedder as embedder_mod
         embedder_mod._cohere_client = None
+        embedder_mod._cohere_client_key = None
         embedder_mod._cohere_pool = None
 
     def test_embedding_uses_active_key(self, monkeypatch):
@@ -649,3 +649,115 @@ class TestIngestKeyPool:
             "ingest.main() still references COHERE_API_KEY directly — "
             "should use get_cohere_pool() from app.retrieval.embedder"
         )
+
+
+# ---------------------------------------------------------------------------
+# TEST-A: _5XX_RE regex — no false positives on large numbers (FIX-1 / P1-CQ-2)
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyFailureFalsePositives:
+    """TEST-A — regex _5XX_RE must not match 5xx inside larger numbers."""
+
+    @pytest.mark.parametrize("text", [
+        "processed 15000 tokens",
+        "batch 1500 items completed",
+        "50001 records",
+        "error code 25001",
+    ])
+    def test_5xx_no_false_positive_in_large_numbers(self, text):
+        from app.retrieval.key_pool import classify_failure
+        result = classify_failure(text)
+        assert result is None, f"Expected None for {text!r}, got {result}"
+
+
+# ---------------------------------------------------------------------------
+# TEST-B: _was_degraded/_was_exhausted reset after cooldown recovery (FIX-2 / P1-CQ-3)
+# ---------------------------------------------------------------------------
+
+
+class TestFlagResetAfterRecovery:
+    """TEST-B — degraded/exhausted flags reset when keys recover from cooldown."""
+
+    def test_flags_reset_after_cooldown_expiry_and_fire_again(self, caplog):
+        """
+        Full cycle:
+        1. 2-key pool
+        2. Mark key 0 failed → _was_degraded fires (1 healthy key)
+        3. Mark key 1 failed → _was_exhausted fires (0 healthy keys)
+        4. Expire cooldowns via direct attribute manipulation
+        5. Call pool.current() → flags reset (_was_degraded=False, _was_exhausted=False)
+        6. Mark a key failed again → WARN fires a second time (flags re-armed)
+        """
+        import logging
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError
+
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=3600)
+
+        # Step 2: degrade (1 healthy key left)
+        with caplog.at_level(logging.WARNING, logger="app.retrieval.key_pool"):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k1 dead → 1 healthy
+        degraded_first = [r for r in caplog.records if "key_pool.degraded" in r.message]
+        assert len(degraded_first) == 1, "First degraded WARN must fire"
+
+        # Step 3: exhaust (0 healthy keys)
+        caplog.clear()
+        with caplog.at_level(logging.ERROR, logger="app.retrieval.key_pool"):
+            with pytest.raises(AllKeysExhaustedError):
+                pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k2 dead → 0 healthy
+        exhausted_first = [r for r in caplog.records if "key_pool.exhausted" in r.message]
+        assert len(exhausted_first) == 1, "First exhausted ERROR must fire"
+
+        # Verify flags are set
+        assert pool._was_exhausted is True
+
+        # Step 4: expire all cooldowns
+        for idx in list(pool._cooldowns):
+            pool._cooldowns[idx] = time.time() - 1  # already expired
+
+        # Step 5: call current() — this triggers _current_unlocked() which resets flags
+        key = pool.current()
+        assert key in ("k1", "k2"), "A key should be available after cooldown expiry"
+        assert pool._was_degraded is False, "_was_degraded must be reset after recovery"
+        assert pool._was_exhausted is False, "_was_exhausted must be reset after recovery"
+
+        # Step 6: degrade and exhaust again — logs must fire a second time
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="app.retrieval.key_pool"):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)  # degrade again
+        degraded_second = [r for r in caplog.records if "key_pool.degraded" in r.message]
+        assert len(degraded_second) == 1, "Degraded WARN must fire AGAIN after flag reset"
+
+
+# ---------------------------------------------------------------------------
+# TEST-C: from_env key-format validation (FIX-7 / P1-SEC-5)
+# ---------------------------------------------------------------------------
+
+
+class TestKeyFormatValidation:
+    """TEST-C — _parse_keys_env raises ValueError on malformed key strings."""
+
+    def test_empty_string_key_raises(self):
+        from app.retrieval.key_pool import KeyPool
+        with pytest.raises(ValueError):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '[""]'})
+
+    def test_short_key_raises(self):
+        from app.retrieval.key_pool import KeyPool
+        with pytest.raises(ValueError, match="invalid key format"):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["ab"]'})
+
+    def test_key_with_invalid_chars_raises(self):
+        from app.retrieval.key_pool import KeyPool
+        with pytest.raises(ValueError, match="invalid key format"):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["key with spaces"]'})
+
+    def test_valid_key_accepted(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["validkey12345"]'})
+        assert pool.healthy_count() == 1
+
+    def test_valid_key_with_hyphens_accepted(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["valid-key-123456"]'})
+        assert pool.healthy_count() == 1

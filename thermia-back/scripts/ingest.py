@@ -412,8 +412,9 @@ def main(argv: list[str] | None = None) -> None:
     # Use the shared KeyPool singleton — do NOT read COHERE_API_KEY directly.
     # The pool reads COHERE_API_KEYS (JSON array) or falls back to legacy
     # COHERE_API_KEY with a WARN log. boot-fail-fast is handled by KeyPool.from_env.
+    # Note: do NOT snapshot pool.current() here — re-query on each file so that
+    # mid-run key rotations are reflected in subsequent embed() calls.
     pool = get_cohere_pool()
-    cohere_client = cohere.Client(pool.current())
 
     engine = get_engine()
     session_factory = sessionmaker(bind=engine)
@@ -455,7 +456,7 @@ def main(argv: list[str] | None = None) -> None:
                 for c in chunks
             ]
 
-            embeddings = generate_embeddings(cohere_client, embed_texts)
+            embeddings = generate_embeddings(cohere.Client(pool.current()), embed_texts)
             for i, emb in enumerate(embeddings):
                 chunks[i]["embedding"] = emb
 

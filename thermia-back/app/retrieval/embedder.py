@@ -28,6 +28,7 @@ from app.retrieval.key_pool import (
 
 # Module-level singletons — reset to None in tests via direct attribute access
 _cohere_client: cohere.Client | None = None
+_cohere_client_key: str | None = None  # tracks which key the current client was built for
 _cohere_pool: KeyPool | None = None
 
 _RETRY_DELAYS = (10, 30, 60)
@@ -50,16 +51,18 @@ def get_cohere_pool() -> KeyPool:
 def _get_client() -> cohere.Client:
     """Return a cohere.Client for the pool's currently active key.
 
-    Rebuilds the client when the singleton is None (first call or after
-    a rotation reset).
+    Rebuilds the client when the singleton has not been created yet or when
+    the pool's active key has changed (e.g. after a rotation).  Comparing
+    the stored key to the current pool key is the authoritative gate — callers
+    no longer need to set _cohere_client = None to trigger a rebuild.
     """
-    global _cohere_client
+    global _cohere_client, _cohere_client_key
     pool = get_cohere_pool()
     active_key = pool.current()
 
-    # Rebuild if not yet created (first call) or after a rotation
-    if _cohere_client is None:
+    if _cohere_client is None or active_key != _cohere_client_key:
         _cohere_client = cohere.Client(active_key)
+        _cohere_client_key = active_key
     return _cohere_client
 
 
@@ -93,8 +96,6 @@ def get_query_embedding(text: str) -> list[float]:
     Exception
         Original exception for non-rotating failure signals.
     """
-    global _cohere_client
-
     pool = get_cohere_pool()
 
     last_exc: Exception | None = None
@@ -119,10 +120,10 @@ def get_query_embedding(text: str) -> list[float]:
             continue
 
     # In-key budget exhausted — rotate to next key
-    assert last_exc is not None
+    if last_exc is None:
+        raise RuntimeError("unexpected: retry budget exhausted with no recorded exception")
     pool.mark_failed(classify_failure(last_exc))  # may raise AllKeysExhaustedError
-    # Rebuild client with new key
-    _cohere_client = None
+    # _get_client() will detect the key change and rebuild automatically
 
     # One final attempt on the new key (let exceptions propagate)
     client = _get_client()

@@ -2,6 +2,7 @@
 Thermia backend — FastAPI application entry point.
 """
 import asyncio
+import hmac
 import io
 import logging
 import os
@@ -47,6 +48,17 @@ _MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
 # Rate limit for /analyze — override via ANALYZE_RATE_LIMIT env var
 _ANALYZE_RATE_LIMIT = os.environ.get("ANALYZE_RATE_LIMIT", "10/minute")
 
+# Read API_KEY once at module load time (startup) — never per-request.
+# A missing or too-short key is a hard failure: it means the service was
+# misconfigured, not that a particular request is bad.
+_API_KEY = os.environ.get("API_KEY", "")
+if len(_API_KEY) < 16:
+    raise RuntimeError(
+        "API_KEY must be at least 16 characters. "
+        "Set it in your .env file (see .env.example). "
+        "Auth is always enforced — do not leave API_KEY empty or too short."
+    )
+
 
 def _is_legal_text(text: str) -> bool:
     return any(kw in text.lower() for kw in _LEGAL_KEYWORDS)
@@ -55,15 +67,13 @@ def _is_legal_text(text: str) -> bool:
 def _check_auth(authorization: str | None) -> None:
     """Raise HTTP 401 when the bearer token is missing or incorrect.
 
-    Auth is skipped entirely when THERMIA_ENV=local so that local development
-    with `ng serve` works without nginx in the loop.
+    Uses constant-time comparison (hmac.compare_digest) to prevent timing
+    attacks.  Auth is always enforced regardless of THERMIA_ENV.
     """
-    if os.environ.get("THERMIA_ENV") == "local":
-        return
-    api_key = os.environ.get("API_KEY", "")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Authorization header.")
-    if authorization[len("Bearer "):] != api_key:
+    token = authorization[len("Bearer "):]
+    if not hmac.compare_digest(token, _API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
 
 

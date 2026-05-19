@@ -66,16 +66,15 @@ class TestAnalyzeFileType:
 
     def test_non_pdf_returns_422(self, monkeypatch):
         """POST /analyze with a text/plain file → 422."""
-        monkeypatch.setenv("API_KEY", "test-key")
         from fastapi.testclient import TestClient
-        from app.main import app
+        from app.main import app, _API_KEY
 
         client = TestClient(app)
         data = {"file": ("doc.txt", io.BytesIO(b"hello"), "text/plain")}
         resp = client.post(
             "/analyze",
             files=data,
-            headers={"Authorization": "Bearer test-key"},
+            headers={"Authorization": f"Bearer {_API_KEY}"},
         )
         assert resp.status_code == 422
 
@@ -88,13 +87,13 @@ class TestAnalyzeLegalGuard:
     """Legal-content guard for POST /analyze."""
 
     def _client_and_env(self, monkeypatch):
-        monkeypatch.setenv("API_KEY", "test-key")
         from fastapi.testclient import TestClient
         from app.main import app
         return TestClient(app)
 
     def test_empty_pdf_returns_422_spanish(self, monkeypatch):
         """POST /analyze with an empty-text PDF → 422 with Spanish detail."""
+        from app.main import _API_KEY
         client = self._client_and_env(monkeypatch)
 
         mock_page = MagicMock()
@@ -109,7 +108,7 @@ class TestAnalyzeLegalGuard:
             resp = client.post(
                 "/analyze",
                 files=data,
-                headers={"Authorization": "Bearer test-key"},
+                headers={"Authorization": f"Bearer {_API_KEY}"},
             )
 
         assert resp.status_code == 422
@@ -117,6 +116,7 @@ class TestAnalyzeLegalGuard:
 
     def test_non_legal_pdf_returns_422_spanish(self, monkeypatch):
         """POST /analyze with a PDF whose text has no Spanish legal keywords → 422."""
+        from app.main import _API_KEY
         client = self._client_and_env(monkeypatch)
 
         mock_page = MagicMock()
@@ -131,7 +131,7 @@ class TestAnalyzeLegalGuard:
             resp = client.post(
                 "/analyze",
                 files=data,
-                headers={"Authorization": "Bearer test-key"},
+                headers={"Authorization": f"Bearer {_API_KEY}"},
             )
 
         assert resp.status_code == 422
