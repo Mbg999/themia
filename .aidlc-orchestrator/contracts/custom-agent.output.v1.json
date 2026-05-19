@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "custom-agent.output.v1",
+  "title": "Custom Agent — Generic Output Contract (v1)",
+  "description": "Flexible output contract for user-defined custom subagents. Minimal validation — the agent defines its own output shape.",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": { "type": "string", "enum": ["complete", "failed", "blocked", "needs_human"] },
+    "summary": { "type": "string", "description": "One-line summary of what the agent did" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string", "description": "Path to the artifact file" },
+          "kind": { "type": "string", "enum": ["doc", "source", "test", "config", "plan", "report"], "description": "Type of artifact" },
+          "hash": { "type": "string", "description": "Optional content hash" }
+        }
+      },
+      "description": "Files the agent created or modified"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": { "type": "string", "enum": ["info", "warning", "error"] },
+          "message": { "type": "string" }
+        }
+      },
+      "description": "Any findings or issues discovered"
+    },
+    "audit_entries": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "tokens_in": { "type": "integer" },
+        "tokens_out": { "type": "integer" }
+      }
+    }
+  },
+  "additionalProperties": true
+}

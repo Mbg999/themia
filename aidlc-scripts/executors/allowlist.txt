@@ -1,0 +1,19 @@
+# Additional allowlist entries (relative to repo root or absolute)
+# Example: custom_tools
+# Example absolute: /opt/shared/scripts
+
+# nothing extra by default
+
+# Default additional allowlist entries useful during evaluation and execution
+# Paths are relative to the repository root (or absolute paths).  Each entry
+# enables the executor to run scripts located under that base directory.
+
+# Allow run folders and generated workspaces
+runs
+
+# Allow package-level helper scripts
+packages
+
+# Allow packages' virtualenvs and bin directories to be run when present
+packages/*/workspace
+

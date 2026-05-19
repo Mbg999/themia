@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "workspace-scout.output.v1",
+  "title": "Workspace Scout — Output Contract (v1)",
+  "type": "object",
+  "required": [
+    "status",
+    "artifacts",
+    "audit_entries",
+    "skill_compliance",
+    "workspace_state"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["complete", "blocked", "failed", "needs_human"]
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["source", "test", "doc", "config", "spec", "plan", "state"]
+          },
+          "hash": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "audit_entries": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "skill_compliance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["skill", "status", "evidence"],
+        "properties": {
+          "skill": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] },
+          "evidence": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "tokens_in": { "type": "integer", "minimum": 0 },
+        "tokens_out": { "type": "integer", "minimum": 0 },
+        "wall_clock_min": { "type": "number", "minimum": 0 },
+        "retries_used": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "workspace_state": {
+      "type": "object",
+      "required": ["project_type", "existing_code", "next_phase"],
+      "properties": {
+        "project_type": {
+          "type": "string",
+          "enum": ["greenfield", "brownfield"]
+        },
+        "existing_code": { "type": "boolean" },
+        "programming_languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "build_system": { "type": "string" },
+        "project_structure": { "type": "string" },
+        "workspace_root": { "type": "string" },
+        "next_phase": {
+          "type": "string",
+          "enum": ["reverse-engineering", "requirements-analysis"]
+        },
+        "reverse_engineering_artifacts_present": { "type": "boolean" },
+        "tech_stack": {
+          "type": "array",
+          "description": "Best-effort tech stack from top-level manifests (audit purposes). Full detection is handled by factory_skill_sync.py at factory-build time.",
+          "items": {
+            "type": "object",
+            "required": ["package", "version", "ecosystem"],
+            "properties": {
+              "package": { "type": "string" },
+              "version": { "type": "string" },
+              "ecosystem": {
+                "type": "string",
+                "enum": ["npm", "pip", "cargo", "go", "gem", "nuget"]
+              }
+            },
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "workspace_dirs": {
+          "type": "array",
+          "description": "Relative paths to all detected workspace directories. Used by factory_skill_sync.py to run autoskills in each workspace (monorepo support).",
+          "items": { "type": "string" },
+          "default": ["."]
+        },
+        "codegraph_state": {
+          "type": "object",
+          "description": "CodeGraph index state. Present when .codegraph/ directory exists in the workspace.",
+          "properties": {
+            "indexed": { "type": "boolean" },
+            "nodes": { "type": "integer", "minimum": 0 },
+            "files": { "type": "integer", "minimum": 0 },
+            "backend": { "type": "string", "enum": ["native", "wasm"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "emitted_knowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "title", "body"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["pattern", "adr", "antipattern", "lesson"] },
+          "title": { "type": "string", "minLength": 1 },
+          "body": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "related_artifacts": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "conflicts_detected": { "type": "array", "default": [] },
+    "locks_to_release": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

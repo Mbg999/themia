@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ship-agent.input.v1",
+  "title": "Ship Agent — Input Contract (v1)",
+  "type": "object",
+  "required": ["run_id", "stage_id", "user_request", "predecessor_artifacts", "skills_required", "skill_paths_resolved"],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "stage_id": { "const": "ship-agent" },
+    "user_request": { "type": "string", "minLength": 1 },
+    "predecessor_artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "All construction + review outputs"
+    },
+    "project_profile": {
+      "type": "object",
+      "properties": {
+        "ui": { "type": "boolean" },
+        "api": { "type": "boolean" },
+        "has_legacy": { "type": "boolean" }
+      }
+    },
+    "skills_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 5,
+      "default": [
+        "using-agent-skills",
+        "shipping-and-launch",
+        "git-workflow-and-versioning",
+        "ci-cd-and-automation",
+        "documentation-and-adrs"
+      ]
+    },
+    "skill_paths_resolved": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "budget": { "type": "object" },
+    "gates": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "context_pointers": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "locks_required": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use for this stage. Overrides tool default. Set by orchestrator from budgets/default.yaml."
+    }
+  },
+  "additionalProperties": false
+}

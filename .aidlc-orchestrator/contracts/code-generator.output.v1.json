@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "code-generator.output.v1",
+  "title": "Code Generator — Output Contract (v1)",
+  "type": "object",
+  "required": ["status", "unit_name", "sub_stage", "artifacts", "audit_entries", "skill_compliance"],
+  "properties": {
+    "status": { "type": "string", "enum": ["complete", "blocked", "failed", "needs_human"] },
+    "unit_name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "sub_stage": { "type": "string", "enum": ["plan", "generated", "approved"] },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string", "enum": ["source", "test", "plan", "doc", "config"] },
+          "hash": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "audit_entries": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+    "skill_compliance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["skill", "status", "evidence"],
+        "properties": {
+          "skill": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] },
+          "evidence": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 6
+    },
+    "cost": { "type": "object" },
+    "tests_added": { "type": "integer", "minimum": 0 },
+    "tests_passing": { "type": "integer", "minimum": 0 },
+    "commits_made": { "type": "integer", "minimum": 0 },
+    "emitted_knowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "title", "body"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["pattern", "adr", "antipattern", "lesson"] },
+          "title": { "type": "string", "minLength": 1 },
+          "body": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "related_artifacts": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "conflicts_detected": { "type": "array", "default": [] },
+    "locks_to_release": { "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "additionalProperties": false
+}

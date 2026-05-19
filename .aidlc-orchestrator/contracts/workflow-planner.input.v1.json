@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "workflow-planner.input.v1",
+  "title": "Workflow Planner — Input Contract (v1)",
+  "type": "object",
+  "required": ["run_id", "stage_id", "user_request", "predecessor_artifacts", "skills_required", "skill_paths_resolved"],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "stage_id": { "const": "workflow-planner" },
+    "user_request": { "type": "string", "minLength": 1 },
+    "predecessor_artifacts": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Must include requirements.md path" },
+    "skills_required": { "type": "array", "items": { "type": "string" }, "minItems": 2, "default": ["using-agent-skills", "planning-and-task-breakdown"] },
+    "skill_paths_resolved": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "budget": { "type": "object" },
+    "gates": { "type": "array", "items": { "type": "string" }, "default": ["require_human_approval"] },
+    "context_pointers": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "locks_required": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "depth_override": {
+      "type": "string",
+      "enum": ["minimal", "standard", "comprehensive"],
+      "description": "Set by Cost Governor when budget is below threshold. Agent must honor this over its own depth selection."
+    },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use for this stage. Overrides tool default. Set by orchestrator from budgets/default.yaml."
+    }
+  },
+  "additionalProperties": false
+}

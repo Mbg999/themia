@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "reviewer.output.v1",
+  "title": "Reviewer — Shared Output Contract (v1, used by all 4 reviewers)",
+  "type": "object",
+  "required": ["status", "reviewer", "findings", "findings_summary", "audit_entries", "skill_compliance"],
+  "properties": {
+    "status": { "type": "string", "enum": ["complete", "blocked", "failed", "needs_human"] },
+    "reviewer": {
+      "type": "string",
+      "enum": ["code-quality", "security", "performance", "simplifier"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "file", "message"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+          "file": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "axis": { "type": "string", "description": "Code-quality only: correctness|maintainability|readability|testing|design" },
+          "cwe": { "type": "string", "description": "Security only" },
+          "owasp": { "type": "string", "description": "Security only" },
+          "big_o": { "type": "string", "description": "Performance only" },
+          "expected_impact": { "type": "string", "description": "Performance only" },
+          "simplification_pattern": {
+            "type": "string",
+            "description": "Simplifier only",
+            "enum": ["single-impl-interface", "dead-code", "pass-through-wrapper", "over-validation", "unused-generic", "single-config-key", "future-proofing"]
+          },
+          "message": { "type": "string", "minLength": 1 },
+          "recommendation": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "findings_summary": {
+      "type": "object",
+      "required": ["P0_count", "P1_count", "P2_count", "P3_count"],
+      "properties": {
+        "P0_count": { "type": "integer", "minimum": 0 },
+        "P1_count": { "type": "integer", "minimum": 0 },
+        "P2_count": { "type": "integer", "minimum": 0 },
+        "P3_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "audit_entries": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+    "skill_compliance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["skill", "status", "evidence"],
+        "properties": {
+          "skill": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] },
+          "evidence": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 2
+    },
+    "cost": { "type": "object" },
+    "emitted_knowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "title", "body"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["pattern", "adr", "antipattern", "lesson"] },
+          "title": { "type": "string", "minLength": 1 },
+          "body": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "related_artifacts": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "conflicts_detected": { "type": "array", "default": [] },
+    "locks_to_release": { "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "additionalProperties": false
+}

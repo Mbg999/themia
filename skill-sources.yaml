@@ -1,0 +1,85 @@
+# skill-sources.yaml — Custom/internal/private skill registry
+#
+# PURPOSE: This file is for skills that are NOT in the public autoskills registry
+# (https://github.com/midudev/autoskills). Use it for:
+#   - Company-internal or project-specific skills
+#   - Skills for frameworks not yet covered by the autoskills registry
+#   - Any skill you want to pin to a specific URL + SHA-256
+#
+# For public framework skills (Next.js, Angular, Express, Vue, etc.),
+# use factory_skill_sync.py instead — it wraps the autoskills CLI and handles
+# monorepo workspaces automatically:
+#   python3 aidlc-scripts/factory_skill_sync.py sync
+#
+# Both installers write to .agents/skills/<name>/ and coexist safely.
+#
+# Usage (this file):
+#   python3 aidlc-scripts/factory_autoskills.py            # install/update all
+#   python3 aidlc-scripts/factory_autoskills.py --dry-run  # preview only
+#   python3 aidlc-scripts/factory_autoskills.py --skill my-internal-skill
+#
+# Format per entry:
+#   name:       unique slug (becomes the directory name under .agents/skills/)
+#   url:        raw URL to the skill's SKILL.md file
+#   sha256:     expected SHA-256 hex digest (pin for integrity)
+#   applies_to: optional — used by skill drift detection
+#     framework: npm package / pip package / cargo crate name
+#     version:   semver range
+#
+# To add a skill:
+#   1. Add an entry below with url + sha256 (get sha256: curl -sL <url> | shasum -a 256)
+#   2. Run: python3 aidlc-scripts/factory_autoskills.py --skill <name>
+#   3. Commit the updated skill-sources.yaml and the installed skill file
+
+sources:
+
+  # Next.js 15 — app router, server components, turbopack
+  # Maintained by: vercel-labs / autoskills community
+  # Uncomment and fill sha256 when you have a real upstream URL:
+  # - name: nextjs-15
+  #   url: https://raw.githubusercontent.com/autoskills-community/registry/main/skills/nextjs-15/SKILL.md
+  #   sha256: ""   # run: curl -sL <url> | shasum -a 256
+  #   applies_to:
+  #     framework: next
+  #     version: ">=15.0.0 <16.0.0"
+
+  # Next.js 14 — app router stable
+  # - name: nextjs-14
+  #   url: https://raw.githubusercontent.com/autoskills-community/registry/main/skills/nextjs-14/SKILL.md
+  #   sha256: ""
+  #   applies_to:
+  #     framework: next
+  #     version: ">=14.0.0 <15.0.0"
+
+  # Bun runtime + Bun.serve
+  # - name: bun
+  #   url: https://raw.githubusercontent.com/autoskills-community/registry/main/skills/bun/SKILL.md
+  #   sha256: ""
+  #   applies_to:
+  #     framework: bun
+  #     version: ">=1.0.0"
+
+  # Vue 3 — composition API, Pinia, Vite
+  # - name: vue3
+  #   url: https://raw.githubusercontent.com/autoskills-community/registry/main/skills/vue3/SKILL.md
+  #   sha256: ""
+  #   applies_to:
+  #     framework: vue
+  #     version: ">=3.0.0 <4.0.0"
+
+  # FastAPI — async Python web framework
+  # - name: fastapi
+  #   url: https://raw.githubusercontent.com/autoskills-community/registry/main/skills/fastapi/SKILL.md
+  #   sha256: ""
+  #   applies_to:
+  #     framework: fastapi
+  #     version: ">=0.100.0"
+
+  # Placeholder so the file parses correctly with an empty sources list
+  # Remove this when you add real entries above.
+  - name: _placeholder
+    url: ""
+    sha256: ""
+    applies_to:
+      framework: _none
+      version: ">=0.0.0"

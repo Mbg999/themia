@@ -1,0 +1,34 @@
+# Executor adapter registry.
+#
+# Each entry registers a `StageExecutor` implementation. The orchestrator
+# install path (`install_aidlc.py`) uses `target_tools` to pick the right
+# adapter per `--tool <name>` invocation.
+#
+# Conformance: every registered adapter MUST pass
+# `tests/test_executor_conformance.py` before being used in production.
+# Stubs (`health_check() == False`) are skipped by the suite with a clear
+# marker.
+
+executors:
+  - name: claude-code
+    version: "0.2.0"
+    module: aidlc-scripts.executors.claude_code_executor
+    class: ClaudeCodeExecutor
+    target_tools: [claude, claude-code]
+    capabilities:
+      max_concurrency: 8
+      worktree_isolation: true
+      cancellation: true
+    status: production
+
+  - name: opencode
+    version: "0.1.0-stub"
+    module: aidlc-scripts.executors.opencode_executor
+    class: OpenCodeExecutor
+    target_tools: [opencode]
+    capabilities:
+      max_concurrency: 4
+      worktree_isolation: true
+      cancellation: true
+    status: stub
+    # Integration checklist in opencode_executor.py module docstring.

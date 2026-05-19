@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ship-agent.output.v1",
+  "title": "Ship Agent — Output Contract (v1)",
+  "type": "object",
+  "required": ["status", "artifacts", "audit_entries", "skill_compliance", "version_proposal", "adr_count", "release_sections_covered"],
+  "properties": {
+    "status": { "type": "string", "enum": ["complete", "blocked", "failed", "needs_human"] },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "type": "string" },
+          "kind": { "type": "string", "enum": ["doc", "config"] },
+          "hash": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 2
+    },
+    "audit_entries": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+    "skill_compliance": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["skill", "status", "evidence"],
+        "properties": {
+          "skill": { "type": "string" },
+          "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] },
+          "evidence": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 5
+    },
+    "cost": { "type": "object" },
+    "version_proposal": {
+      "type": "object",
+      "required": ["from", "to", "kind", "rationale"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string", "enum": ["patch", "minor", "major"] },
+        "rationale": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "adr_count": { "type": "integer", "minimum": 0 },
+    "release_sections_covered": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Added", "Changed", "Fixed", "Deprecated", "Removed", "Security"]
+      }
+    },
+    "emitted_knowledge": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "title", "body"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["pattern", "adr", "antipattern", "lesson"] },
+          "title": { "type": "string", "minLength": 1 },
+          "body": { "type": "string", "minLength": 1 },
+          "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "related_artifacts": { "type": "array", "items": { "type": "string" }, "default": [] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.8 }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    },
+    "conflicts_detected": { "type": "array", "default": [] },
+    "locks_to_release": { "type": "array", "items": { "type": "string" }, "default": [] }
+  },
+  "additionalProperties": false
+}

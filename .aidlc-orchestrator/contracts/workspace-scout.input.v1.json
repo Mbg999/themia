@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "workspace-scout.input.v1",
+  "title": "Workspace Scout — Input Contract (v1)",
+  "type": "object",
+  "required": [
+    "run_id",
+    "stage_id",
+    "user_request",
+    "skills_required",
+    "skill_paths_resolved"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Lower-kebab run identifier, e.g. 2026-05-08T14-23-00Z-auth-rewrite"
+    },
+    "stage_id": { "const": "workspace-scout" },
+    "user_request": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Raw user request, logged verbatim to audit.md"
+    },
+    "predecessor_artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "skills_required": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Workspace Scout requires no Define/Build skills, only the implicit using-agent-skills.",
+      "default": ["using-agent-skills"]
+    },
+    "skill_paths_resolved": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "Orchestrator-resolved paths to SKILL.md files"
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "tokens_max": { "type": "integer", "minimum": 1 },
+        "wall_clock_max_min": { "type": "number", "minimum": 0 },
+        "retries_max": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "gates": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "context_pointers": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "locks_required": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use for this stage. Overrides tool default. Set by orchestrator from budgets/default.yaml."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,2 @@
+# AIDLC orchestrator — non-Claude tools should use default model
+AIDLC_DEFAULT_MODEL=default

@@ -1,0 +1,45 @@
+# AIDLC Orchestrator — Per-Stage Model Assignments
+# Read by factory_model.py to set model_override per stage.
+# Set AIDLC_DEFAULT_MODEL=default to skip model_override entirely.
+
+concurrency:
+  max_parallel: 4
+
+per_stage:
+  # Models are Claude Code shorthand (sonnet/opus/haiku).
+  workspace-scout:        { model: "sonnet" }
+  reverse-engineer:       { model: "sonnet" }
+  requirements-analyst:   { model: "opus" }
+  story-writer:           { model: "sonnet" }
+  workflow-planner:       { model: "opus" }
+  unit-decomposer:        { model: "sonnet" }
+  code-generator:         { model: "opus" }
+  build-test-agent:       { model: "sonnet" }
+  reviewer-code:          { model: "sonnet" }
+  reviewer-security:      { model: "sonnet" }
+  reviewer-performance:   { model: "sonnet" }
+  reviewer-simplifier:    { model: "sonnet" }
+  ship-agent:             { model: "sonnet" }
+  custom-agent:           { model: "sonnet" }
+
+# Feature flags consumed by factory_features.py.
+# Override via AIDLC_FEATURE_<KEY> env var (uppercase, dashes → underscores).
+features:
+  # strict content validation. When true, factory_content_validate.py
+  # is invoked with --mode strict in stage agent verification steps; any failure
+  # blocks the stage. Default false = soft-launch warn mode.
+  content_validator_strict: false
+
+  # SLO-breach gating. When true, factory_slo_check.py runs before
+  # every stage spawn and a breach blocks the run until acknowledged via
+  # aidlc-docs/quality/slo-acks.md.
+  slo_blocking: false
+
+  # Phase 4.1 — engram pattern promotion to aidlc/_shared. Default true once
+  # patterns exist; safe to keep enabled (provenance-tracked, manually
+  # unpromotable).
+  knowledge_promotion: true
+
+  # fetch aidlc/_shared/* into context_pointers[] alongside
+  # project-scoped priors before each stage spawn.
+  shared_corpus_injection: true

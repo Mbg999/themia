@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shared/complexity-tier.v1",
+  "title": "Complexity Tier — Manifest Fragment Schema (v1)",
+  "description": "Validates the manifest fields written by factory_complexity.py after requirements-analyst completes. Used by factory_validate.py when manifest.complexity_tier is present.",
+  "type": "object",
+  "required": ["complexity_tier", "skip_stages", "merge_codegen_gate", "reviewer_pool"],
+  "properties": {
+    "complexity_tier": {
+      "type": "string",
+      "enum": ["SMALL", "MEDIUM", "LARGE"],
+      "description": "Complexity tier assigned by factory_complexity.py."
+    },
+    "skip_stages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "story-writer",
+          "unit-decomposer",
+          "reverse-engineer",
+          "reviewer-security",
+          "reviewer-performance",
+          "reviewer-simplifier"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Stage IDs that must be skipped for this tier. Critical stages (workspace-scout, requirements-analyst, workflow-planner, code-generator, build-test-agent) are never in this list."
+    },
+    "merge_codegen_gate": {
+      "type": "boolean",
+      "description": "When true, code-generator skips its inner plan approval and outputs sub_stage=generated directly."
+    },
+    "reviewer_pool": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "reviewer-code",
+          "reviewer-security",
+          "reviewer-performance",
+          "reviewer-simplifier"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "Subset of reviewers to spawn in /factory-review. reviewer-code is always included."
+    }
+  },
+  "additionalProperties": true,
+  "allOf": [
+    {
+      "if": { "properties": { "complexity_tier": { "const": "SMALL" } } },
+      "then": {
+        "properties": {
+          "merge_codegen_gate": { "const": true }
+        },
+        "description": "SMALL tier must have merge_codegen_gate=true."
+      }
+    },
+    {
+      "if": { "properties": { "complexity_tier": { "const": "LARGE" } } },
+      "then": {
+        "properties": {
+          "skip_stages": { "maxItems": 0 }
+        },
+        "description": "LARGE tier must have no skipped stages."
+      }
+    }
+  ]
+}

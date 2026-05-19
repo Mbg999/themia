@@ -1,0 +1,4 @@
+# AIDLC orchestrator runtime state
+.aidlc-orchestrator/runs/
+.aidlc-orchestrator/knowledge/
+.codegraph/

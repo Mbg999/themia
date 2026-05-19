@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "custom-agent.input.v1",
+  "title": "Custom Agent — Generic Input Contract (v1)",
+  "description": "Flexible input contract for user-defined custom subagents. No stage_id const — use any agent name. No strict validation — the agent defines its own expectations.",
+  "type": "object",
+  "required": ["run_id", "agent_name", "user_request"],
+  "properties": {
+    "run_id": { "type": "string", "description": "Current run identifier" },
+    "agent_name": { "type": "string", "description": "Agent filename stem (matches the .md file in agents/)" },
+    "user_request": { "type": "string", "minLength": 1, "description": "What to do" },
+    "context": {
+      "type": "object",
+      "description": "Any context the custom agent needs. Passed through as-is.",
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths to prior output artifacts the agent should read",
+      "default": []
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Optional constraints (e.g. 'read-only', 'no file edits')",
+      "default": []
+    },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use. Falls back to tool default."
+    }
+  },
+  "additionalProperties": true
+}

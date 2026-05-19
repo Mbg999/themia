@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "code-generator.input.v1",
+  "title": "Code Generator — Input Contract (v1)",
+  "type": "object",
+  "required": ["run_id", "stage_id", "user_request", "predecessor_artifacts", "unit_name", "skills_required", "skill_paths_resolved"],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "stage_id": { "const": "code-generator" },
+    "user_request": { "type": "string", "minLength": 1 },
+    "predecessor_artifacts": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Includes execution-plan and (if decomposed) the unit spec" },
+    "unit_name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "unit_spec_path": { "type": "string", "description": "Path to unit spec YAML. Required for non-fast-path code generation." },
+    "skills_required": { "type": "array", "items": { "type": "string" }, "minItems": 4, "default": ["using-agent-skills", "incremental-implementation", "test-driven-development", "source-driven-development"] },
+    "skill_paths_resolved": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "budget": { "type": "object" },
+    "gates": { "type": "array", "items": { "type": "string" }, "default": ["require_human_approval"] },
+    "context_pointers": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "locks_required": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "fast_path": { "type": "boolean", "default": false, "description": "FAST_PATH mode — skip plan gate, skip re-spawn, stripped output" },
+    "tier": { "type": "string", "enum": ["TINY", "SMALL", "MEDIUM", "LARGE"], "default": "SMALL" },
+    "constraints": { "type": "array", "items": { "type": "string" }, "default": [], "description": "FAST_PATH constraints (e.g. TDD required, no architectural decisions)" },
+    "repo_root": { "type": "string", "default": ".", "description": "FAST_PATH working directory" },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use for this stage. Overrides tool default. Set by orchestrator from budgets/default.yaml."
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "fast_path": { "const": true } } },
+      "then": {
+        "required": ["user_request", "fast_path"],
+        "properties": {
+          "run_id": { "type": "string", "default": "fast-path" },
+          "stage_id": { "const": "code-generator" },
+          "predecessor_artifacts": { "default": [] },
+          "unit_name": { "default": "_fast_path" },
+          "skills_required": { "default": ["using-agent-skills", "test-driven-development"] },
+          "skill_paths_resolved": { "default": [] }
+        }
+      }
+    }
+  ]
+}

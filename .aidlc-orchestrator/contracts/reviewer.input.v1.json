@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "reviewer.input.v1",
+  "title": "Reviewer — Shared Input Contract (v1, used by all 4 reviewers)",
+  "type": "object",
+  "required": ["run_id", "stage_id", "reviewer", "user_request", "predecessor_artifacts", "skills_required", "skill_paths_resolved"],
+  "properties": {
+    "run_id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "stage_id": {
+      "type": "string",
+      "enum": ["reviewer-code", "reviewer-security", "reviewer-performance", "reviewer-simplifier"]
+    },
+    "reviewer": {
+      "type": "string",
+      "enum": ["code-quality", "security", "performance", "simplifier"],
+      "description": "Reviewed by: stage_id=reviewer-code → reviewer=code-quality, stage_id=reviewer-security → reviewer=security, etc."
+    },
+    "user_request": { "type": "string", "minLength": 1 },
+    "predecessor_artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "code-generator + build-test-agent outputs for all units under review"
+    },
+    "scope_paths": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "File globs the review covers; empty = whole project"
+    },
+    "skills_required": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+    "skill_paths_resolved": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "budget": { "type": "object" },
+    "gates": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "context_pointers": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "locks_required": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "model_override": {
+      "type": "string",
+      "enum": ["sonnet", "opus", "haiku"],
+      "description": "Model to use for this stage. Overrides tool default. Set by orchestrator from budgets/default.yaml."
+    },
+    "codegraph_cache_path": {
+      "type": "string",
+      "description": "Path to pre-computed CodeGraph callers+impact cache for all symbols in the unit (written by Pre-Review Step 0). Reviewers must prefer this over live codegraph_callers/codegraph_impact calls. Absent when CodeGraph is not initialized."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "shared/unit-graph.v1",
+  "title": "Unit Graph — Manifest Fragment Schema (v1)",
+  "description": "Validates the manifest fields written by factory_graph.py after unit-decomposer completes. Used by factory_validate.py when manifest.unit_waves is present.",
+  "type": "object",
+  "required": ["unit_waves", "unit_wave_count", "unit_max_parallelism"],
+  "properties": {
+    "unit_waves": {
+      "type": "array",
+      "description": "Topologically-sorted waves of unit names. Wave 0 has no dependencies; wave N depends only on units in waves 0..N-1.",
+      "items": {
+        "type": "array",
+        "description": "A single wave — units in this array can be spawned in parallel.",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z0-9-_]+$",
+          "description": "Unit name as declared in unit-decomposer output."
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "minItems": 0
+    },
+    "unit_wave_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of waves (== len(unit_waves))."
+    },
+    "unit_max_parallelism": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Largest wave size — the peak number of parallel code-generator spawns required."
+    }
+  },
+  "additionalProperties": true
+}

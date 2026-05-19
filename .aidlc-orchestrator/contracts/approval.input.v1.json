@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "approval.input.v1",
+  "title": "Structured Approval Gate — Input Contract (v1)",
+  "description": "Standardized approval prompt presented to the user when a stage returns needs_human. Replaces free-form text with structured options.",
+  "type": "object",
+  "required": ["stage", "title", "units", "resolution"],
+  "properties": {
+    "stage": { "type": "string", "description": "Stage requesting approval (e.g. code-generator, requirements-analyst)" },
+    "title": { "type": "string", "description": "Short human-readable title (e.g. 'Code Generation — Plan Approval')" },
+    "units": {
+      "type": "array",
+      "description": "One or more units/artifacts submitted for approval",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["label", "tasks"],
+        "properties": {
+          "label": { "type": "string", "description": "Unit name (e.g. server-scaffold)" },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "description"],
+              "properties": {
+                "id": { "type": "string", "description": "Short task ID (e.g. T1)" },
+                "description": { "type": "string", "description": "What this task does" },
+                "covers": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "ACs this task covers (e.g. ['AC-1.5', 'AC-NFR-3.2'])"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "estimated_tokens": { "type": "integer", "minimum": 0 },
+          "estimated_minutes": { "type": "number", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "required": ["options"],
+      "properties": {
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["approve", "request_changes", "cancel"]
+          }
+        },
+        "note_prompt": { "type": "string", "description": "Prompt for user note text field" }
+      },
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "string",
+      "description": "Optional markdown context from the stage output (key findings, risks, etc.)"
+    }
+  },
+  "additionalProperties": false
+}
