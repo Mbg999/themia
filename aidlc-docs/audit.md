@@ -138,3 +138,26 @@
 - [Docker] docker-compose.yml YAML valid; Dockerfiles lint-clean (manual review)
 - [Docker] nginx.conf syntax OK; .env git-ignored; .env.example tracked correctly
 
+## 2026-05-19T11:47:36+00:00 CONSTRUCTION - Construction Phase Complete
+- [Wave 0] db-layer: SQLAlchemy model, Alembic migration, SSH-tunnel factory — committed a4643e5
+- [Wave 1] ingestion-pipeline: ingest.py CLI, chunker, Cohere embedder — committed 6c504aa
+- [Wave 1] retrieval-api: POST /analyze, RRF fusion, LangChain/Groq LLM — committed c1fe536
+- [Wave 2] frontend: Angular 21 SPA, DESIGN.md applied, 16 tests — committed abe8eb6
+- [Wave 2] docker-infra: Dockerfiles, nginx, compose, README — committed 1a3db97
+- [Tests] 51/51 backend + 16/16 frontend = 67 tests total, all green
+
+## 2026-05-19T14:00:29+00:00 OPERATIONS - REVIEW - Code Quality Complete
+- [reviewer-code] Five-axis code-quality review complete across 5 units
+- [reviewer-code] Key gaps: embedder.py/llm.py zero test coverage, prod apiUrl empty, frontend API key in env
+- [CodeGraph] codegraph-cache.json loaded (31 symbols). Blast-radius bump: ingest.py(32) P2->P1
+
+## 2026-05-19T14:00:31+00:00 OPERATIONS - REVIEW - Security Review Complete
+- [reviewer-security] P0s: API key in frontend bundle(CWE-798), no file size limit(CWE-770), no rate limiting(CWE-307), .env in Docker image(CWE-312), unpinned git clone(CWE-829)
+- [reviewer-security] P1s: LLM prompt injection(CWE-77), missing security headers(CWE-693), permissive CORS(CWE-942), SSH password auth(CWE-521), spoofable MIME(CWE-434)
+- [CodeGraph] blast-radius enrichment: 2 findings severity-bumped P2->P1
+
+
+## 2026-05-19 REVIEW - Performance + Simplifier Complete
+- [Performance] 9 findings: 2 P0 (ivfflat probes never set — ~1% recall; ivfflat missing lists param), 4 P1 (engine per request, sequential DB queries, no embedding cache, no LLM timeout), 3 P2
+- [Simplifier] 7 findings: 1 P0 (Session/session_factory name collision silent bug), 2 P1 (config.py constants dead code, CORS_ORIGINS duplication), 3 P2, 1 P3
+- [Report] aidlc-docs/operations/2026-05-19t09-35-00z-thermia-mvp-review-report.md updated — all 4 reviewers, 57 total findings
