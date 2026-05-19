@@ -3,3 +3,10 @@
 .aidlc-orchestrator/knowledge/
 .codegraph/
 __pycache__/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+# Keep .env.example tracked
+!.env.example

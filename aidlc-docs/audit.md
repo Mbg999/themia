@@ -129,3 +129,12 @@
 - [Install] cohere 6.1.0, gitpython 3.1.50, tiktoken 0.13.0, pdfplumber 0.11.9, langchain 1.3.1, langchain-groq 1.1.2, python-multipart 0.0.29
 - [Smoke] scripts/ingest.py --help OK; from app.main import app OK
 
+## 2026-05-19T11:44:40+00:00 CONSTRUCTION - User Approval (Wave 2 generated — frontend + docker-infra)
+- [Approval] User approved Wave 2 generated code
+
+## 2026-05-19T11:47:10+00:00 CONSTRUCTION - Build & Test Complete (Wave 2: frontend + docker-infra)
+- [Frontend] 16/16 Vitest tests pass; ng build --configuration=production exit 0
+- [Frontend] SCSS size advisory: 4.99kB vs 4KB budget — non-blocking
+- [Docker] docker-compose.yml YAML valid; Dockerfiles lint-clean (manual review)
+- [Docker] nginx.conf syntax OK; .env git-ignored; .env.example tracked correctly
+

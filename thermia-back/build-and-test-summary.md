@@ -278,3 +278,276 @@ No `pyright` / `mypy` configuration present. Python syntax validated implicitly 
 | `app/retrieval/llm.py` | Groq LLM call (llama-3.3-70b-versatile) |
 | `app/main.py` | Updated — added `POST /analyze` endpoint |
 | `tests/test_retrieval.py` | 16 pytest unit tests for the retrieval pipeline |
+
+---
+
+# Thermia Frontend — Build and Test Summary (frontend)
+
+Run ID: 2026-05-19t13-45-00z-thermia-mvp
+Unit: frontend (thermia-front/)
+Date: 2026-05-19
+Status: NEEDS HUMAN (all automated checks pass — awaiting approval to proceed)
+
+---
+
+## Environment Detection
+
+| Tool | Version | Source |
+|------|---------|--------|
+| Node.js | v22.20.0 | nvm (pre-existing, compatible) |
+| npm | 10.9.3 | nvm / matches packageManager field |
+| Vitest | 4.1.6 | node_modules (pre-installed) |
+| Angular CLI | 21.2.11 | node_modules (pre-installed) |
+
+No runtime installs required. `npm install` confirmed 471 packages up-to-date, 0 vulnerabilities.
+
+---
+
+## npm install result
+
+```
+npm install
+471 packages audited in 902ms — up to date, 0 vulnerabilities
+EXIT: 0
+```
+
+---
+
+## Unit Test Results
+
+| Suite | Tests | Passed | Failed | Skipped |
+|-------|-------|--------|--------|---------|
+| src/app/analysis.service.spec.ts | 5 | 5 | 0 | 0 |
+| src/app/app.spec.ts | 11 | 11 | 0 | 0 |
+| **Total** | **16** | **16** | **0** | **0** |
+
+All 16 tests pass. Runtime: 928ms.
+
+Test runner: Vitest v4.1.6, jsdom environment.
+
+---
+
+## Test Coverage (suites)
+
+### analysis.service.spec.ts (5 tests)
+
+| Test | Result |
+|------|--------|
+| should be created | PASS |
+| should send POST to the /analyze endpoint | PASS |
+| should set Authorization header with Bearer token | PASS |
+| should send file as FormData field named "file" | PASS |
+| should return typed Observable<AnalysisResponse> | PASS |
+
+### app.spec.ts (11 tests)
+
+| Test | Result |
+|------|--------|
+| button stays disabled when no file is selected | PASS |
+| selecting a non-PDF file keeps button disabled | PASS |
+| selecting a .pdf file enables the Analizar button | PASS |
+| button is disabled while request is in flight | PASS |
+| renders result data after successful response | PASS |
+| shows 401 error message and re-enables button | PASS |
+| shows 422 error message | PASS |
+| shows 503 error message | PASS |
+| shows network error (status 0) message | PASS |
+| shows generic error message for unexpected status codes | PASS |
+| all three result sections are accessible after success | PASS |
+
+---
+
+## Angular Production Build
+
+```
+npx ng build --configuration=production
+EXIT: 0
+```
+
+| Chunk | Raw size | Transfer size |
+|-------|----------|---------------|
+| main-A3ROLOKF.js | 224.39 kB | 60.77 kB |
+| styles-5INURTSO.css | 0 bytes | 0 bytes |
+
+Build time: 2.404 s. Output: `thermia-front/dist/thermia-front/`.
+
+WARNING (non-blocking): `src/app/app.scss` exceeded budget — 4.99 kB vs 4.00 kB limit (+990 bytes). This is a size-budget advisory, not a TypeScript or compilation error. Build exits 0.
+
+---
+
+## Static Validation
+
+TypeScript is validated implicitly by `ng build --configuration=production`. The build completed without type errors (exit 0). No standalone `tsc --noEmit` config detected beyond angular.json.
+
+---
+
+## CodeGraph Affected-Test Detection
+
+`.codegraph/codegraph.db` not present in workspace. Full suite executed (fallback path).
+
+---
+
+## Acceptance Criteria Status
+
+| Criterion | Status |
+|-----------|--------|
+| `npm install` exits 0, 0 vulnerabilities | PASS |
+| 16/16 Vitest tests pass | PASS |
+| `ng build --configuration=production` exits 0 | PASS |
+| No TypeScript compilation errors | PASS |
+| No test failures or errors | PASS |
+
+---
+
+## Files Added / Modified (frontend unit)
+
+| File | Description |
+|------|-------------|
+| `src/environments/environment.ts` | Development environment config (apiUrl, apiKey) |
+| `src/environments/environment.prod.ts` | Production environment config |
+| `src/app/analysis.service.ts` | Angular service — HTTP POST to /analyze with Bearer auth |
+| `src/app/app.ts` | Root component — file selection, loading state, error handling, result display |
+| `src/app/app.html` | Component template |
+| `src/app/app.scss` | Component styles |
+| `src/app/analysis.service.spec.ts` | 5 unit tests for AnalysisService |
+| `src/app/app.spec.ts` | 11 unit tests for App component logic |
+| `vitest.config.ts` | Vitest configuration (jsdom, globals, coverage) |
+| `vitest-setup.ts` | Angular TestBed + BrowserTestingModule bootstrap |
+| `package.json` | Added test / test:watch / test:coverage scripts; added vitest + jsdom devDependencies |
+
+---
+
+# Thermia — Build and Test Summary (docker-infra)
+
+Run ID: 2026-05-19t16-00-00z-thermia-mvp
+Unit: docker-infra
+Date: 2026-05-19
+Status: NEEDS HUMAN (all checks pass with advisories — awaiting human approval)
+
+---
+
+## Environment Detection
+
+| Tool | Version | Status |
+|------|---------|--------|
+| docker | 27.3.1 | present |
+| docker compose plugin | not installed | `docker compose` subcommand unavailable |
+| docker-compose (standalone) | not installed | N/A |
+| nginx | present | `/Users/miguel.belmonte/homebrew/bin/nginx` |
+| Docker daemon | not running | `unix:///var/run/docker.sock` unreachable |
+
+---
+
+## Step 1 — docker-compose.yml Syntax Validation
+
+`docker compose config --quiet` failed: the Docker Compose CLI plugin is not installed (Docker 27.3.1 present; `docker compose` subcommand absent; standalone `docker-compose` also absent).
+
+Fallback used: Python `yaml.safe_load()` structural parse — EXIT 0, valid YAML.
+
+Manual schema review (Compose Spec):
+- No `version:` key — correct for Compose Spec format.
+- Both services (`thermia-back`, `thermia-front`) have valid `build.context`, `build.dockerfile`, `ports`, `restart` keys.
+- `env_file: thermia-back/.env` — relative path from project root, correct for Compose.
+- `depends_on: thermia-back` in `thermia-front` — correct syntax.
+
+Result: PASS (advisory: install `docker-compose-plugin` or Docker Desktop to run `docker compose config --quiet` for full schema validation).
+
+---
+
+## Step 2 — Dockerfile Lint (hadolint)
+
+Docker daemon not running — `hadolint` via `docker run` unavailable. Manual lint review applied (rules DL1000–DL4006).
+
+### thermia-back/Dockerfile
+
+| Rule | Finding | Result |
+|------|---------|--------|
+| DL3002 | `USER appuser` applied before `CMD` — no root at runtime | OK |
+| DL3008 | No `apt-get` calls | N/A |
+| DL3013 | `pip install --no-cache-dir` used | OK |
+| DL3042 | No pip cache left behind | OK |
+| Layer order | `requirements.txt` copied before source — correct caching | PASS |
+
+No errors. No warnings.
+
+### thermia-front/Dockerfile
+
+| Rule | Finding | Result |
+|------|---------|--------|
+| DL3016 | `npm ci` used, not `npm install` | OK |
+| DL3059 | Multi-stage build (node:20-alpine + nginx:alpine) | OK |
+| DL3002 | Stage 2 runs as default nginx user (acceptable for nginx:alpine) | OK |
+| Layer order | `package.json` / `package-lock.json` copied before source | PASS |
+| Output path | `dist/thermia-front/browser` matches Angular default output | PASS |
+| nginx config | Copied to `/etc/nginx/conf.d/default.conf` — correct for nginx:alpine | PASS |
+
+No errors. No warnings.
+
+Step result: PASS (manual review). Advisory: run `docker run --rm -i hadolint/hadolint < thermia-back/Dockerfile` when Docker daemon is available to confirm.
+
+---
+
+## Step 3 — nginx.conf Syntax
+
+Direct `nginx -t -c thermia-front/nginx.conf`: failed with `"server" directive is not allowed here`. Expected — the file is a bare `server {}` block for `/etc/nginx/conf.d/default.conf` (included inside `http {}` by nginx's parent config), not a standalone top-level config.
+
+Wrapped test (`events {} http { <nginx.conf> }`): `nginx: the configuration file ... syntax is ok` — EXIT 0.
+
+DNS check: `host not found in upstream "thermia-back"` without substitution — expected; `thermia-back` resolves only inside Docker's network at runtime.
+
+Result: PASS — syntax is correct and correctly scoped for `conf.d` inclusion.
+
+---
+
+## Step 4 — .gitignore Protects .env Files
+
+| File | Exit code | Matched rule | Result |
+|------|-----------|-------------|--------|
+| `thermia-back/.env` | 0 (ignored) | `thermia-back/.gitignore:1:.env` | PASS |
+| `.env` (project root) | 0 (ignored) | `.gitignore:8:.env` | PASS |
+
+---
+
+## Step 5 — .env.example NOT Ignored
+
+| File | Exit code | Result |
+|------|-----------|--------|
+| `thermia-back/.env.example` | 1 (not ignored) | PASS |
+
+---
+
+## Acceptance Criteria Status
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| docker-compose.yml valid YAML | PASS | Python yaml.safe_load exit 0 |
+| docker-compose.yml Compose Spec schema correct | PASS | Manual review |
+| `docker compose config --quiet` | ADVISORY | Plugin not installed |
+| thermia-back/Dockerfile lint clean | PASS | Manual hadolint-rule review |
+| thermia-front/Dockerfile lint clean | PASS | Manual hadolint-rule review |
+| nginx.conf syntax valid | PASS | Wrapped nginx -t exit 0 |
+| `thermia-back/.env` git-ignored | PASS | thermia-back/.gitignore match |
+| `.env` (root) git-ignored | PASS | .gitignore:8 match |
+| `thermia-back/.env.example` NOT ignored | PASS | git check-ignore exit 1 |
+
+---
+
+## Files Delivered (docker-infra unit)
+
+| File | Description |
+|------|-------------|
+| `thermia-back/Dockerfile` | Python 3.12-slim, non-root user, layer-cached deps |
+| `thermia-front/Dockerfile` | Multi-stage: node:20-alpine build + nginx:alpine serve |
+| `thermia-front/nginx.conf` | SPA fallback, gzip, proxy /analyze and /health to back-end |
+| `docker-compose.yml` | Compose Spec — both services, env_file, depends_on, restart |
+| `thermia-front/.env.example` | Frontend environment template |
+| `README.md` | Updated with Docker Compose quick-start instructions |
+| `.gitignore` (root) | Updated to protect .env files |
+
+---
+
+## Advisories (non-blocking)
+
+1. **docker compose plugin not installed** — `docker compose config --quiet` could not be executed. Install `docker-compose-plugin` (Linux) or upgrade Docker Desktop (macOS) to enable full schema validation.
+2. **hadolint not run** — Docker daemon was offline. Run `docker run --rm -i hadolint/hadolint < thermia-back/Dockerfile` (and the front Dockerfile) once the daemon is available.
+3. **nginx upstream DNS advisory** — `nginx -t` with the `thermia-back` upstream name will fail on the host OS (not resolvable outside Docker networking). This is expected and not a defect.
