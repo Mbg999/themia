@@ -76,6 +76,22 @@
             }
           </ul>
         </div>
+
+        @if (r.fuentes?.length) {
+          <div class="result-card">
+            <h2 class="section-heading">Fuentes Consultadas</h2>
+            <ul class="source-list">
+              @for (fuente of r.fuentes; track $index) {
+                <li class="source-item">
+                  <span class="source-title">{{ fuente.law_title || fuente.law_id }}</span>
+                  @if (fuente.hierarchy_path) {
+                    <span class="source-path">{{ fuente.hierarchy_path }}</span>
+                  }
+                </li>
+              }
+            </ul>
+          </div>
+        }
       </div>
     }
   </div>

@@ -331,3 +331,16 @@
 - [Complexity] tier=MEDIUM — scope=Multiple Components + complexity=Moderate
 - [Routing] skip: [story-writer] · reviewers: [reviewer-code, reviewer-security, reviewer-simplifier] · merge_codegen_gate: false
 - [Stage] stage_skipped: story-writer (complexity tier MEDIUM, no user-facing workflows in scope)
+
+## 2026-05-19T21:20:39+00:00 INCEPTION - WORKFLOW PLANNER APPROVAL
+- User approved execution plan — 4 units, 19 tasks, 2 layers
+- sources-display unit added (already implemented); db-schema-refactor + metadata-helpers (L0) + ingestion-wiring (L1)
+
+## 2026-05-19T21:26:47+00:00 INCEPTION - UNIT DECOMPOSITION
+- [UnitDecomposer] 4 units decomposed across 2 layers
+- [UnitDecomposer] L0 parallel: db-schema-refactor (DB-T1..T3), metadata-helpers (MH-T1..T7), sources-display (SD-T1..T3 COMPLETE)
+- [UnitDecomposer] L1 serial: ingestion-wiring (IW-T1..T6) depends on db-schema-refactor + metadata-helpers
+- [UnitDecomposer] sources-display marked COMPLETE — all 3 tasks already implemented
+- [UnitDecomposer] Critical constraint documented: hash-skip embedding guard (Risk 1)
+- [UnitDecomposer] 19 total tasks: 3+7+3+6 across 4 units
+

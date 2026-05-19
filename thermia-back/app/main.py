@@ -148,6 +148,16 @@ async def analyze(
         top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
         context = build_context(top_docs)
         result = await loop.run_in_executor(None, analyze_with_llm, context, query_text)
+        result["fuentes"] = [
+            {
+                "law_id": doc.metadata_.get("law_id", ""),
+                "law_title": doc.metadata_.get("law_title", ""),
+                "article": doc.metadata_.get("article", ""),
+                "section": doc.metadata_.get("section", ""),
+                "hierarchy_path": doc.metadata_.get("hierarchy_path", ""),
+            }
+            for doc in top_docs
+        ]
     finally:
         tunnel = getattr(engine, "tunnel", None)
         if tunnel is not None:

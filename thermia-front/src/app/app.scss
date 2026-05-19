@@ -297,6 +297,46 @@
   }
 }
 
+// ─── Source list ────────────────────────────────────────────────────────────
+.source-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.source-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-silver);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &:first-child {
+    padding-top: 0;
+  }
+}
+
+.source-title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -0.1px;
+  color: var(--color-midnight-graphite);
+}
+
+.source-path {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-medium-gray);
+  font-variant-numeric: tabular-nums;
+}
+
 // ─── Responsive ──────────────────────────────────────────────────────────────
 @media (max-width: 375px) {
   .headline {
