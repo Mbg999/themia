@@ -1,0 +1,345 @@
+// ─── Design tokens (from DESIGN.md) ────────────────────────────────────────
+:host {
+  // Color tokens
+  --color-midnight-graphite: #1d1d1f;
+  --color-deep-gray: #333333;
+  --color-medium-gray: #707070;
+  --color-border-silver: #d6d6d6;
+  --color-bg-canvas: #f5f5f7;
+  --color-bg-white: #ffffff;
+  --color-bg-subtle: #e2e2e5;
+  --color-interactive-blue: #0071e3;
+  --color-action-blue: #0066cc;
+  --color-sky-blue: #2997ff;
+  --color-error-red: #d93025;
+
+  // Typography
+  --font-primary: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+    'Helvetica Neue', Arial, sans-serif;
+
+  // Spacing
+  --spacing-base: 4px;
+  --section-gap: 70px;
+  --card-padding: 15px;
+  --element-gap: 10px;
+
+  display: block;
+  background-color: var(--color-bg-canvas);
+  min-height: 100dvh;
+  font-family: var(--font-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--color-midnight-graphite);
+}
+
+// ─── Layout ─────────────────────────────────────────────────────────────────
+.main {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px 80px;
+  box-sizing: border-box;
+}
+
+.container {
+  width: 100%;
+  max-width: 720px;
+}
+
+// ─── Header ─────────────────────────────────────────────────────────────────
+.header {
+  text-align: center;
+  margin-bottom: var(--section-gap);
+}
+
+.headline {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1.07;
+  letter-spacing: -0.28px;
+  color: var(--color-midnight-graphite);
+  margin: 0 0 var(--element-gap);
+}
+
+.subheading {
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.19;
+  letter-spacing: -0.28px;
+  color: var(--color-medium-gray);
+  margin: 0;
+}
+
+// ─── Upload section ──────────────────────────────────────────────────────────
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: var(--section-gap);
+}
+
+// ─── File input ─────────────────────────────────────────────────────────────
+.file-input-wrapper {
+  width: 100%;
+  position: relative;
+}
+
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 21px;
+  box-sizing: border-box;
+  background-color: var(--color-bg-white);
+  border: 1px solid var(--color-border-silver);
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.19px;
+  color: var(--color-midnight-graphite);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    border-color: var(--color-interactive-blue);
+    background-color: var(--color-bg-subtle);
+  }
+
+  // Focus ring for the visually hidden file input
+  .file-input:focus-visible + & {
+    outline: 2px solid var(--color-sky-blue);
+    outline-offset: 2px;
+  }
+}
+
+.file-placeholder {
+  color: var(--color-medium-gray);
+}
+
+.file-name {
+  color: var(--color-midnight-graphite);
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+// ─── Primary button ─────────────────────────────────────────────────────────
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 21px;
+  background-color: var(--color-interactive-blue);
+  color: var(--color-bg-white);
+  font-family: var(--font-primary);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.24;
+  letter-spacing: -0.22px;
+  border: none;
+  border-radius: 980px;
+  cursor: pointer;
+  min-width: 160px;
+  transition: background-color 0.2s ease;
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-sky-blue);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--color-sky-blue);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    background-color: var(--color-bg-subtle);
+    color: var(--color-medium-gray);
+    cursor: not-allowed;
+  }
+}
+
+// ─── Spinner ────────────────────────────────────────────────────────────────
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner-large {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-bg-subtle);
+  border-top-color: var(--color-interactive-blue);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ─── Loading state ──────────────────────────────────────────────────────────
+.loading-state {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.loading-text {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.19px;
+  color: var(--color-medium-gray);
+  margin: 0;
+}
+
+// ─── Error block ────────────────────────────────────────────────────────────
+.error-block {
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 0;
+  padding: 16px 21px;
+  margin-bottom: var(--element-gap);
+}
+
+.error-message {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.29;
+  letter-spacing: -0.19px;
+  color: var(--color-error-red);
+  margin: 0;
+}
+
+// ─── Result section ──────────────────────────────────────────────────────────
+.result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.result-card {
+  background-color: var(--color-bg-white);
+  padding: var(--card-padding);
+  box-shadow: rgba(0, 0, 0, 0.22) 3px 5px 30px 0px;
+}
+
+.section-heading {
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.19;
+  letter-spacing: -0.28px;
+  color: var(--color-midnight-graphite);
+  margin: 0 0 12px;
+}
+
+.result-text {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.18px;
+  color: var(--color-deep-gray);
+  margin: 0;
+}
+
+.result-list {
+  list-style: disc;
+  padding-left: 20px;
+  margin: 0;
+
+  &.citation-list {
+    list-style: none;
+    padding-left: 0;
+  }
+}
+
+.result-list-item {
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.47;
+  letter-spacing: -0.18px;
+  color: var(--color-deep-gray);
+  padding: 4px 0;
+
+  .citation-list & {
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border-silver);
+    color: var(--color-action-blue);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}
+
+// ─── Responsive ──────────────────────────────────────────────────────────────
+@media (max-width: 375px) {
+  .headline {
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: -0.1px;
+  }
+
+  .subheading {
+    font-size: 18px;
+  }
+
+  .main {
+    padding: 32px 12px 60px;
+  }
+
+  .header {
+    margin-bottom: 40px;
+  }
+
+  .upload-section {
+    gap: 16px;
+  }
+
+  .btn-primary {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .main {
+    padding: 80px 40px 100px;
+  }
+
+  .header {
+    margin-bottom: 80px;
+  }
+
+  .result-section {
+    gap: 32px;
+  }
+
+  .result-card {
+    padding: 24px;
+  }
+}
