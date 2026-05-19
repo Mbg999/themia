@@ -296,3 +296,38 @@
 - [Regression] 95 passed, 26 failed — all 26 pre-existing ModuleNotFoundError (pgvector, sshtunnel, pdfplumber); 0 new regressions
 - [Locks] Released: code-generator:key-pool-fallback
 - [Pylance main.py:88] request param required by slowapi @limiter.limit decorator — false positive, not removed
+
+## 2026-05-19T20:46:46+00:00 INCEPTION - WORKSPACE SCOUT START [run: 2026-05-19t20-50-00z-metadata-refactor]
+- [Orchestrator] spawned (inline)
+- [WorkspaceScout] project_type: brownfield — existing code in thermia-back/ (FastAPI/SQLAlchemy) and thermia-front/ (Angular 21)
+- [WorkspaceScout] next_phase: reverse-engineering — aidlc-docs/inception/reverse-engineering/ is absent
+- [WorkspaceScout] existing AIDLC runs detected: thermia-mvp, api-key-fallback — this is a new run for a metadata refactor
+- [Workspaces] 3 workspace(s) detected: ., thermia-front/, thermia-back/
+- [Stack] best-effort: fastapi, sqlalchemy, pgvector, langchain, alembic (pip); @angular/core@21.2 (npm)
+- [CodeGraph] active — nodes: 1092, files: 61, backend: native
+- [Skill] using-agent-skills PASS — workspace scanned via find+ls; tech stack extracted; codegraph status queried
+
+## 2026-05-19T20:48:30+00:00 INCEPTION - WORKSPACE SCOUT COMPLETE [run: 2026-05-19t20-50-00z-metadata-refactor]
+
+## 2026-05-19T20:54:23+00:00 INCEPTION - REVERSE-ENGINEER GATE
+- User decision: skip reverse-engineer (option B selected)
+- Rationale: scope well-specified; db-layer + key-pool-fallback plans provide sufficient codebase context
+- [Orchestrator] Classified project_profile: ui=true, api=true, has_legacy=true
+
+
+## 2026-05-19T20:54:32+00:00 INCEPTION - REQUIREMENTS ANALYST START [run: 2026-05-19t20-50-00z-metadata-refactor]
+- [Orchestrator] spawned (inline, two-pass)
+- [Orchestrator] Classified project_profile: ui=true, api=true, has_legacy=true
+- [Pass 1] Questions surfaced — 6 decision-blocking questions written to requirement-verification-questions.md
+- [Pass 1] Q1 Answer: A — two JSONB columns (metadata + source_metadata)
+- [Pass 1] Q2 Answer: A — promote status, legal_rank, jurisdiction as real VARCHAR columns with B-tree indexes
+- [Pass 1] Q3 Answer: B — active skip: check content_hash before embedding on re-runs
+- [Pass 1] Q4 Answer: A — normalize to Spanish (in_force→vigente, derogated→derogada); unknown values preserved as-is with WARNING; centralized helper
+- [Pass 1] Q5 Answer: B — derive ELI conservatively from source URL/identifier; store NULL if not derivable; never fail ingestion
+- [Pass 1] Q6 Answer: A — explicitly strip YAML frontmatter before parsing; extracted fields go to metadata; frontmatter never enters chunk content
+
+## 2026-05-19T21:07:02+00:00 INCEPTION - REQUIREMENTS ANALYST COMPLETE [run: 2026-05-19t20-50-00z-metadata-refactor]
+- [RA] requirements.md: 8 FRs, 6 NFRs, 17 ACs, 7 files affected, 6 ADRs — aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirements.md
+- [Complexity] tier=MEDIUM — scope=Multiple Components + complexity=Moderate
+- [Routing] skip: [story-writer] · reviewers: [reviewer-code, reviewer-security, reviewer-simplifier] · merge_codegen_gate: false
+- [Stage] stage_skipped: story-writer (complexity tier MEDIUM, no user-facing workflows in scope)
