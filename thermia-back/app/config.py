@@ -33,3 +33,6 @@ API_KEY: str = os.environ.get("API_KEY", "")
 
 # Groq LLM API key
 GROQ_API_KEY: str = os.environ.get("GROQ_API_KEY", "")
+
+# CORS — comma-separated list of allowed origins
+CORS_ORIGINS: str = os.environ.get("CORS_ORIGINS", "http://localhost:4200")

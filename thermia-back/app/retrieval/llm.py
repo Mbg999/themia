@@ -12,7 +12,7 @@ import json
 import os
 
 from langchain_groq import ChatGroq
-from langchain.schema import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
 
 _SYSTEM_PROMPT = """Eres un asistente jurídico especializado en derecho español.

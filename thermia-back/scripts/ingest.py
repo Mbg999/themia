@@ -28,6 +28,7 @@ import logging
 import os
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,10 @@ _REPO_DIR = Path("/tmp/legalize-es")
 _CHUNK_THRESHOLD = 800   # articles ≤ this produce a single chunk
 _SUB_CHUNK_SIZE = 512    # maximum tokens per sub-chunk
 _OVERLAP = 50            # token overlap between consecutive sub-chunks
+
+# Cohere rate-limit handling
+_EMBED_BATCH_SIZE = 50              # max texts per embed() call (trial: 100 calls/min)
+_EMBED_RETRY_DELAYS = (10, 30, 60)  # seconds to wait on successive 429s
 
 # Tiktoken encoding — cl100k_base is compatible with multilingual models
 _ENC = tiktoken.get_encoding("cl100k_base")
@@ -178,9 +183,7 @@ def parse_legal_structure(
         # Build hierarchy_path
         parts = [p for p in [current_law_id or current_law_title, current_section, current_article] if p]
         hp = " > ".join(parts)
-        # Extract year from law title
-        year_match = re.search(r"\b(19|20)\d{2}\b", current_law_title)
-        year = year_match.group(0) if year_match else ""
+        year = _extract_year(source_file, current_law_title)
         # Derive law_id: use filename base or law title
         law_id = current_law_id or _derive_law_id(source_file, current_law_title)
 
@@ -231,19 +234,44 @@ def parse_legal_structure(
 
 def _derive_law_id(source_file: str, law_title: str) -> str:
     """Derive a short law identifier from the source filename or title."""
-    # Use the filename stem (without extension) in upper-case as default
     stem = Path(source_file).stem
     if stem:
         return stem.upper()
-    # Fallback: use uppercase initials from law title words
     words = re.sub(r"[^A-Za-zÀ-ÿ\s]", "", law_title).split()
     stop = {"de", "del", "la", "las", "los", "el", "y", "e", "o", "u"}
     initials = "".join(w[0].upper() for w in words if w.lower() not in stop)
     return initials or "LAW"
 
 
+# Matches any plausible year for Spanish legal documents (1000–2099).
+# Covers 18xx (Bourbon-era laws), 19xx, and 20xx.
+_YEAR_RE = re.compile(r"\b(1[0-9]{3}|20[0-9]{2})\b")
+
+
+def _extract_year(source_file: str, law_title: str) -> str:
+    """Return the best 4-digit year string for a law, or empty string.
+
+    Priority:
+    1. Filename — BOE files embed the year as the third ``-``-separated
+       segment, e.g. ``BOE-A-1835-2348`` → ``1835``.
+    2. Law title — first 4-digit number in the plausible range 1000–2099.
+    """
+    stem = Path(source_file).stem  # e.g. "BOE-A-1835-2348"
+    parts = stem.split("-")
+    for part in parts:
+        if _YEAR_RE.fullmatch(part):
+            return part
+
+    m = _YEAR_RE.search(law_title)
+    return m.group(0) if m else ""
+
+
 def generate_embeddings(cohere_client: Any, texts: list[str]) -> list[list[float]]:
     """Call Cohere embed API and return a list of float vectors.
+
+    Sends texts in batches of ``_EMBED_BATCH_SIZE`` to stay within the trial
+    rate limit (100 calls/min, 100k tokens/min). Retries each batch up to
+    ``len(_EMBED_RETRY_DELAYS)`` times on 429 errors with exponential back-off.
 
     Args:
         cohere_client: An initialised ``cohere.Client`` instance.
@@ -252,12 +280,37 @@ def generate_embeddings(cohere_client: Any, texts: list[str]) -> list[list[float
     Returns:
         List of 1024-dimensional float vectors, one per input text.
     """
-    response = cohere_client.embed(
-        texts=texts,
-        model="embed-multilingual-v3.0",
-        input_type="search_document",
-    )
-    return list(response.embeddings)
+    all_embeddings: list[list[float]] = []
+    for i in range(0, len(texts), _EMBED_BATCH_SIZE):
+        batch = texts[i : i + _EMBED_BATCH_SIZE]
+        last_exc: Exception | None = None
+        for attempt, delay in enumerate([0, *_EMBED_RETRY_DELAYS]):
+            if delay:
+                log.info(
+                    "Rate limited — waiting %ds before retry (attempt %d/%d)...",
+                    delay, attempt, len(_EMBED_RETRY_DELAYS),
+                )
+                time.sleep(delay)
+            try:
+                response = cohere_client.embed(
+                    texts=batch,
+                    model="embed-multilingual-v3.0",
+                    input_type="search_document",
+                )
+                all_embeddings.extend(list(response.embeddings))
+                last_exc = None
+                break
+            except Exception as exc:
+                if "429" in str(exc) or "rate limit" in str(exc).lower():
+                    last_exc = exc
+                    continue
+                raise
+        if last_exc is not None:
+            raise last_exc
+        # Polite pause between batches to stay well inside the rate limit
+        if i + _EMBED_BATCH_SIZE < len(texts):
+            time.sleep(1)
+    return all_embeddings
 
 
 def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:

@@ -6,12 +6,22 @@ import os
 
 import pdfplumber
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 # Load configuration (triggers python-dotenv .env loading)
 from app.config import THERMIA_ENV  # noqa: F401
 
 app = FastAPI(title="Thermia API", version="0.1.0")
+
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:4200").split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Spanish legal keywords used for content heuristic
 _LEGAL_KEYWORDS = {
