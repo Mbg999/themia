@@ -17,7 +17,7 @@
 `CONSTRUCTION - Complete — awaiting /factory-review`
 
 ## Current Stage — Run: 2026-05-19t15-11-46z-api-key-fallback
-`INCEPTION - Complete — awaiting /factory-plan 2026-05-19t15-11-46z-api-key-fallback`
+`CONSTRUCTION - Complete — awaiting /factory-review 2026-05-19t15-11-46z-api-key-fallback`
 
 ## Code Location Rules
 - Source of truth: `thermia-front/` (Angular frontend)
@@ -35,8 +35,8 @@
 ## Stage Progress — Run: 2026-05-19t15-11-46z-api-key-fallback (API Key Fallback)
 - [x] Workspace Detection — 2026-05-19
 - [x] Requirements Analysis — 2026-05-19
-- [ ] Planning (factory-plan)
-- [ ] Construction (factory-build)
+- [x] Planning (factory-plan) — 2026-05-19
+- [x] Construction (factory-build) — 2026-05-19
 - [ ] Review (factory-review)
 - [ ] Ship (factory-ship)
 

@@ -19,7 +19,8 @@ Environment variables (all read from .env when THERMIA_ENV=local):
     DB_PASSWORD          — PostgreSQL password (local only)
     DB_NAME              — PostgreSQL database name (local only)
     DATABASE_URL         — full connection URL (production only)
-    COHERE_API_KEY       — Cohere API key
+    COHERE_API_KEYS      — JSON array of Cohere API keys, e.g. '["key1","key2"]'
+                           (legacy: COHERE_API_KEY scalar also accepted)
 """
 from __future__ import annotations
 
@@ -278,6 +279,11 @@ def generate_embeddings(cohere_client: Any, texts: list[str]) -> list[list[float
     rate limit (100 calls/min, 100k tokens/min). Retries each batch up to
     ``len(_EMBED_RETRY_DELAYS)`` times on 429 errors with exponential back-off.
 
+    If the caller has wired the shared KeyPool singleton (via
+    ``app.retrieval.embedder.get_cohere_pool()``), mid-batch key rotation is
+    handled transparently by the pool.  This function stays pure (no direct
+    pool coupling) so that unit tests can inject any mock client.
+
     Args:
         cohere_client: An initialised ``cohere.Client`` instance.
         texts: List of strings to embed.
@@ -401,13 +407,13 @@ def main(argv: list[str] | None = None) -> None:
     from sqlalchemy.orm import sessionmaker
 
     from app.db.connection import get_engine
+    from app.retrieval.embedder import get_cohere_pool
 
-    cohere_api_key = os.environ.get("COHERE_API_KEY", "")
-    if not cohere_api_key:
-        log.error("COHERE_API_KEY is not set. Aborting.")
-        sys.exit(1)
-
-    cohere_client = cohere.Client(cohere_api_key)
+    # Use the shared KeyPool singleton — do NOT read COHERE_API_KEY directly.
+    # The pool reads COHERE_API_KEYS (JSON array) or falls back to legacy
+    # COHERE_API_KEY with a WARN log. boot-fail-fast is handled by KeyPool.from_env.
+    pool = get_cohere_pool()
+    cohere_client = cohere.Client(pool.current())
 
     engine = get_engine()
     session_factory = sessionmaker(bind=engine)

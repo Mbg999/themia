@@ -223,3 +223,49 @@
 - reviewer_pool: reviewer-code + reviewer-security + reviewer-simplifier (performance skipped for MEDIUM infra feature)
 - merge_codegen_gate: false
 
+
+## 2026-05-19T15:49:24+00:00 INCEPTION - WORKFLOW PLANNER START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned
+- [Skipped] story-writer — MEDIUM tier; backend-only infrastructure, no user-facing workflow changes
+- [PlanDepth] standard — one unit (key-pool-fallback), 9 tasks, single construction layer
+- [Decomposition] foundation (T1) → parsing (T2) → classifier (T3) → cool-down+rotation (T4) → tests (T5) → three integrations parallel (T6/T7/T8) → docs (T9)
+- [MermaidValidated] graph TD with subgraph; all node labels safe; validated against Mermaid spec
+- [PlanPreMortem] 3 plan-risk questions in plan §8; top risk: KP-T3 signal classifier string-matching fragility
+- [ApprovalGate] status=needs_human — awaiting user plan approval before /factory-build
+- using-agent-skills: PASS — scope discipline (backend-only, no endpoints, no frontend)
+- planning-and-task-breakdown: PASS — vertical slice, foundations-first, every task has ≥3 AC
+- requirements-intelligence: PASS — plan-stage pre-mortem run; 3 risk questions emitted
+
+## 2026-05-19T15:53:06+00:00 INCEPTION - WORKFLOW PLANNER COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+
+## 2026-05-19T15:53:06+00:00 CONSTRUCTION - PRE-BUILD SKILL SYNC [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Skills] Sync: 4 workspaces synced; 4 installed/updated (sqlalchemy, fastapi-templates, fastapi-python, sqlalchemy-alembic-expert-best-practices-code-review), 42 skipped
+- [Skills] Warnings: python-executor security check ⚠ (×2), angular-developer security check ⚠ — non-blocking
+- [Skills] resolved 54 skills total; curated set for key-pool-fallback: using-agent-skills, incremental-implementation, test-driven-development, source-driven-development, api-and-interface-design, environment-detection, validator-retry, debugging-and-error-recovery, codegraph-aware-exploration, python-testing-patterns, fastapi-python, security-and-hardening
+
+## 2026-05-19T15:55:31+00:00 CONSTRUCTION - CODE GENERATOR START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned — unit: key-pool-fallback
+- [Resume] Rate-limit hit after KP-T5; resumed at KP-T6
+- [Green T6] embedder.py wired: _cohere_pool singleton; rotation after _RETRY_DELAYS budget exhausted; non-rotating 4xx re-raised
+- [Green T7] llm.py wired: _groq_pool singleton; rotate-once on first rotating failure; ChatGroq rebuilt per call preserved
+- [Green T8] ingest.py wired: shared get_cohere_pool() singleton; COHERE_API_KEY direct usage removed
+- [KP-T9] .env.example updated with COHERE_API_KEYS/GROQ_API_KEYS JSON-array form + documentation blocks
+- [Regression] 75 passed, 26 failed — all 26 pre-existing ModuleNotFoundError (pgvector, pdfplumber, sshtunnel)
+- [AST drift] 4 new symbols added (get_cohere_pool, get_groq_pool, _build_llm, _invoke_and_parse) — no conflicts
+- using-agent-skills: PASS — scope discipline; no frontend/schema/endpoint changes
+- incremental-implementation: PASS — 4 sequential TDD slices, each green before next
+- test-driven-development: PASS — Red phase confirmed T6/T7/T8 before Green
+- source-driven-development: PASS — all files read before modification
+- python-testing-patterns: PASS — monkeypatch, MagicMock, caplog, concurrency barrier test
+
+## 2026-05-19T20:05:06+00:00 CONSTRUCTION - CODE GENERATOR COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]
+
+## 2026-05-19T20:05:23+00:00 CONSTRUCTION - BUILD TEST AGENT START [run: 2026-05-19t15-11-46z-api-key-fallback]
+- [Orchestrator] spawned — unit: key-pool-fallback
+- [Env] Python 3.11.9; pytest 9.0.3; cohere 6.1.0; langchain_groq — all present
+- [Build] No compile step; build_status=success
+- [Test] 50/50 PASSED in tests/retrieval/test_key_pool.py (exit 0, 0.27s)
+- [Regression] 0 new failures; 26 pre-existing ModuleNotFoundError unchanged
+- [Locks] Released: key-pool-fallback (6 globs)
+
+## 2026-05-19T20:09:43+00:00 CONSTRUCTION - BUILD TEST AGENT COMPLETE [run: 2026-05-19t15-11-46z-api-key-fallback]

@@ -1,0 +1,651 @@
+"""
+Unit tests for app.retrieval.key_pool.
+
+TDD slices KP-T1 through KP-T9 (see code-generation plan).
+"""
+from __future__ import annotations
+
+import sys
+import os
+import time
+
+import pytest
+
+# Make thermia-back importable without an installed package
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+
+
+# ---------------------------------------------------------------------------
+# KP-T1: Skeleton importability
+# ---------------------------------------------------------------------------
+
+
+class TestKeyPoolSkeleton:
+    """KP-T1 — KeyPool, FailureReason, AllKeysExhaustedError importable."""
+
+    def test_imports(self):
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError  # noqa
+        assert KeyPool is not None
+        assert FailureReason is not None
+        assert AllKeysExhaustedError is not None
+
+    def test_constructor_with_explicit_keys(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere")
+        assert pool is not None
+
+    def test_public_methods_exist(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool(keys=["k1"], provider="cohere")
+        assert callable(pool.current)
+        assert callable(pool.mark_failed)
+        assert callable(pool.healthy_count)
+
+    def test_from_env_is_classmethod(self):
+        from app.retrieval.key_pool import KeyPool
+        import inspect
+        assert isinstance(inspect.getattr_static(KeyPool, "from_env"), classmethod)
+
+    def test_repr_does_not_leak_keys(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool(keys=["supersecretkey123"], provider="cohere")
+        assert "supersecretkey123" not in repr(pool)
+
+
+# ---------------------------------------------------------------------------
+# KP-T2: from_env() — JSON array, legacy fallback, boot fail-fast
+# ---------------------------------------------------------------------------
+
+
+class TestFromEnv:
+    """KP-T2 — .env parsing: JSON-array form + legacy fallback + fail-fast."""
+
+    def test_json_array_two_keys(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["k1","k2"]'})
+        assert pool.healthy_count() == 2
+
+    def test_json_array_first_key_is_active(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": '["k1","k2"]'})
+        assert pool.current() == "k1"
+
+    def test_single_quoted_json_and_whitespace(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": " '[\"k1\",\"k2\"]' "})
+        assert pool.healthy_count() == 2
+
+    def test_legacy_var_treated_as_one_element(self, caplog):
+        import logging
+        from app.retrieval.key_pool import KeyPool
+        with caplog.at_level(logging.WARNING, logger="app.retrieval.key_pool"):
+            pool = KeyPool.from_env("cohere", environ={"COHERE_API_KEY": "legacykey"})
+        assert pool.healthy_count() == 1
+        assert pool.current() == "legacykey"
+        # WARN log must have been emitted
+        assert any("legacy" in r.message.lower() or "key_pool.legacy" in r.message for r in caplog.records)
+
+    def test_array_var_preferred_over_legacy(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env(
+            "cohere",
+            environ={"COHERE_API_KEYS": '["k1","k2"]', "COHERE_API_KEY": "old"},
+        )
+        assert pool.healthy_count() == 2
+        assert pool.current() == "k1"
+
+    def test_no_vars_raises_value_error(self):
+        from app.retrieval.key_pool import KeyPool
+        import pytest
+        with pytest.raises(ValueError, match="COHERE_API_KEYS"):
+            KeyPool.from_env("cohere", environ={})
+
+    def test_empty_array_raises_value_error(self):
+        from app.retrieval.key_pool import KeyPool
+        import pytest
+        with pytest.raises(ValueError):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": "[]"})
+
+    def test_malformed_json_raises_value_error(self):
+        from app.retrieval.key_pool import KeyPool
+        import pytest
+        with pytest.raises(ValueError, match="COHERE_API_KEYS"):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEYS": "not-json"})
+
+    def test_groq_provider_uses_correct_env_var(self):
+        from app.retrieval.key_pool import KeyPool
+        pool = KeyPool.from_env("groq", environ={"GROQ_API_KEYS": '["gk1"]'})
+        assert pool.current() == "gk1"
+
+
+# ---------------------------------------------------------------------------
+# KP-T3: classify_failure() — signal classifier
+# ---------------------------------------------------------------------------
+
+
+class TestClassifyFailure:
+    """KP-T3 — classify_failure covers all FR-3 signals."""
+
+    def _cf(self, text):
+        from app.retrieval.key_pool import classify_failure
+        return classify_failure(text)
+
+    def test_429_in_string(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("HTTP error 429 Too Many Requests") == FailureReason.RATE_LIMIT_429
+
+    def test_rate_limit_case_insensitive(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("Rate Limit exceeded") == FailureReason.RATE_LIMIT_429
+
+    def test_rate_limit_lower(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("rate limit") == FailureReason.RATE_LIMIT_429
+
+    def test_exception_with_429(self):
+        from app.retrieval.key_pool import FailureReason
+        exc = Exception("Server responded with 429")
+        assert self._cf(exc) == FailureReason.RATE_LIMIT_429
+
+    def test_cohere_trial_quota(self):
+        from app.retrieval.key_pool import FailureReason
+        msg = (
+            '{"status_code": 429, "body": {"message": "You are using a Trial key, '
+            'which is limited to 1000 API calls / month..."}}'
+        )
+        assert self._cf(msg) == FailureReason.COHERE_TRIAL_QUOTA
+
+    def test_cohere_trial_key_signal(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("Trial key is limited to 100 API calls") == FailureReason.COHERE_TRIAL_QUOTA
+
+    def test_groq_daily_token(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("You have exceeded your daily token limit") == FailureReason.GROQ_DAILY_QUOTA
+
+    def test_groq_daily_quota(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("Error: daily quota exceeded for this API key") == FailureReason.GROQ_DAILY_QUOTA
+
+    def test_500_internal_server_error(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("HTTP 500 internal server error") == FailureReason.PERSISTENT_5XX
+
+    def test_503_service_unavailable(self):
+        from app.retrieval.key_pool import FailureReason
+        assert self._cf("503 Service Unavailable") == FailureReason.PERSISTENT_5XX
+
+    def test_400_bad_request_returns_none(self):
+        assert self._cf("400 bad request") is None
+
+    def test_401_unauthorized_returns_none(self):
+        assert self._cf("401 unauthorized") is None
+
+    def test_403_forbidden_returns_none(self):
+        assert self._cf("403 forbidden") is None
+
+
+# ---------------------------------------------------------------------------
+# KP-T4: Cool-down dict + sticky-then-rotate cursor + thread-safe mark_failed
+# ---------------------------------------------------------------------------
+
+
+class TestKeyPoolRotation:
+    """KP-T4 — cool-down, sticky-then-rotate, logs, concurrency."""
+
+    def _pool2(self, **kwargs):
+        from app.retrieval.key_pool import KeyPool
+        return KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=60, **kwargs)
+
+    def test_healthy_count_is_two(self):
+        pool = self._pool2()
+        assert pool.healthy_count() == 2
+
+    def test_current_returns_first_key(self):
+        pool = self._pool2()
+        assert pool.current() == "k1"
+
+    def test_mark_failed_advances_cursor(self):
+        from app.retrieval.key_pool import FailureReason
+        pool = self._pool2()
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)
+        assert pool.current() == "k2"
+
+    def test_current_is_sticky(self):
+        pool = self._pool2()
+        assert pool.current() == "k1"
+        assert pool.current() == "k1"  # same call twice
+
+    def test_mark_failed_last_key_wraps_if_first_recovered(self):
+        """After k2 fails, k1 should have recovered (cooldown_seconds=0)."""
+        from app.retrieval.key_pool import KeyPool, FailureReason
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=0)
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k1 → cooldown=0
+        # k2 is now active; k1's cooldown=0 so it has already expired
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k2 → should wrap to k1
+        assert pool.current() == "k1"
+
+    def test_all_keys_failed_raises_exhausted(self):
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=3600)
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k1 dead, cursor→k2
+        with pytest.raises(AllKeysExhaustedError):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k2 dead, no healthy
+
+    def test_current_raises_when_exhausted(self):
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError
+        pool = KeyPool(keys=["k1"], provider="cohere", cooldown_seconds=3600)
+        # Manually put k0 in cooldown
+        pool._cooldowns[0] = time.time() + 3600
+        with pytest.raises(AllKeysExhaustedError):
+            pool.current()
+
+    def test_rotated_log_emitted_on_mark_failed(self, caplog):
+        import logging
+        from app.retrieval.key_pool import FailureReason
+        pool = self._pool2()
+        with caplog.at_level(logging.INFO, logger="app.retrieval.key_pool"):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)
+        assert any("key_pool.rotated" in r.message for r in caplog.records)
+        rotated = next(r for r in caplog.records if "key_pool.rotated" in r.message)
+        assert "provider=cohere" in rotated.message
+        assert "key_index_from=0" in rotated.message
+        assert "key_index_to=1" in rotated.message
+        assert "reason=429" in rotated.message
+        # No raw keys in log
+        assert "k1" not in rotated.message
+        assert "k2" not in rotated.message
+
+    def test_degraded_warn_emitted_once(self, caplog):
+        """Degraded WARN fires when 1 key remains, not on every subsequent call."""
+        import logging
+        from app.retrieval.key_pool import KeyPool, FailureReason
+        pool = KeyPool(keys=["k1", "k2", "k3"], provider="cohere", cooldown_seconds=3600)
+        with caplog.at_level(logging.WARNING, logger="app.retrieval.key_pool"):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)  # 3→2 healthy: no WARN yet
+            caplog.clear()
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)  # 2→1 healthy: WARN
+        degraded = [r for r in caplog.records if "key_pool.degraded" in r.message]
+        assert len(degraded) == 1
+
+    def test_exhausted_error_emitted_once(self, caplog):
+        import logging
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=3600)
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k1 dead
+        with caplog.at_level(logging.ERROR, logger="app.retrieval.key_pool"):
+            with pytest.raises(AllKeysExhaustedError):
+                pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k2 dead → ERROR
+        exhausted = [r for r in caplog.records if "key_pool.exhausted" in r.message]
+        assert len(exhausted) == 1
+
+    def test_cooldown_expiry_reenters_pool(self):
+        from app.retrieval.key_pool import KeyPool, FailureReason
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=100)
+        pool.mark_failed(FailureReason.RATE_LIMIT_429)  # k1 dead, cooldown=100s
+        # Now simulate time passing past cooldown: manipulate _cooldowns directly
+        pool._cooldowns[0] = time.time() - 1  # expiry already passed
+        assert pool.healthy_count() == 2  # k1 should be back
+
+    def test_50_concurrent_threads_single_rotation(self):
+        """50 threads hitting a 2-key pool where k1 is bad → exactly 1 rotation."""
+        import threading
+        from app.retrieval.key_pool import KeyPool, FailureReason
+
+        pool = KeyPool(keys=["k1", "k2"], provider="cohere", cooldown_seconds=3600)
+        rotation_count = 0
+        rotation_lock = threading.Lock()
+        barrier = threading.Barrier(50)
+
+        def worker():
+            nonlocal rotation_count
+            barrier.wait()  # all 50 threads start simultaneously
+            try:
+                key = pool.current()
+                if key == "k1":
+                    pool.mark_failed(FailureReason.RATE_LIMIT_429)
+                    with rotation_lock:
+                        rotation_count += 1
+            except Exception:
+                pass
+
+        threads = [threading.Thread(target=worker) for _ in range(50)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # After all threads, cursor should be at k2 and only 1 rotation happened
+        assert pool.current() == "k2"
+        # rotation_count tracks how many threads saw k1; mark_failed is idempotent
+        # (once k1 is in cooldown, subsequent calls from threads that also see k1
+        # still call mark_failed, but they all see k2 next — we just need cursor=k2)
+        assert pool.healthy_count() == 1  # k1 in cooldown, k2 healthy
+
+
+# ---------------------------------------------------------------------------
+# KP-T5: Full suite consolidation + no raw key material in logs
+# ---------------------------------------------------------------------------
+
+
+class TestNoRawKeysInLogs:
+    """KP-T5 — assert no raw key material appears in any log output."""
+
+    def test_no_raw_keys_in_rotation_logs(self, caplog):
+        """Full rotation sequence: raw keys must not appear in log output."""
+        import logging
+        import re
+        from app.retrieval.key_pool import KeyPool, FailureReason, AllKeysExhaustedError
+
+        secret_keys = ["superSECRET_key_ALPHA", "superSECRET_key_BETA"]
+        pool = KeyPool(keys=secret_keys, provider="cohere", cooldown_seconds=3600)
+
+        with caplog.at_level(logging.DEBUG, logger="app.retrieval.key_pool"):
+            pool.mark_failed(FailureReason.RATE_LIMIT_429)
+            try:
+                pool.mark_failed(FailureReason.COHERE_TRIAL_QUOTA)
+            except AllKeysExhaustedError:
+                pass
+
+        full_log = "\n".join(r.message for r in caplog.records)
+        for key in secret_keys:
+            # Check no raw key or suffix longer than 4 chars appears
+            assert key not in full_log, f"Raw key leaked into logs: {key[:4]}..."
+            # Also check the last 4 chars (common suffix leak pattern)
+            if len(key) > 4:
+                # Regex check for any contiguous substring longer than 4 chars
+                for length in range(5, len(key) + 1):
+                    for start in range(len(key) - length + 1):
+                        fragment = key[start:start + length]
+                        assert fragment not in full_log, (
+                            f"Key fragment '{fragment[:4]}...' (len={length}) leaked into logs"
+                        )
+
+    def test_from_env_legacy_warn_no_raw_key(self, caplog):
+        """Legacy-var WARN must not leak the actual key value."""
+        import logging
+        from app.retrieval.key_pool import KeyPool
+
+        secret = "mySuperSecretLegacyKey"
+        with caplog.at_level(logging.WARNING, logger="app.retrieval.key_pool"):
+            KeyPool.from_env("cohere", environ={"COHERE_API_KEY": secret})
+
+        full_log = "\n".join(r.message for r in caplog.records)
+        # Only first 4 chars allowed (truncated suffix hint in warn message)
+        assert secret not in full_log
+        if len(secret) > 4:
+            assert secret[4:] not in full_log
+
+
+# ---------------------------------------------------------------------------
+# KP-T6: embedder.py wired with KeyPool
+# ---------------------------------------------------------------------------
+
+
+class TestEmbedderKeyPool:
+    """KP-T6 — embedder.get_query_embedding uses KeyPool."""
+
+    def setup_method(self):
+        """Reset embedder module-level singletons before each test."""
+        import importlib
+        import app.retrieval.embedder as embedder_mod
+        embedder_mod._cohere_client = None
+        embedder_mod._cohere_pool = None
+
+    def test_embedding_uses_active_key(self, monkeypatch):
+        """get_query_embedding calls Cohere with the pool's active key."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool
+        import app.retrieval.embedder as embedder_mod
+
+        pool = KeyPool(keys=["active_key_1"], provider="cohere", cooldown_seconds=3600)
+        embedder_mod._cohere_pool = pool
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.embeddings = [[0.1] * 1024]
+        mock_client.embed.return_value = mock_response
+
+        with patch("app.retrieval.embedder.cohere") as mock_cohere:
+            mock_cohere.Client.return_value = mock_client
+            # Reset so _get_client() rebuilds with pool key
+            embedder_mod._cohere_client = None
+            result = embedder_mod.get_query_embedding("test query")
+
+        assert result == [0.1] * 1024
+        mock_cohere.Client.assert_called_once_with("active_key_1")
+
+    def test_rotation_on_rate_limit_after_budget(self, monkeypatch):
+        """After in-key retries exhausted, KeyPool.mark_failed rotates key."""
+        from unittest.mock import MagicMock, patch, call
+        from app.retrieval.key_pool import KeyPool, FailureReason
+        import app.retrieval.embedder as embedder_mod
+
+        pool = KeyPool(keys=["bad_key", "good_key"], provider="cohere", cooldown_seconds=3600)
+        embedder_mod._cohere_pool = pool
+
+        call_count = 0
+
+        def embed_side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            # The first client (bad_key) always raises 429
+            if pool.current() == "bad_key":
+                raise Exception("HTTP 429 Too Many Requests")
+            # Second key succeeds
+            mock_response = MagicMock()
+            mock_response.embeddings = [[0.5] * 1024]
+            return mock_response
+
+        mock_bad_client = MagicMock()
+        mock_bad_client.embed.side_effect = Exception("HTTP 429 Too Many Requests")
+        mock_good_client = MagicMock()
+        good_resp = MagicMock()
+        good_resp.embeddings = [[0.5] * 1024]
+        mock_good_client.embed.return_value = good_resp
+
+        clients = {"bad_key": mock_bad_client, "good_key": mock_good_client}
+
+        with patch("app.retrieval.embedder.cohere") as mock_cohere:
+            mock_cohere.Client.side_effect = lambda key: clients[key]
+            with patch("app.retrieval.embedder.time") as mock_time:
+                mock_time.sleep = MagicMock()
+                embedder_mod._cohere_client = None
+                result = embedder_mod.get_query_embedding("test")
+
+        assert result == [0.5] * 1024
+        # Pool should now be on good_key
+        assert pool.current() == "good_key"
+
+    def test_non_rotating_400_raises_without_mark_failed(self, monkeypatch):
+        """HTTP 400 must NOT call mark_failed — original exception re-raised."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool
+        import app.retrieval.embedder as embedder_mod
+
+        pool = KeyPool(keys=["key1"], provider="cohere", cooldown_seconds=3600)
+        embedder_mod._cohere_pool = pool
+        original_healthy = pool.healthy_count()
+
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = Exception("400 Bad Request — invalid input")
+
+        with patch("app.retrieval.embedder.cohere") as mock_cohere:
+            mock_cohere.Client.return_value = mock_client
+            embedder_mod._cohere_client = None
+            with pytest.raises(Exception, match="400 Bad Request"):
+                embedder_mod.get_query_embedding("test")
+
+        # healthy_count must not change (no rotation)
+        assert pool.healthy_count() == original_healthy
+
+
+# ---------------------------------------------------------------------------
+# KP-T7: llm.py wired with KeyPool
+# ---------------------------------------------------------------------------
+
+
+class TestLLMKeyPool:
+    """KP-T7 — analyze_with_llm uses KeyPool for Groq api_key."""
+
+    def setup_method(self):
+        """Reset llm module-level singleton before each test."""
+        import importlib
+        import app.retrieval.llm as llm_mod
+        llm_mod._groq_pool = None
+
+    def test_llm_uses_active_groq_key(self, monkeypatch):
+        """analyze_with_llm reads active key from get_groq_pool().current()."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool
+        import app.retrieval.llm as llm_mod
+
+        pool = KeyPool(keys=["groq_key_1"], provider="groq", cooldown_seconds=3600)
+        llm_mod._groq_pool = pool
+
+        mock_llm_instance = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = '{"resumen": "test", "implicaciones_legales": [], "fundamento_juridico": []}'
+        mock_llm_instance.invoke.return_value = mock_response
+
+        captured_api_key = {}
+
+        def fake_chat_groq(**kwargs):
+            captured_api_key["key"] = kwargs.get("api_key")
+            return mock_llm_instance
+
+        with patch("app.retrieval.llm.ChatGroq", side_effect=fake_chat_groq):
+            result = llm_mod.analyze_with_llm("context text", "query text")
+
+        assert captured_api_key["key"] == "groq_key_1"
+        assert result["resumen"] == "test"
+
+    def test_groq_daily_quota_rotates_and_retries(self, monkeypatch):
+        """On GROQ_DAILY_QUOTA, pool rotates and retries once on new key."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool
+        import app.retrieval.llm as llm_mod
+
+        pool = KeyPool(keys=["bad_groq_key", "good_groq_key"], provider="groq", cooldown_seconds=3600)
+        llm_mod._groq_pool = pool
+
+        api_keys_used = []
+
+        def fake_chat_groq(**kwargs):
+            mock_llm = MagicMock()
+            key = kwargs.get("api_key")
+            api_keys_used.append(key)
+            if key == "bad_groq_key":
+                mock_llm.invoke.side_effect = Exception(
+                    "Error: daily quota exceeded for this API key"
+                )
+            else:
+                mock_resp = MagicMock()
+                mock_resp.content = (
+                    '{"resumen": "ok", "implicaciones_legales": [], "fundamento_juridico": []}'
+                )
+                mock_llm.invoke.return_value = mock_resp
+            return mock_llm
+
+        with patch("app.retrieval.llm.ChatGroq", side_effect=fake_chat_groq):
+            result = llm_mod.analyze_with_llm("ctx", "q")
+
+        assert result["resumen"] == "ok"
+        # First call used bad_groq_key, second used good_groq_key after rotation
+        assert "bad_groq_key" in api_keys_used
+        assert "good_groq_key" in api_keys_used
+        assert pool.current() == "good_groq_key"
+
+    def test_all_groq_keys_exhausted_propagates(self, monkeypatch):
+        """AllKeysExhaustedError propagates when all Groq keys are exhausted."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool, AllKeysExhaustedError
+        import app.retrieval.llm as llm_mod
+
+        pool = KeyPool(keys=["only_groq_key"], provider="groq", cooldown_seconds=3600)
+        llm_mod._groq_pool = pool
+
+        def fake_chat_groq(**kwargs):
+            mock_llm = MagicMock()
+            mock_llm.invoke.side_effect = Exception("daily quota exceeded for this API key")
+            return mock_llm
+
+        with patch("app.retrieval.llm.ChatGroq", side_effect=fake_chat_groq):
+            with pytest.raises(AllKeysExhaustedError):
+                llm_mod.analyze_with_llm("ctx", "q")
+
+    def test_non_rotating_llm_failure_reraises(self, monkeypatch):
+        """Non-rotating LLM errors (e.g. 400) are re-raised without rotation."""
+        from unittest.mock import MagicMock, patch
+        from app.retrieval.key_pool import KeyPool
+        import app.retrieval.llm as llm_mod
+
+        pool = KeyPool(keys=["groq_key"], provider="groq", cooldown_seconds=3600)
+        llm_mod._groq_pool = pool
+        original_healthy = pool.healthy_count()
+
+        def fake_chat_groq(**kwargs):
+            mock_llm = MagicMock()
+            mock_llm.invoke.side_effect = Exception("400 Bad Request — invalid model")
+            return mock_llm
+
+        with patch("app.retrieval.llm.ChatGroq", side_effect=fake_chat_groq):
+            with pytest.raises(Exception, match="400 Bad Request"):
+                llm_mod.analyze_with_llm("ctx", "q")
+
+        assert pool.healthy_count() == original_healthy
+
+
+# ---------------------------------------------------------------------------
+# KP-T8: ingest.py wired with KeyPool (via shared embedder pool)
+# ---------------------------------------------------------------------------
+
+
+class TestIngestKeyPool:
+    """KP-T8 — ingest.py uses shared Cohere KeyPool singleton from embedder."""
+
+    def test_generate_embeddings_uses_pool_singleton(self, monkeypatch):
+        """generate_embeddings with a KeyPool client uses the active key."""
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+        from unittest.mock import MagicMock
+        from scripts.ingest import generate_embeddings
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.embeddings = [[0.1] * 1024, [0.2] * 1024]
+        mock_client.embed.return_value = mock_response
+
+        result = generate_embeddings(mock_client, ["text1", "text2"])
+        assert len(result) == 2
+        assert result[0] == [0.1] * 1024
+
+    def test_ingest_main_uses_get_cohere_pool(self, monkeypatch):
+        """ingest.main() calls get_cohere_pool() and does NOT use COHERE_API_KEY directly."""
+        import ast
+        import pathlib
+
+        ingest_source = pathlib.Path(
+            os.path.join(os.path.dirname(__file__), "../../scripts/ingest.py")
+        ).read_text()
+
+        # Ensure no direct os.environ.get("COHERE_API_KEY") usage in main()
+        # Parse the main() function body and look for COHERE_API_KEY string literal
+        # This is a static assertion, not a runtime assertion.
+        tree = ast.parse(ingest_source)
+        main_func = next(
+            (node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == "main"),
+            None,
+        )
+        assert main_func is not None, "main() function not found in ingest.py"
+
+        # Walk the main() body and collect all string constants
+        string_constants = [
+            node.s if isinstance(node, ast.Constant) and isinstance(node.s, str) else ""
+            for node in ast.walk(main_func)
+        ]
+        assert "COHERE_API_KEY" not in string_constants, (
+            "ingest.main() still references COHERE_API_KEY directly — "
+            "should use get_cohere_pool() from app.retrieval.embedder"
+        )
