@@ -16,6 +16,7 @@ Mi idea principal con esto es dar una aproximación lo más full stack posible, 
 - diseño de prompts
 - diseño de arquitecturas RAG
 - uso de herramientas de agentic coding para el desarrollo asistido por IA con fuerte base en AI Engineering
+- instalación y uso de ollama en VPS remoto para hosting de modelos de embeddings personalizados
 
 ## Diseño y desarrollo
 
@@ -43,7 +44,7 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
 - modelo de embeddings: bge-m3 hosteado en VPS remoto sobre Ollama
 - LLMs para análisis: llama-3.3-70b-versatile sobre Groq via API
 - datos legales: corpus de legislación española (BOE, CENDOJ, etc.) clonado desde repositorios públicos [https://github.com/legalize-dev/legalize-es](https://github.com/legalize-dev/legalize-es)
-- despliegue con Docker Compose sobre VPS
+- despliegue con Docker Compose sobre VPS Ubuntu 22
 - expuesto a internet via nginx reverse proxy (con HTTPS, certificados de letsencrypt manejados por certbot)
 - claude code + opencode + harness propio (sirve para ambos)
     * basado en el enrutado de fases de [AWS AIDLC](https://github.com/awslabs/aidlc-workflows) + SDD + hardening + backpresure, ahora mismo lo tengo en un repo privado, pero tengo pensado abrirlo cuando lo cure un poco más, si ejecutas /factory-onboarding, debe de darte un paseo por su funcionalidad (no tengo muy depurado ese comando aun, siendo sincero 😂)
@@ -58,7 +59,6 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
     * incluyo los archivos de historial de los agentes en [.aidlc-orchestrator/runs](/.aidlc-orchestrator/runs)
     * [rtk](https://www.rtk-ai.app/) para ahorro de tokens de input
 - pipeline para GitHub Actions que ejecuta tests unitarios y verifica el esquema de la base de datos con cada push [.github/workflows/ci.yml](.github/workflows/ci.yml)
-
 
 ## Prompts de features y varios sobre uso de IA para desarrollo
 
