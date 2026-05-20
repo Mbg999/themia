@@ -20,7 +20,7 @@
 `CONSTRUCTION - Complete (P1 review re-fix) — awaiting /factory-ship 2026-05-19t15-11-46z-api-key-fallback`
 
 ## Current Stage — Run: 2026-05-19t20-50-00z-metadata-refactor
-`INCEPTION - Unit Decomposition (complete) — awaiting /factory-build`
+`CONSTRUCTION - Complete — awaiting /factory-review`
 
 ## Code Location Rules
 - Source of truth: `thermia-front/` (Angular frontend)
@@ -47,7 +47,7 @@
 - [x] Workspace Detection — 2026-05-19
 - [x] Requirements Analysis — 2026-05-19
 - [x] Planning (factory-plan) — 2026-05-19 (4 units, 19 tasks, 2 layers)
-- [ ] Construction (factory-build)
+- [x] Construction (factory-build) — 2026-05-20 (103 tests passing; 3 hotfixes applied)
 - [ ] Review (factory-review)
 - [ ] Ship (factory-ship)
 

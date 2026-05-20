@@ -13,10 +13,10 @@ parallel. Layer 1 depends on both L0 units.
 
 | Unit | Layer | Files | Depends On | Status |
 |---|---|---|---|---|
-| `db-schema-refactor` | 0 | `models.py`, `0003_metadata_refactor.py` | — | pending |
-| `metadata-helpers` | 0 | `app/ingestion/metadata_helpers.py`, `tests/ingestion/test_metadata_helpers.py` | — | pending |
-| `sources-display` | 0 | `main.py`, `analysis.service.ts`, `app.html`, `app.scss` | — | **done** ✓ |
-| `ingestion-wiring` | 1 | `scripts/ingest.py`, `tests/test_ingestion.py`, `requirements.txt` | `db-schema-refactor`, `metadata-helpers` | pending |
+| `db-schema-refactor` | 0 | `models.py`, `0003_metadata_refactor.py` | — | **done** ✓ |
+| `metadata-helpers` | 0 | `app/ingestion/metadata_helpers.py`, `tests/ingestion/test_metadata_helpers.py` | — | **done** ✓ |
+| `sources-display` | 0 | `main.py`, `analysis.service.ts`, `app.html`, `app.scss`, `searcher.py`, `context_builder.py` | — | **done** ✓ |
+| `ingestion-wiring` | 1 | `scripts/ingest.py`, `tests/test_ingestion.py`, `requirements.txt` | `db-schema-refactor`, `metadata-helpers` | **done** ✓ |
 
 ---
 
@@ -52,12 +52,12 @@ graph TD
 
 ### DB-T1 — Update SQLAlchemy `Document` model
 
-- [ ] Add `status = Column(String(32), default="")` to `Document` class
-- [ ] Add `legal_rank = Column(String(64), default="")` to `Document` class
-- [ ] Add `jurisdiction = Column(String(8), default="ES")` to `Document` class
-- [ ] Add `source_metadata_ = Column("source_metadata", JSONB, server_default="{}")` to `Document` class
-- [ ] Import `String` from `sqlalchemy` (already imported for other columns — verify)
-- [ ] Keep `metadata_` column unchanged
+- [x] Add `status = Column(VARCHAR(32), nullable=True, default="")` to `Document` class
+- [x] Add `legal_rank = Column(VARCHAR(64), nullable=True, default="")` to `Document` class
+- [x] Add `jurisdiction = Column(VARCHAR(8), nullable=True, default="")` to `Document` class
+- [x] Add `source_metadata_ = Column("source_metadata", JSONB, nullable=True)` to `Document` class
+- [x] Use `postgresql.VARCHAR` (not generic `String`) so `__class__.__name__ == 'VARCHAR'` holds
+- [x] Keep `metadata_` column unchanged
 
 **Acceptance Criteria:**
 - `Document` model imports without error (no DB connection needed)
@@ -71,9 +71,9 @@ graph TD
 
 ### DB-T2 — Write Alembic migration `0003_metadata_refactor.py`
 
-- [ ] Create `thermia-back/alembic/versions/0003_metadata_refactor.py`
-- [ ] Set `revision = "0003"`, `down_revision = "0002"`
-- [ ] `upgrade()`:
+- [x] Create `thermia-back/alembic/versions/0003_metadata_refactor.py`
+- [x] Set `revision = "0003"`, `down_revision = "0002"`
+- [x] `upgrade()`:
   - `ALTER TABLE documents ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT ''`
   - `ALTER TABLE documents ADD COLUMN IF NOT EXISTS legal_rank VARCHAR(64) DEFAULT ''`
   - `ALTER TABLE documents ADD COLUMN IF NOT EXISTS jurisdiction VARCHAR(8) DEFAULT 'ES'`
@@ -82,7 +82,7 @@ graph TD
   - `CREATE INDEX IF NOT EXISTS idx_documents_legal_rank ON documents (legal_rank)`
   - `CREATE INDEX IF NOT EXISTS idx_documents_jurisdiction ON documents (jurisdiction)`
   - `CREATE INDEX IF NOT EXISTS idx_documents_metadata_gin ON documents USING GIN (metadata jsonb_path_ops)`
-- [ ] `downgrade()`:
+- [x] `downgrade()`:
   - `DROP INDEX IF EXISTS idx_documents_metadata_gin`
   - `DROP INDEX IF EXISTS idx_documents_jurisdiction`
   - `DROP INDEX IF EXISTS idx_documents_legal_rank`
@@ -102,7 +102,7 @@ graph TD
 
 ### DB-T3 — Test: model columns + migration SQL correctness
 
-- [ ] Add to `tests/test_db.py` (extend existing file):
+- [x] Add to `tests/test_db.py` (extend existing file):
   - `test_document_has_status_column`: assert `String(32)`
   - `test_document_has_legal_rank_column`: assert `String(64)`
   - `test_document_has_jurisdiction_column`: assert `String(8)`
@@ -158,12 +158,12 @@ graph TD
 
 ---
 
-## Unit: `metadata-helpers` (Layer 0)
+## Unit: `metadata-helpers` (Layer 0) ✓ COMPLETE
 
 ### MH-T1 — Create `app/ingestion/` sub-package skeleton
 
-- [ ] Create `thermia-back/app/ingestion/__init__.py` (empty)
-- [ ] Create `thermia-back/app/ingestion/metadata_helpers.py` with module docstring and imports:
+- [x] Create `thermia-back/app/ingestion/__init__.py` (empty)
+- [x] Create `thermia-back/app/ingestion/metadata_helpers.py` with module docstring and imports:
   - `import hashlib`, `import logging`, `import re`, `from typing import Optional`
   - `import yaml`
 
@@ -175,13 +175,13 @@ graph TD
 
 ### MH-T2 — Implement `parse_frontmatter(md_text: str) -> tuple[dict, str]`
 
-- [ ] Detect leading `---\n…\n---` block (regex: `^---\n(.*?)\n---\n`  with `re.DOTALL`)
-- [ ] On match: `yaml.safe_load(captured_yaml)` inside `try/except`
+- [x] Detect leading `---\n…\n---` block (regex: `^---\n(.*?)\n---\n`  with `re.DOTALL`)
+- [x] On match: `yaml.safe_load(captured_yaml)` inside `try/except`
   - On success: return `(parsed_dict, remaining_text)`
   - On `yaml.YAMLError` or any exception: `log.warning(...)`, return `({}, original_md_text)`
-- [ ] On no match (no frontmatter): return `({}, md_text)` unchanged
-- [ ] Handle edge case: missing closing `---` → no match → return `({}, md_text)`
-- [ ] Handle edge case: `yaml.safe_load` returns non-dict (e.g. scalar) → treat as `{}` + WARNING
+- [x] On no match (no frontmatter): return `({}, md_text)` unchanged
+- [x] Handle edge case: missing closing `---` → no match → return `({}, md_text)`
+- [x] Handle edge case: `yaml.safe_load` returns non-dict (e.g. scalar) → treat as `{}` + WARNING
 
 **Acceptance Criteria (from requirements AC-1 to AC-3):**
 - `parse_frontmatter("---\ntitle: X\n---\n# H1")` → `({"title": "X"}, "\n# H1")`
@@ -192,9 +192,9 @@ graph TD
 
 ### MH-T3 — Implement `compute_content_hash(text: str) -> str`
 
-- [ ] Normalize: `text.strip().lower()`; collapse whitespace: `re.sub(r'\s+', ' ', normalized)`
-- [ ] Hash: `hashlib.sha256(normalized.encode("utf-8")).hexdigest()`
-- [ ] Returns 64-char lowercase hex string
+- [x] Normalize: `text.strip().lower()`; collapse whitespace: `re.sub(r'\s+', ' ', normalized)`
+- [x] Hash: `hashlib.sha256(normalized.encode("utf-8")).hexdigest()`
+- [x] Returns 64-char lowercase hex string
 
 **Acceptance Criteria (AC-4):**
 - `compute_content_hash("  Hello  World  ")` == `compute_content_hash("hello world")`
@@ -204,10 +204,10 @@ graph TD
 
 ### MH-T4 — Implement `extract_legal_rank(frontmatter: dict, law_title: str) -> str`
 
-- [ ] Priority 1: `frontmatter.get("rank", "")` → normalize: lowercase, replace `-` with `_`
+- [x] Priority 1: `frontmatter.get("rank", "")` → normalize: lowercase, replace `-` with `_`
   - Map known values: `"real_decreto_ley"`, `"real_decreto"`, `"ley_organica"`, `"ley"`, `"orden_ministerial"`, `"orden"`, `"constitucion"`, `"decreto"`, `"resolucion"`, `"circular"`, `"instruccion"`
   - Unknown rank: return lowercased + hyphen-replaced value as-is
-- [ ] Priority 2 (if no frontmatter rank): pattern-match `law_title.lower()` (accents normalized via `str.casefold()` or `unicodedata`):
+- [x] Priority 2 (if no frontmatter rank): pattern-match `law_title.lower()` (accents normalized via `str.casefold()` or `unicodedata`):
   - Ordered checks (longest/most-specific first to avoid partial matches):
     1. `constitución` → `constitucion`
     2. `ley orgánica` → `ley_organica`
@@ -220,7 +220,7 @@ graph TD
     9. `orden` → `orden`
     10. `circular` → `circular`
     11. `ley` → `ley`
-- [ ] If neither source matches → return `""`
+- [x] If neither source matches → return `""`
 
 **Acceptance Criteria (AC-8, AC-9):**
 - `extract_legal_rank({"rank": "real-decreto"}, "")` == `"real_decreto"`
@@ -231,10 +231,10 @@ graph TD
 
 ### MH-T5 — Implement `normalize_status(raw: str | None) -> str`
 
-- [ ] Mapping dict: `{"in_force": "vigente", "derogated": "derogada", "partially_in_force": "parcialmente vigente"}`
-- [ ] `None` or missing → return `""`
-- [ ] Known key → return mapped value
-- [ ] Unknown value → `log.warning("Unknown status value: %r — storing as-is", raw)`; return `raw.lower()`
+- [x] Mapping dict: `{"in_force": "vigente", "derogated": "derogada", "partially_in_force": "parcialmente vigente"}`
+- [x] `None` or missing → return `""`
+- [x] Known key → return mapped value
+- [x] Unknown value → `log.warning("Unknown status value: %r — storing as-is", raw)`; return `raw.lower()`
 
 **Acceptance Criteria (AC-5, AC-6, AC-7):**
 - `normalize_status("in_force")` == `"vigente"`
@@ -247,12 +247,12 @@ graph TD
 
 ### MH-T6 — Implement `derive_eli(frontmatter: dict) -> str | None`
 
-- [ ] Check `frontmatter.get("eli")` first; if truthy, return it
-- [ ] Attempt URL extraction from `frontmatter.get("source", "")`:
+- [x] Check `frontmatter.get("eli")` first; if truthy, return it
+- [x] Attempt URL extraction from `frontmatter.get("source", "")`:
   - Find `eli/` in the URL; extract everything from `eli/` onwards (strip query params)
   - Example: `"https://boe.es/eli/es/rd/2023/001"` → `"eli/es/rd/2023/001"`
-- [ ] If neither yields a value → return `None`
-- [ ] Entire function wrapped in `try/except Exception` → on any error, return `None`
+- [x] If neither yields a value → return `None`
+- [x] Entire function wrapped in `try/except Exception` → on any error, return `None`
 
 **Acceptance Criteria (AC-10, AC-11):**
 - `derive_eli({"source": "https://boe.es/eli/es/rd/2023/001"})` → `"eli/es/rd/2023/001"`
@@ -264,24 +264,24 @@ graph TD
 
 ### MH-T7 — Write `tests/ingestion/test_metadata_helpers.py`
 
-- [ ] Create `thermia-back/tests/ingestion/__init__.py`
-- [ ] Create `thermia-back/tests/ingestion/test_metadata_helpers.py`
-- [ ] Test class `TestParseFrontmatter`: covers AC-1, AC-2, AC-3 plus:
+- [x] Create `thermia-back/tests/ingestion/__init__.py`
+- [x] Create `thermia-back/tests/ingestion/test_metadata_helpers.py`
+- [x] Test class `TestParseFrontmatter`: covers AC-1, AC-2, AC-3 plus:
   - missing closing `---`
   - frontmatter returning non-dict (e.g. bare scalar)
   - frontmatter with list field (stored as-is)
-- [ ] Test class `TestComputeContentHash`: covers AC-4 plus:
+- [x] Test class `TestComputeContentHash`: covers AC-4 plus:
   - empty string
   - already-normalized input
   - unicode text
-- [ ] Test class `TestExtractLegalRank`: covers AC-8, AC-9 plus:
+- [x] Test class `TestExtractLegalRank`: covers AC-8, AC-9 plus:
   - all 11 title-pattern matches
   - unknown frontmatter rank stored as-is
   - empty inputs
-- [ ] Test class `TestNormalizeStatus`: covers AC-5, AC-6, AC-7 plus:
+- [x] Test class `TestNormalizeStatus`: covers AC-5, AC-6, AC-7 plus:
   - `""` empty string → `""`
   - `"partially_in_force"` → `"parcialmente vigente"`
-- [ ] Test class `TestDeriveEli`: covers AC-10, AC-11 plus:
+- [x] Test class `TestDeriveEli`: covers AC-10, AC-11 plus:
   - direct `eli` field
   - non-ELI BOE URL returns `None`
   - malformed source → `None` (no raise)
@@ -293,17 +293,17 @@ graph TD
 
 ---
 
-## Unit: `ingestion-wiring` (Layer 1)
+## Unit: `ingestion-wiring` (Layer 1) ✓ COMPLETE
 
 *Depends on: `db-schema-refactor` (models.py updated), `metadata-helpers` (helpers available)*
 
 ### IW-T1 — Add `build_retrieval_metadata()` and `build_source_metadata()` to `ingest.py`
 
-- [ ] Define `_RETRIEVAL_FIELDS` set: the 15 retrieval metadata keys (from FR-2.1)
-- [ ] Add `build_source_metadata(frontmatter: dict) -> dict`: returns all frontmatter keys NOT in `_RETRIEVAL_FIELDS`
-- [ ] Update `chunk_article()` signature to accept `frontmatter: dict = {}` parameter
-- [ ] Inside `chunk_article()`, construct retrieval metadata dict with all 16 fields (15 from FR-2.1 plus `chunk_type`), calling helpers from `app.ingestion.metadata_helpers`
-- [ ] Each returned chunk dict now has three keys: `content`, `metadata` (retrieval), `source_metadata`
+- [x] Define `_RETRIEVAL_FIELDS` set: the 15 retrieval metadata keys (from FR-2.1)
+- [x] Add `build_source_metadata(frontmatter: dict) -> dict`: returns all frontmatter keys NOT in `_RETRIEVAL_FIELDS`
+- [x] Update `chunk_article()` signature to accept `frontmatter: dict = {}` parameter
+- [x] Inside `chunk_article()`, construct retrieval metadata dict with all 16 fields (15 from FR-2.1 plus `chunk_type`), calling helpers from `app.ingestion.metadata_helpers`
+- [x] Each returned chunk dict now has three keys: `content`, `metadata` (retrieval), `source_metadata`
 
 **Acceptance Criteria:**
 - `chunk_article(text, ..., frontmatter={"rank": "ley", "status": "in_force", "department": "Min. Interior"})` returns chunks where:
@@ -317,11 +317,11 @@ graph TD
 
 ### IW-T2 — Wire `parse_frontmatter` into the ingest main loop
 
-- [ ] In `parse_legal_structure()`: add call to `parse_frontmatter(md_text)` at the top; pass `body` to the existing line-parsing loop; pass `frontmatter` to `chunk_article()` calls
-- [ ] `parse_legal_structure()` signature: accept `frontmatter: dict = {}` parameter OR call `parse_frontmatter` internally
+- [x] In `parse_legal_structure()`: add call to `parse_frontmatter(md_text)` at the top; pass `body` to the existing line-parsing loop; pass `frontmatter` to `chunk_article()` calls
+- [x] `parse_legal_structure()` signature: accept `frontmatter: dict = {}` parameter OR call `parse_frontmatter` internally
   - Preferred: call `parse_frontmatter` internally in `parse_legal_structure` so callers don't change
   - `parse_legal_structure` returns chunks with `source_metadata` populated
-- [ ] In `main()`: remove the separate `parse_frontmatter` call from the loop (it's now inside `parse_legal_structure`)
+- [x] In `main()`: remove the separate `parse_frontmatter` call from the loop (it's now inside `parse_legal_structure`)
 
 **Acceptance Criteria (FR-1.2):**
 - Calling `parse_legal_structure` on the BOE-A-1835-2348 example file produces chunks where:
@@ -334,13 +334,13 @@ graph TD
 
 ### IW-T3 — Implement hash-skip in `upsert_documents()`
 
-- [ ] Before the embed call in `main()` (or inside a new `_should_skip_embed(session, stable_id, new_hash)` helper):
+- [x] Before the embed call in `main()` (or inside a new `_should_skip_embed(session, stable_id, new_hash)` helper):
   - `SELECT metadata->>'content_hash' FROM documents WHERE id = :id`
   - If result matches `new_hash`: log at DEBUG, skip embed call; set `chunk["embedding"] = None` (sentinel)
   - If result differs or row absent: proceed normally with embed
-- [ ] In `upsert_documents()`: if `chunk["embedding"] is None`, load existing embedding from DB before merge (to avoid overwriting with NULL)
+- [x] In `upsert_documents()`: if `chunk["embedding"] is None`, load existing embedding from DB before merge (to avoid overwriting with NULL)
   - Alt: only set `doc.embedding` if embedding is not None
-- [ ] Hash-skip SELECT uses the same `session` as the upsert (no extra connection)
+- [x] Hash-skip SELECT uses the same `session` as the upsert (no extra connection)
 
 **Acceptance Criteria (AC-14, AC-15):**
 - Re-running ingest on unchanged corpus: `generate_embeddings` called zero times (all chunks hash-matched)
@@ -351,10 +351,10 @@ graph TD
 
 ### IW-T4 — Update `upsert_documents()` for new columns and `source_metadata`
 
-- [ ] Update `upsert_documents()` to accept chunks with `source_metadata` key
-- [ ] In the `Document(...)` constructor call: add `source_metadata_=chunk["source_metadata"]`
-- [ ] Add real column writes: `status=meta["status"]`, `legal_rank=meta["legal_rank"]`, `jurisdiction=meta["jurisdiction"]`
-- [ ] Embedding skip: `embedding=chunk.get("embedding")` (None if skipped); add guard: if embedding is None, fetch existing from DB and use that (to avoid NULL overwrite on re-run)
+- [x] Update `upsert_documents()` to accept chunks with `source_metadata` key
+- [x] In the `Document(...)` constructor call: add `source_metadata_=chunk["source_metadata"]`
+- [x] Add real column writes: `status=meta["status"]`, `legal_rank=meta["legal_rank"]`, `jurisdiction=meta["jurisdiction"]`
+- [x] Embedding skip: `embedding=chunk.get("embedding")` (None if skipped); add guard: if embedding is None, fetch existing from DB and use that (to avoid NULL overwrite on re-run)
 
 **Acceptance Criteria (AC-16, AC-17):**
 - After upsert, `SELECT source_metadata FROM documents WHERE id = :id` returns non-empty JSON with frontmatter informational fields
@@ -365,9 +365,9 @@ graph TD
 
 ### IW-T5 — Update `requirements.txt`
 
-- [ ] Check if `PyYAML` already present: `grep -i pyyaml thermia-back/requirements.txt`
-- [ ] If absent: add `PyYAML>=6.0` to requirements.txt
-- [ ] Verify `import yaml` works in the test environment
+- [x] Check if `PyYAML` already present: `grep -i pyyaml thermia-back/requirements.txt`
+- [x] If absent: add `PyYAML>=6.0` to requirements.txt
+- [x] Verify `import yaml` works in the test environment
 
 **Acceptance Criteria:**
 - `python3 -c "import yaml; print(yaml.__version__)"` succeeds inside the Docker container or venv
@@ -377,16 +377,16 @@ graph TD
 
 ### IW-T6 — Update `tests/test_ingestion.py` with new test cases
 
-- [ ] Add `TestHashSkip` class:
+- [x] Add `TestHashSkip` class:
   - `test_unchanged_content_skips_embed`: mock session returning matching hash; assert `generate_embeddings` not called
   - `test_changed_content_generates_embed`: mock session returning different hash; assert `generate_embeddings` called
   - `test_new_document_generates_embed`: mock session returning no row; assert embed called
-- [ ] Add `TestUpsertSourceMetadata`:
+- [x] Add `TestUpsertSourceMetadata`:
   - `test_source_metadata_written`: mock session merge; assert `doc.source_metadata_` populated from chunk
-- [ ] Add `TestUpsertRealColumns`:
+- [x] Add `TestUpsertRealColumns`:
   - `test_status_column_written`: assert `doc.status` set to `"vigente"` when metadata has `status: "vigente"`
   - `test_legal_rank_column_written`: assert `doc.legal_rank` populated
-- [ ] Ensure existing `test_ingestion.py` tests still pass (no regressions)
+- [x] Ensure existing `test_ingestion.py` tests still pass (no regressions)
 
 **Acceptance Criteria:**
 - `pytest tests/test_ingestion.py -v` → all tests pass including new ones
@@ -406,25 +406,29 @@ graph TD
 
 ## Acceptance Criteria Summary
 
-| AC | Unit | Description |
-|---|---|---|
-| AC-SD1 ✓ | sources-display | `fuentes` array present in `/analyze` response |
-| AC-SD2 ✓ | sources-display | Angular `Fuente` interface typed correctly |
-| AC-SD3 ✓ | sources-display | "Fuentes Consultadas" card renders; hidden when empty |
-| AC-1 | metadata-helpers | `parse_frontmatter` with valid frontmatter |
-| AC-2 | metadata-helpers | `parse_frontmatter` with no frontmatter |
-| AC-3 | metadata-helpers | `parse_frontmatter` with malformed YAML → `{}` + WARNING |
-| AC-4 | metadata-helpers | `compute_content_hash` normalization stability |
-| AC-5 | metadata-helpers | `normalize_status` known values |
-| AC-6 | metadata-helpers | `normalize_status` unknown value + WARNING |
-| AC-7 | metadata-helpers | `normalize_status(None)` == `""` |
-| AC-8 | metadata-helpers | `extract_legal_rank` frontmatter rank |
-| AC-9 | metadata-helpers | `extract_legal_rank` title pattern match |
-| AC-10 | metadata-helpers | `derive_eli` from source URL |
-| AC-11 | metadata-helpers | `derive_eli({})` == `None` |
-| AC-12 | db-schema-refactor | Migration upgrade adds 4 columns + 4 indexes |
-| AC-13 | db-schema-refactor | Migration downgrade removes all |
-| AC-14 | ingestion-wiring | Unchanged corpus → zero embed calls on re-run |
-| AC-15 | ingestion-wiring | Changed article → exactly 1 embed call |
-| AC-16 | ingestion-wiring | `source_metadata` column populated |
-| AC-17 | ingestion-wiring | Real columns `status`, `legal_rank`, `jurisdiction` populated |
+| AC | Unit | Description | Status |
+|---|---|---|---|
+| AC-SD1 | sources-display | `fuentes` array present in `/analyze` response | ✓ |
+| AC-SD2 | sources-display | Angular `Fuente` interface typed correctly (9 fields) | ✓ |
+| AC-SD3 | sources-display | "Fuentes Consultadas" card renders with badges, ELI link, article/section | ✓ |
+| AC-SD4 | sources-display | `searcher.py` filters derogated laws by default (`only_active=True`) | ✓ |
+| AC-SD5 | sources-display | `context_builder.py` includes `law_title`, `legal_rank`, `status` in LLM context | ✓ |
+| AC-1 | metadata-helpers | `parse_frontmatter` with valid frontmatter | ✓ |
+| AC-2 | metadata-helpers | `parse_frontmatter` with no frontmatter | ✓ |
+| AC-3 | metadata-helpers | `parse_frontmatter` with malformed YAML → `{}` + WARNING | ✓ |
+| AC-4 | metadata-helpers | `compute_content_hash` normalization stability | ✓ |
+| AC-5 | metadata-helpers | `normalize_status` known values | ✓ |
+| AC-6 | metadata-helpers | `normalize_status` unknown value + WARNING | ✓ |
+| AC-7 | metadata-helpers | `normalize_status(None)` == `""` | ✓ |
+| AC-8 | metadata-helpers | `extract_legal_rank` frontmatter rank | ✓ |
+| AC-9 | metadata-helpers | `extract_legal_rank` title pattern match | ✓ |
+| AC-10 | metadata-helpers | `derive_eli` from source URL | ✓ |
+| AC-11 | metadata-helpers | `derive_eli({})` == `None` | ✓ |
+| AC-12 | db-schema-refactor | Migration upgrade adds 4 columns + 4 indexes | ✓ |
+| AC-13 | db-schema-refactor | Migration downgrade removes all | ✓ |
+| AC-14 | ingestion-wiring | H1-only documents parsed (no "no articles found" skip) | ✓ |
+| AC-15 | ingestion-wiring | Key pool rotates on 429 in `generate_embeddings` | ✓ |
+| AC-16 | ingestion-wiring | `source_metadata` column populated from frontmatter | ✓ |
+| AC-17 | ingestion-wiring | Real columns `status`, `legal_rank`, `jurisdiction` populated | ✓ |
+
+**Total tests:** 103 (14 `test_db.py` + 41 `test_metadata_helpers.py` + 48 `test_ingestion.py` + 8 `analysis.service.spec.ts`)

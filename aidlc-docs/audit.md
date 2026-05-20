@@ -344,3 +344,10 @@
 - [UnitDecomposer] Critical constraint documented: hash-skip embedding guard (Risk 1)
 - [UnitDecomposer] 19 total tasks: 3+7+3+6 across 4 units
 
+## 2026-05-19T21:28:42+00:00 CONSTRUCTION - UNIT GRAPH
+- [Skills] resolved 54 skills (46 project + 8 global)
+- [Skills] warnings: none
+- [UnitGraph] Wave 0 (parallel): db-schema-refactor, metadata-helpers, sources-display
+- [UnitGraph] Wave 1 (serial): ingestion-wiring
+- [UnitGraph] max_parallelism=3, wave_count=2
+
