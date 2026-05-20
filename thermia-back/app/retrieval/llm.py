@@ -153,19 +153,16 @@ def _invoke_and_parse(llm: ChatGroq, context: str, query: str) -> dict:
         ),
     ]
 
-    # Al usar with_structured_output, 'response' ya es un objeto Pydantic
-    print(messages)  # DEBUG
-    # 1. El LLM devuelve un BaseMessage estándar cuyo contenido es un String conteniendo el JSON
+
+    print(messages)  # DEBUG <- improvement: observability
+
     raw_response = llm.invoke(messages)
     json_string = raw_response.content
 
-    # 2. Parseamos y validamos el string usando las capacidades nativas de Pydantic v2
     try:
         analisis_validado = AnalisisLegal.model_validate_json(json_string)
         return analisis_validado.model_dump()
     except Exception as parse_error:
-        # Si el JSON sufriera algún desperfecto estructural, lanzamos un ValueError 
-        # para que la arquitectura superior de tu backend sepa controlarlo.
         raise ValueError(f"El LLM no devolvió un JSON conforme al esquema legal: {parse_error}") from parse_error
 
 
