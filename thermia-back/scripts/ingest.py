@@ -255,9 +255,12 @@ def parse_legal_structure(
 
     _flush_article()  # flush the last article
 
+    # If frontmatter rank was empty, try again with the H1 title parsed from body.
+    effective_rank = fm_legal_rank or extract_legal_rank(frontmatter, current_law_title)
+
     # Enrich every chunk with the frontmatter-derived fields.
     for chunk in chunks:
-        chunk["metadata"]["legal_rank"] = fm_legal_rank
+        chunk["metadata"]["legal_rank"] = effective_rank
         chunk["metadata"]["status"] = fm_status
         if fm_eli:
             chunk["metadata"]["eli"] = fm_eli
@@ -410,8 +413,8 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
             doc = Document(
                 id=stable_id,
                 content=chunk["content"],
-                embedding=chunk["embedding"],
                 metadata_=meta,
+                **({} if chunk["embedding"] is None else {"embedding": chunk["embedding"]}),
                 tsvector=func.to_tsvector("spanish", chunk["content"]),
                 status=meta.get("status", ""),
                 legal_rank=meta.get("legal_rank", ""),

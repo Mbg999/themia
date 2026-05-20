@@ -24,22 +24,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # New scalar columns for legal filtering
-    op.execute("ALTER TABLE documents ADD COLUMN status VARCHAR(32)")
-    op.execute("ALTER TABLE documents ADD COLUMN legal_rank VARCHAR(64)")
-    op.execute("ALTER TABLE documents ADD COLUMN jurisdiction VARCHAR(8)")
+    op.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS status VARCHAR(32)")
+    op.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS legal_rank VARCHAR(64)")
+    op.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS jurisdiction VARCHAR(8)")
 
     # Raw provider metadata payload (two-layer metadata: curated vs raw)
-    op.execute("ALTER TABLE documents ADD COLUMN source_metadata JSONB")
+    op.execute("ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_metadata JSONB")
 
     # B-tree indexes for equality / IN filtering on the scalar legal columns
-    op.execute("CREATE INDEX ix_documents_status ON documents (status)")
-    op.execute("CREATE INDEX ix_documents_legal_rank ON documents (legal_rank)")
-    op.execute("CREATE INDEX ix_documents_jurisdiction ON documents (jurisdiction)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_documents_status ON documents (status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_documents_legal_rank ON documents (legal_rank)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_documents_jurisdiction ON documents (jurisdiction)")
 
     # GIN index with jsonb_path_ops on the curated metadata column for
     # efficient containment (@>) queries.
     op.execute(
-        "CREATE INDEX ix_documents_metadata_gin "
+        "CREATE INDEX IF NOT EXISTS ix_documents_metadata_gin "
         "ON documents USING gin (metadata jsonb_path_ops)"
     )
 

@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _FRONTMATTER_OPEN = "---\n"
+_MAX_FRONTMATTER_BYTES = 65_536  # 64 KB — guard against YAML bomb / billion-laughs
 
 
 def parse_frontmatter(md_text: str) -> tuple[dict, str]:
@@ -69,6 +70,10 @@ def parse_frontmatter(md_text: str) -> tuple[dict, str]:
     yaml_block = rest[:closer_start]
     body = rest[closer_end:]
 
+    if len(yaml_block.encode("utf-8")) > _MAX_FRONTMATTER_BYTES:
+        logger.warning("YAML frontmatter exceeds %d bytes; skipping parse.", _MAX_FRONTMATTER_BYTES)
+        return {}, md_text
+
     try:
         parsed = yaml.safe_load(yaml_block)
     except Exception as exc:  # noqa: BLE001 — yaml may raise many subclasses
@@ -97,6 +102,10 @@ def compute_content_hash(text: str) -> str:
     The hash is stable across cosmetic edits (re-indentation, trailing
     whitespace, blank lines) so ingestion can skip re-embedding documents
     whose content hasn't meaningfully changed.
+
+    NOTE: This function is not yet called by the ingestion pipeline
+    (scripts/ingest.py). It is implemented here as the planned hash-skip
+    optimization hook; wire it into generate_embeddings when ready.
     """
     normalized = _WS_RUN.sub(" ", text.lower()).strip()
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
@@ -239,7 +248,13 @@ def derive_eli(frontmatter: dict) -> Optional[str]:
     """
     direct = frontmatter.get("eli", "")
     if isinstance(direct, str) and direct.strip():
-        return direct.strip()
+        stripped = direct.strip()
+        # Accept canonical https/http URLs and relative eli/ paths; block all
+        # other schemes (javascript:, data:, vbscript:, ...) to prevent XSS
+        # when the value is rendered as an [href] in the Angular frontend.
+        if stripped.startswith(("https://", "http://", "eli/")):
+            return stripped
+        # Unrecognised scheme — fall through to URL extraction.
 
     source = frontmatter.get("source", "")
     if isinstance(source, str) and source:

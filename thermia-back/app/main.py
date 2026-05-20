@@ -6,6 +6,7 @@ import hmac
 import io
 import logging
 import os
+from contextlib import asynccontextmanager
 
 import pdfplumber
 from fastapi import FastAPI, File, Header, HTTPException, Request, UploadFile
@@ -26,7 +27,19 @@ from app.retrieval.searcher import bm25_search, vector_search
 log = logging.getLogger(__name__)
 
 _limiter = Limiter(key_func=get_remote_address)
-app = FastAPI(title="Thermia API", version="0.1.0")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    engine = get_engine()
+    app.state.engine = engine
+    yield
+    tunnel = getattr(engine, "tunnel", None)
+    if tunnel is not None:
+        tunnel.stop()
+
+
+app = FastAPI(title="Thermia API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = _limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -136,35 +149,29 @@ async def analyze(
     if len(full_text) > _QUERY_CHAR_LIMIT:
         log.warning("PDF text truncated from %d to %d chars for embedding.", len(full_text), _QUERY_CHAR_LIMIT)
     query_text = full_text[:_QUERY_CHAR_LIMIT]
-    engine = get_engine()
-    loop = asyncio.get_event_loop()
+    engine = request.app.state.engine
 
-    try:
-        embedding = get_query_embedding(query_text)
-        vector_results, bm25_results = await asyncio.gather(
-            loop.run_in_executor(None, vector_search, engine, embedding, 10),
-            loop.run_in_executor(None, bm25_search, engine, query_text, 10),
-        )
-        top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
-        context = build_context(top_docs)
-        result = await loop.run_in_executor(None, analyze_with_llm, context, query_text)
-        result["fuentes"] = [
-            {
-                "law_id": doc.metadata_.get("law_id", ""),
-                "law_title": doc.metadata_.get("law_title", ""),
-                "article": doc.metadata_.get("article", ""),
-                "section": doc.metadata_.get("section", ""),
-                "hierarchy_path": doc.metadata_.get("hierarchy_path", ""),
-                "legal_rank": doc.legal_rank or "",
-                "status": doc.status or "",
-                "jurisdiction": doc.jurisdiction or "",
-                "eli": doc.metadata_.get("eli") or "",
-            }
-            for doc in top_docs
-        ]
-    finally:
-        tunnel = getattr(engine, "tunnel", None)
-        if tunnel is not None:
-            tunnel.stop()
+    embedding = get_query_embedding(query_text)
+    vector_results, bm25_results = await asyncio.gather(
+        asyncio.to_thread(vector_search, engine, embedding, 10),
+        asyncio.to_thread(bm25_search, engine, query_text, 10),
+    )
+    top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
+    context = build_context(top_docs)
+    result = await asyncio.to_thread(analyze_with_llm, context, query_text)
+    result["fuentes"] = [
+        {
+            "law_id": doc.metadata_.get("law_id", ""),
+            "law_title": doc.metadata_.get("law_title", ""),
+            "article": doc.metadata_.get("article", ""),
+            "section": doc.metadata_.get("section", ""),
+            "hierarchy_path": doc.metadata_.get("hierarchy_path", ""),
+            "legal_rank": doc.legal_rank or "",
+            "status": doc.status or "",
+            "jurisdiction": doc.jurisdiction or "",
+            "eli": doc.metadata_.get("eli") or "",
+        }
+        for doc in top_docs
+    ]
 
     return JSONResponse(content=result)

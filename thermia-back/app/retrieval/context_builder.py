@@ -69,7 +69,7 @@ def build_context(chunks: list) -> str:
         block = header
         if meta_parts:
             block += "\n" + " · ".join(meta_parts)
-        block += f"\n\n{doc.content}\n\n---"
+        block += f"\n\n<doc>\n{doc.content}\n</doc>\n\n---"
         parts.append(block)
 
     return "\n\n".join(parts)

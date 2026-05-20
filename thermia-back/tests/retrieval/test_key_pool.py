@@ -642,7 +642,7 @@ class TestIngestKeyPool:
 
         # Walk the main() body and collect all string constants
         string_constants = [
-            node.s if isinstance(node, ast.Constant) and isinstance(node.s, str) else ""
+            node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else ""
             for node in ast.walk(main_func)
         ]
         assert "COHERE_API_KEY" not in string_constants, (

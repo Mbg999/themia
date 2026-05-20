@@ -43,7 +43,7 @@ def vector_search(
     """
     stmt = select(Document)
     if only_active:
-        stmt = stmt.where(Document.status.in_(["vigente", ""]))
+        stmt = stmt.where(Document.status.in_(["vigente", "parcialmente vigente", ""]))
     stmt = (
         stmt
         .order_by(Document.embedding.op("<=>")(cast(embedding, Vector(1024))))
@@ -89,7 +89,7 @@ def bm25_search(
     tsquery = func.plainto_tsquery("spanish", query_text)
     stmt = select(Document).where(Document.tsvector.op("@@")(tsquery))
     if only_active:
-        stmt = stmt.where(Document.status.in_(["vigente", ""]))
+        stmt = stmt.where(Document.status.in_(["vigente", "parcialmente vigente", ""]))
     stmt = stmt.order_by(func.ts_rank(Document.tsvector, tsquery).desc()).limit(top_k)
     with Session(engine) as session:
         rows = session.execute(stmt).scalars().all()

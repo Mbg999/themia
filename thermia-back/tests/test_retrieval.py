@@ -216,20 +216,29 @@ class TestRRFFusion:
 class TestBuildContext:
     """Tests for build_context in app.retrieval.context_builder."""
 
-    def _make_doc(self, law_id, article, section, content):
+    def _make_doc(self, law_id, article, section, content, law_title="", legal_rank="", status=""):
         doc = MagicMock()
-        doc.metadata_ = {"law_id": law_id, "article": article, "section": section}
+        doc.metadata_ = {
+            "law_id": law_id,
+            "law_title": law_title,
+            "article": article,
+            "section": section,
+        }
         doc.content = content
+        doc.legal_rank = legal_rank
+        doc.status = status
         return doc
 
     def test_format_contains_law_article_section(self):
-        """build_context formats each chunk with [law | article | section]."""
+        """build_context formats each chunk with [law_id] header and article/section in meta line."""
         from app.retrieval.context_builder import build_context
 
         doc = self._make_doc("LEY-1", "Art.5", "Cap.2", "Some legal text.")
         ctx = build_context([doc])
 
-        assert "[LEY-1 | Art.5 | Cap.2]" in ctx
+        assert "[LEY-1]" in ctx
+        assert "Art. Art.5" in ctx
+        assert "Cap.2" in ctx
         assert "Some legal text." in ctx
 
     def test_format_separator(self):
