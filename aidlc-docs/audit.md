@@ -485,3 +485,12 @@
 - [Unit] ingestion-migration — 46/46 test_ingestion.py tests pass; TestIngestKeyPool 2/2; AC-1,6,10 + all 8 ACs PASS; 2 pre-existing TestLLMKeyPool failures
 - [EnvFix] pgvector missing from Python 3.11 env — installed; documented in build instructions
 - [Locks] Released: code-generator:embedder-migration, code-generator:ingestion-migration
+
+## 2026-05-20T11:55:00+00:00 CONSTRUCTION - TEST EXECUTION COMPLETE (L2) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [TE-T1] pytest tests/retrieval/ tests/test_ingestion.py — 106 passed, 2 failed (pre-existing TestLLMKeyPool)
+- [TE-T1] Full suite: 175 passed, 14 failed (12 pre-existing env failures: pdfplumber/sshtunnel missing in local test env)
+- [TE-T3] AC-3: grep cohere embedder.py=0 ✓; AC-4: grep cohere key_pool.py=0 ✓; grep cohere ingest.py=0 ✓
+- [TE-T3] ollama import in embedder.py ✓; OLLAMA_HOST env var ✓; ollama.embed in ingest.py ✓; ollama>=0.6.2 in requirements.txt ✓
+- [TE-T2] POST /analyze smoke test: deferred — Ollama service not running locally; endpoint functional pending deployment
+- [AC-8] Rollback: git revert <commit-range>; restore COHERE_API_KEYS env var; redeploy
+- [Stage] CONSTRUCTION - Complete
