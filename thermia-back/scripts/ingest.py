@@ -165,10 +165,26 @@ def parse_legal_structure(
       H2 → section / título
       H3+ → article
 
+    YAML frontmatter (--- blocks) is stripped before parsing. Extracted fields
+    (status, legal_rank, country/jurisdiction) are added to every chunk's
+    metadata; the full frontmatter dict is stored as ``source_metadata``.
+
     Year is extracted from the law title if a 4-digit year is present,
     otherwise defaults to empty string.
     """
-    lines = md_text.splitlines()
+    from app.ingestion.metadata_helpers import (
+        parse_frontmatter, extract_legal_rank, normalize_status, derive_eli,
+    )
+
+    # Strip frontmatter and extract legal metadata before parsing body text.
+    frontmatter, body_text = parse_frontmatter(md_text)
+    fm_legal_rank = extract_legal_rank(frontmatter, frontmatter.get("title", ""))
+    fm_status = normalize_status(frontmatter.get("status"))
+    fm_jurisdiction = (frontmatter.get("country") or jurisdiction).upper()
+    fm_eli = derive_eli(frontmatter)
+    fm_source_metadata: dict | None = frontmatter if frontmatter else None
+
+    lines = body_text.splitlines()
 
     current_law_title = ""
     current_law_id = ""
@@ -179,7 +195,9 @@ def parse_legal_structure(
 
     def _flush_article() -> None:
         nonlocal current_article, article_lines
-        if not current_article or not article_lines:
+        # For H1-only documents (no H3 headings) use the law title as the article name.
+        effective_article = current_article or current_law_title
+        if not effective_article or not article_lines:
             return
         text = "\n".join(article_lines).strip()
         if not text:
@@ -187,7 +205,7 @@ def parse_legal_structure(
             current_article = ""
             return
         # Build hierarchy_path
-        parts = [p for p in [current_law_id or current_law_title, current_section, current_article] if p]
+        parts = [p for p in [current_law_id or current_law_title, current_section, effective_article] if p]
         hp = " > ".join(parts)
         year = _extract_year(source_file, current_law_title)
         # Derive law_id: use filename base or law title
@@ -195,12 +213,12 @@ def parse_legal_structure(
 
         article_chunks = chunk_article(
             text,
-            article=current_article,
+            article=effective_article,
             law_title=current_law_title,
             law_id=law_id,
             section=current_section,
             source_file=source_file,
-            jurisdiction=jurisdiction,
+            jurisdiction=fm_jurisdiction,
             year=year,
             hierarchy_path=hp,
         )
@@ -230,11 +248,21 @@ def parse_legal_structure(
             current_article = h3.group(1).strip()
             continue
 
-        # Body line — belongs to current article
-        if current_article:
+        # Body line — collect under current article or law body (H1-only docs have no H3).
+        # Lines before the first H1 (e.g. raw frontmatter) are ignored via current_law_title guard.
+        if current_law_title:
             article_lines.append(line)
 
     _flush_article()  # flush the last article
+
+    # Enrich every chunk with the frontmatter-derived fields.
+    for chunk in chunks:
+        chunk["metadata"]["legal_rank"] = fm_legal_rank
+        chunk["metadata"]["status"] = fm_status
+        if fm_eli:
+            chunk["metadata"]["eli"] = fm_eli
+        chunk["source_metadata"] = fm_source_metadata
+
     return chunks
 
 
@@ -272,52 +300,77 @@ def _extract_year(source_file: str, law_title: str) -> str:
     return m.group(0) if m else ""
 
 
-def generate_embeddings(cohere_client: Any, texts: list[str]) -> list[list[float]]:
+def generate_embeddings(
+    cohere_client: Any,
+    texts: list[str],
+    *,
+    pool: Any = None,
+) -> list[list[float]]:
     """Call Cohere embed API and return a list of float vectors.
 
     Sends texts in batches of ``_EMBED_BATCH_SIZE`` to stay within the trial
     rate limit (100 calls/min, 100k tokens/min). Retries each batch up to
     ``len(_EMBED_RETRY_DELAYS)`` times on 429 errors with exponential back-off.
 
-    If the caller has wired the shared KeyPool singleton (via
-    ``app.retrieval.embedder.get_cohere_pool()``), mid-batch key rotation is
-    handled transparently by the pool.  This function stays pure (no direct
-    pool coupling) so that unit tests can inject any mock client.
+    When *pool* is supplied (a ``KeyPool`` instance), a 429 triggers immediate
+    key rotation via ``pool.mark_failed()`` and the batch is retried with the
+    new key before falling back to the sleep-retry schedule.  Raises
+    ``AllKeysExhaustedError`` if every key in the pool is in cool-down.
 
     Args:
         cohere_client: An initialised ``cohere.Client`` instance.
         texts: List of strings to embed.
+        pool: Optional ``KeyPool`` for automatic key rotation on 429.
 
     Returns:
         List of 1024-dimensional float vectors, one per input text.
     """
+    import cohere as _cohere
+    from app.retrieval.key_pool import classify_failure
+
     all_embeddings: list[list[float]] = []
     for i in range(0, len(texts), _EMBED_BATCH_SIZE):
         batch = texts[i : i + _EMBED_BATCH_SIZE]
-        last_exc: Exception | None = None
-        for attempt, delay in enumerate([0, *_EMBED_RETRY_DELAYS]):
-            if delay:
-                log.info(
-                    "Rate limited — waiting %ds before retry (attempt %d/%d)...",
-                    delay, attempt, len(_EMBED_RETRY_DELAYS),
-                )
-                time.sleep(delay)
-            try:
-                response = cohere_client.embed(
-                    texts=batch,
-                    model="embed-multilingual-v3.0",
-                    input_type="search_document",
-                )
-                all_embeddings.extend(list(response.embeddings))
-                last_exc = None
-                break
-            except Exception as exc:
-                if "429" in str(exc) or "rate limit" in str(exc).lower():
-                    last_exc = exc
-                    continue
-                raise
-        if last_exc is not None:
-            raise last_exc
+
+        # _rotated=True on first entry so the while always runs at least once;
+        # set again inside the loop when a key rotation restarts the retries.
+        _rotated = True
+        while _rotated:
+            _rotated = False
+            last_exc: Exception | None = None
+            for attempt, delay in enumerate([0, *_EMBED_RETRY_DELAYS]):
+                if delay:
+                    log.info(
+                        "Rate limited — waiting %ds before retry (attempt %d/%d)...",
+                        delay, attempt, len(_EMBED_RETRY_DELAYS),
+                    )
+                    time.sleep(delay)
+                try:
+                    response = cohere_client.embed(
+                        texts=batch,
+                        model="embed-multilingual-v3.0",
+                        input_type="search_document",
+                    )
+                    all_embeddings.extend(list(response.embeddings))
+                    last_exc = None
+                    break
+                except Exception as exc:
+                    if "429" in str(exc) or "rate limit" in str(exc).lower():
+                        last_exc = exc
+                        if pool is not None:
+                            reason = classify_failure(exc)
+                            if reason is not None:
+                                # Raises AllKeysExhaustedError if no key available
+                                pool.mark_failed(reason)
+                                cohere_client = _cohere.Client(pool.current())
+                                _rotated = True
+                                break  # restart the retry loop with the new key
+                        continue
+                    raise
+
+            if last_exc is not None and not _rotated:
+                raise last_exc
+
         # Polite pause between batches to stay well inside the rate limit
         if i + _EMBED_BATCH_SIZE < len(texts):
             time.sleep(_EMBED_INTER_BATCH_SLEEP)
@@ -328,9 +381,10 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
     """Upsert *chunks* into the ``documents`` table using session.merge().
 
     Each chunk dict must have:
-        - ``content``   : plain article text
-        - ``embedding`` : list of 1024 floats
-        - ``metadata``  : dict with at least the 9 required fields
+        - ``content``        : plain article text
+        - ``embedding``      : list of 1024 floats
+        - ``metadata``       : dict with at least the 9 required fields
+        - ``source_metadata``: optional dict of raw frontmatter fields (or None)
 
     The ORM primary key is UUID; idempotency relies on the caller ensuring
     that the same ``(source_file, article)`` pair always maps to the same UUID
@@ -359,6 +413,10 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
                 embedding=chunk["embedding"],
                 metadata_=meta,
                 tsvector=func.to_tsvector("spanish", chunk["content"]),
+                status=meta.get("status", ""),
+                legal_rank=meta.get("legal_rank", ""),
+                jurisdiction=meta.get("jurisdiction", "ES"),
+                source_metadata_=chunk.get("source_metadata"),
             )
             session.merge(doc)
         session.commit()
@@ -456,7 +514,7 @@ def main(argv: list[str] | None = None) -> None:
                 for c in chunks
             ]
 
-            embeddings = generate_embeddings(cohere.Client(pool.current()), embed_texts)
+            embeddings = generate_embeddings(cohere.Client(pool.current()), embed_texts, pool=pool)
             for i, emb in enumerate(embeddings):
                 chunks[i]["embedding"] = emb
 

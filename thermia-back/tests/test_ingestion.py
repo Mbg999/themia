@@ -7,6 +7,7 @@ Test IDs:
   ING-T4: chunk_article — token-based chunker
   ING-T4b: build_embedding_text — chunk text format
   ING-T5: Cohere client invocation contract
+  ING-T5b: key rotation via pool.mark_failed() on 429
   ING-T6: upsert_documents — idempotency via session.merge()
 """
 import os
@@ -118,6 +119,108 @@ class TestParseLegalStructure:
             hp = chunk["metadata"]["hierarchy_path"]
             assert isinstance(hp, str)
             assert len(hp) > 0
+
+    def test_h1_only_document_produces_one_chunk(self):
+        """A law with H1 + body text but no H2/H3 must not be skipped."""
+        parse_legal_structure = self._import()
+        h1_only_md = (
+            "# Real Orden de 18 de julio de 1887\n\n"
+            "Ilmo. Sr.: Dada cuenta a S. M. del expediente instruído en esa Dirección "
+            "general a virtud de las instancias elevadas.\n\n"
+            "1.ª Que hayan de sepultarse los cadáveres.\n\n"
+            "2.ª Que los gobernadores civiles reconozcan.\n"
+        )
+        chunks = parse_legal_structure(h1_only_md, source_file="es/BOE-A-1887-4896.md")
+        assert len(chunks) == 1, f"Expected 1 chunk, got {len(chunks)}"
+
+    def test_h1_only_chunk_uses_law_title_as_article(self):
+        """For H1-only documents the article name falls back to the law title."""
+        parse_legal_structure = self._import()
+        h1_only_md = "# Ley de Prueba\n\nContenido de la ley sin artículos numerados.\n"
+        chunks = parse_legal_structure(h1_only_md, source_file="prueba.md")
+        assert chunks[0]["metadata"]["article"] == "Ley de Prueba"
+
+    def test_h1_only_chunk_contains_body_text(self):
+        """Body text under the H1 appears in chunk content."""
+        parse_legal_structure = self._import()
+        h1_only_md = "# Ley de Prueba\n\nEste es el contenido relevante.\n"
+        chunks = parse_legal_structure(h1_only_md, source_file="prueba.md")
+        assert "contenido relevante" in chunks[0]["content"]
+
+    def test_lines_before_h1_are_not_included(self):
+        """Raw frontmatter lines before the H1 must not pollute chunk content."""
+        parse_legal_structure = self._import()
+        md_with_preamble = (
+            "title: Algo\nidentifier: BOE-X\n\n"
+            "# Ley de Prueba\n\n"
+            "Contenido real de la ley.\n"
+        )
+        chunks = parse_legal_structure(md_with_preamble, source_file="prueba.md")
+        assert len(chunks) == 1
+        assert "title: Algo" not in chunks[0]["content"]
+        assert "identifier" not in chunks[0]["content"]
+
+    def test_frontmatter_status_normalized_in_metadata(self):
+        """status from YAML frontmatter is normalized and added to chunk metadata."""
+        parse_legal_structure = self._import()
+        md = (
+            "---\nstatus: in_force\n---\n"
+            "# Ley de Prueba\n\n### Artículo 1\n\nContenido.\n"
+        )
+        chunks = parse_legal_structure(md, source_file="prueba.md")
+        assert chunks[0]["metadata"]["status"] == "vigente"
+
+    def test_frontmatter_legal_rank_extracted_in_metadata(self):
+        """rank from YAML frontmatter is normalized and added to chunk metadata."""
+        parse_legal_structure = self._import()
+        md = (
+            "---\nrank: decreto\n---\n"
+            "# Decreto de Prueba\n\n### Artículo 1\n\nContenido.\n"
+        )
+        chunks = parse_legal_structure(md, source_file="prueba.md")
+        assert chunks[0]["metadata"]["legal_rank"] == "decreto"
+
+    def test_frontmatter_country_sets_jurisdiction(self):
+        """country field in frontmatter overrides the default jurisdiction."""
+        parse_legal_structure = self._import()
+        md = (
+            "---\ncountry: es\n---\n"
+            "# Ley de Prueba\n\n### Artículo 1\n\nContenido.\n"
+        )
+        chunks = parse_legal_structure(md, source_file="prueba.md")
+        assert chunks[0]["metadata"]["jurisdiction"] == "ES"
+
+    def test_source_metadata_contains_full_frontmatter(self):
+        """source_metadata on each chunk is the raw frontmatter dict."""
+        parse_legal_structure = self._import()
+        md = (
+            "---\nrank: orden\ndepartment: Min Interior\nstatus: in_force\n---\n"
+            "# Real Orden\n\n### Artículo 1\n\nContenido.\n"
+        )
+        chunks = parse_legal_structure(md, source_file="prueba.md")
+        sm = chunks[0]["source_metadata"]
+        assert isinstance(sm, dict)
+        assert sm["department"] == "Min Interior"
+        assert sm["rank"] == "orden"
+
+    def test_source_metadata_none_when_no_frontmatter(self):
+        """source_metadata is None when the file has no frontmatter block."""
+        parse_legal_structure = self._import()
+        chunks = parse_legal_structure(SAMPLE_MD, source_file="lopj.md")
+        assert all(c["source_metadata"] is None for c in chunks)
+
+    def test_frontmatter_not_in_chunk_content(self):
+        """YAML frontmatter text must never appear inside chunk content."""
+        parse_legal_structure = self._import()
+        md = (
+            "---\ntitle: Decreto 1513/1959\nrank: decreto\nstatus: in_force\n---\n"
+            "# Decreto 1513/1959\n\n### Artículo 1\n\nContenido de la norma.\n"
+        )
+        chunks = parse_legal_structure(md, source_file="BOE-A-1959-11603.md")
+        for chunk in chunks:
+            assert "rank: decreto" not in chunk["content"]
+            assert "status: in_force" not in chunk["content"]
+            assert "---" not in chunk["content"]
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +386,137 @@ class TestCohereEmbedding:
 
 
 # ---------------------------------------------------------------------------
+# ING-T5b tests: key rotation on 429
+# ---------------------------------------------------------------------------
+
+class TestKeyRotation:
+    """generate_embeddings rotates API keys via pool.mark_failed() on 429.
+
+    Covers: ING-T5b
+    """
+
+    def _import(self):
+        from scripts.ingest import generate_embeddings
+        return generate_embeddings
+
+    def _ok_response(self, n=1):
+        resp = MagicMock()
+        resp.embeddings = [[0.1] * 1024] * n
+        return resp
+
+    def test_rotates_key_on_429_and_succeeds(self):
+        """First client raises 429 → pool rotates → second client returns embeddings."""
+        generate_embeddings = self._import()
+
+        exhausted_client = MagicMock()
+        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
+
+        fresh_client = MagicMock()
+        fresh_client.embed.return_value = self._ok_response(1)
+
+        pool = MagicMock()
+        pool.current.return_value = "new-key"
+
+        with patch("cohere.Client", return_value=fresh_client):
+            with patch("app.retrieval.key_pool.classify_failure", return_value=MagicMock()):
+                result = generate_embeddings(exhausted_client, ["texto"], pool=pool)
+
+        assert len(result) == 1
+        assert len(result[0]) == 1024
+        pool.mark_failed.assert_called_once()
+
+    def test_mark_failed_receives_classify_failure_reason(self):
+        """pool.mark_failed() is called with the reason returned by classify_failure."""
+        generate_embeddings = self._import()
+
+        from app.retrieval.key_pool import FailureReason
+
+        exhausted_client = MagicMock()
+        # Cohere wraps the trial-quota body inside a 429 response — both markers present.
+        exhausted_client.embed.side_effect = Exception(
+            "status_code: 429, body: {'message': 'Trial key limited to 1000 API calls / month'}"
+        )
+
+        fresh_client = MagicMock()
+        fresh_client.embed.return_value = self._ok_response(1)
+
+        pool = MagicMock()
+        pool.current.return_value = "new-key"
+
+        with patch("cohere.Client", return_value=fresh_client):
+            generate_embeddings(exhausted_client, ["texto"], pool=pool)
+
+        reason_passed = pool.mark_failed.call_args[0][0]
+        assert reason_passed == FailureReason.COHERE_TRIAL_QUOTA
+
+    def test_all_keys_exhausted_error_propagates(self):
+        """AllKeysExhaustedError from pool.mark_failed() propagates to the caller."""
+        generate_embeddings = self._import()
+
+        from app.retrieval.key_pool import AllKeysExhaustedError
+
+        exhausted_client = MagicMock()
+        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
+
+        pool = MagicMock()
+        pool.mark_failed.side_effect = AllKeysExhaustedError("all keys in cool-down")
+
+        with patch("app.retrieval.key_pool.classify_failure", return_value=MagicMock()):
+            with pytest.raises(AllKeysExhaustedError):
+                generate_embeddings(exhausted_client, ["texto"], pool=pool)
+
+    def test_non_429_exception_bypasses_rotation(self):
+        """A non-429 exception propagates immediately without touching the pool."""
+        generate_embeddings = self._import()
+
+        broken_client = MagicMock()
+        broken_client.embed.side_effect = ConnectionError("network down")
+
+        pool = MagicMock()
+
+        with pytest.raises(ConnectionError, match="network down"):
+            generate_embeddings(broken_client, ["texto"], pool=pool)
+
+        pool.mark_failed.assert_not_called()
+
+    def test_without_pool_429_raises_after_retries(self):
+        """When pool=None, 429 raises after all retries without any rotation."""
+        generate_embeddings = self._import()
+
+        exhausted_client = MagicMock()
+        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
+
+        with patch("time.sleep"):  # skip waits
+            with pytest.raises(Exception, match="429"):
+                generate_embeddings(exhausted_client, ["texto"], pool=None)
+
+        # Retried _EMBED_RETRY_DELAYS times (3 delays → 4 total attempts)
+        assert exhausted_client.embed.call_count == 4
+
+    def test_non_rotatable_429_falls_through_to_sleep_retry(self):
+        """If classify_failure returns None, pool is not rotated; sleep-retry fires."""
+        generate_embeddings = self._import()
+
+        # First call raises a 429 that classify_failure can't categorise;
+        # second call (after sleep) succeeds.
+        ok_resp = self._ok_response(1)
+        exhausted_client = MagicMock()
+        exhausted_client.embed.side_effect = [
+            Exception("429 Too Many Requests"),
+            ok_resp,
+        ]
+
+        pool = MagicMock()
+
+        with patch("time.sleep"):
+            with patch("app.retrieval.key_pool.classify_failure", return_value=None):
+                result = generate_embeddings(exhausted_client, ["texto"], pool=pool)
+
+        pool.mark_failed.assert_not_called()
+        assert len(result) == 1
+
+
+# ---------------------------------------------------------------------------
 # ING-T6 tests: upsert_documents — idempotency
 # ---------------------------------------------------------------------------
 
@@ -347,6 +581,65 @@ class TestUpsertDocuments:
         from app.db.models import Document
         merged_obj = mock_session.merge.call_args[0][0]
         assert isinstance(merged_obj, Document)
+
+    def _make_chunk_with_meta(self, **overrides):
+        chunk = self._make_chunk()
+        chunk["metadata"].update(overrides)
+        chunk.setdefault("source_metadata", None)
+        return chunk
+
+    def test_upsert_writes_status_column(self):
+        """Document.status is populated from chunk metadata."""
+        upsert_documents = self._import()
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        chunk = self._make_chunk_with_meta(status="vigente")
+        upsert_documents(MagicMock(return_value=mock_session), [chunk])
+
+        doc = mock_session.merge.call_args[0][0]
+        assert doc.status == "vigente"
+
+    def test_upsert_writes_legal_rank_column(self):
+        """Document.legal_rank is populated from chunk metadata."""
+        upsert_documents = self._import()
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        chunk = self._make_chunk_with_meta(legal_rank="decreto")
+        upsert_documents(MagicMock(return_value=mock_session), [chunk])
+
+        doc = mock_session.merge.call_args[0][0]
+        assert doc.legal_rank == "decreto"
+
+    def test_upsert_writes_source_metadata_column(self):
+        """Document.source_metadata_ is populated from chunk source_metadata."""
+        upsert_documents = self._import()
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        chunk = self._make_chunk()
+        chunk["source_metadata"] = {"department": "Min Interior", "rank": "decreto"}
+        upsert_documents(MagicMock(return_value=mock_session), [chunk])
+
+        doc = mock_session.merge.call_args[0][0]
+        assert doc.source_metadata_ == {"department": "Min Interior", "rank": "decreto"}
+
+    def test_upsert_source_metadata_none_when_absent(self):
+        """Document.source_metadata_ is None when chunk has no source_metadata."""
+        upsert_documents = self._import()
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        chunk = self._make_chunk()  # no source_metadata key
+        upsert_documents(MagicMock(return_value=mock_session), [chunk])
+
+        doc = mock_session.merge.call_args[0][0]
+        assert doc.source_metadata_ is None
 
     def test_tsvector_populated_via_sql_expression(self):
         """The tsvector column is set to a SQL expression, not a plain string."""
