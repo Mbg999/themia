@@ -82,6 +82,7 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
     * la api key que autoriza al front como cliente lleva el valor en los environment.ts, eso quiere decir que subirá al repo, y se verá en el código a distribuir, es un problea de seguridad, se podría externalizar y cargar al inicio mediante una llamada http o similar.
     * verás que hay sitios donde pone "thermia" en lugar de "themia", error por ir rápido, no lo he corregido por no cargarme la trazabilidad del historial de git
     * versiones más actuales de las dependencias de backend, y mejor gestión de dependencias (poetry, uv o similar)
+    * la gestión de los pdf no es la mejor, de hecho, es probable que de errores con los que tengan imágenes y detalles de más complejidad.
     * linters, formateadores, pre-commit hooks, etc para mejorar la calidad del código (ruff o similar para backend, prettier, eslint, husky para frontend)
     * modelos gratuitos, dan resultados pero no los mejores
     * refinar mucho más los límites de las respuestas, ahora mismo no tengo guards significativos para evitar ciertas respuesas (suicio, prompt injection, etc.) y seguramente no pase el OWASP TOP 10 para apps que integren LLMs [https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/tree/main](https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/tree/main).
@@ -90,6 +91,12 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
     * observabilidad, tanto a nivel del modelo llm, como de logs del sistema, métricas, etc, podría usarse datadog, azure insights, aws cloudwatch, langsmith o cualquiera.
     * los datos tienen mucho potencial, se podría escalar bastante más, con un chatbot, orientarlo más hacia profesionales legales como herramienta de apoyo, infraestructura más escalable en la nube, etc.
     * mejor gestión del workspace o separación de back y front en diferentes repositorios.
+    * no he cargado todas las leyes en la base de datos por tiempo de procesamiento, ya que mi capacidad de cómputo para el modelo de embeddings es bastante limitada y tardaría como 1 día completo en poder procesar todas las leyes 🥲 solo he cargado las nacionales (/es/) las autonómicas me las he saltado, dejo una [lista que indexa las cargadas en la base de datos](/leyes_cargadas_bdd.txt).
+
+
+### archivos para probar
+
+dejo en /test_files algunos PDFs de ejemplo para probar el sistema, aunque el sistema debería funcionar con cualquier PDF legal en español, teniendo en cuenta las limitaciones de imágenes, etc, también se puede usar ese enpdoint de /analyze/text para probar con texto plano sin necesidad de PDF, pensado para debugging. (requiere de autenticación con API key, se puede copiar la de (environment.prod.ts)[/thermia-front/src/environments/environment.prod.ts])
 
 ------------
 ## descripciones sobre como usar este repositorio
@@ -138,7 +145,7 @@ cp .env.example .env          # fill in values
 ```bash
 cd thermia-front
 npm install
-npm start                      # serves at http://localhost:4200
+npm start   # serves at http://localhost:4200
 ```
 
 ---
