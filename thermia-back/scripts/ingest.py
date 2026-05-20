@@ -302,11 +302,27 @@ def _extract_year(source_file: str, law_title: str) -> str:
     return m.group(0) if m else ""
 
 
+def _validate_ollama_host(host: str) -> None:
+    """Raise RuntimeError if a non-localhost host does not use https://."""
+    from urllib.parse import urlparse
+    parsed = urlparse(host)
+    hostname = parsed.hostname or ""
+    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("127.")
+    if not is_local and parsed.scheme != "https":
+        raise RuntimeError(
+            f"OLLAMA_HOST must use https:// for non-localhost targets, got: {host!r}"
+        )
+
+
 def generate_embeddings(texts: list[str]) -> list[list[float]]:
     """Call Ollama embed API and return a list of float vectors.
 
     Sends texts in batches of ``_EMBED_BATCH_SIZE``. Retries each batch up to
     ``_EMBED_RETRY_COUNT`` times on transient errors with a fixed delay.
+
+    Creates an explicit ``ollama.Client`` from ``OLLAMA_HOST`` (validated) so
+    that the call is not subject to the package-level singleton which may be
+    initialised before dotenv is loaded.
 
     Args:
         texts: List of strings to embed.
@@ -314,7 +330,11 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
     Returns:
         List of 1024-dimensional float vectors, one per input text.
     """
-    import ollama
+    import ollama as _ollama
+
+    host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    _validate_ollama_host(host)
+    client = _ollama.Client(host=host, timeout=30.0)
 
     all_embeddings: list[list[float]] = []
     for i in range(0, len(texts), _EMBED_BATCH_SIZE):
@@ -322,7 +342,7 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
         last_exc: Exception | None = None
         for attempt in range(1 + _EMBED_RETRY_COUNT):
             try:
-                response = ollama.embed(model="bge-m3", input=batch)
+                response = client.embed(model="bge-m3", input=batch)
                 all_embeddings.extend(response["embeddings"])
                 last_exc = None
                 break

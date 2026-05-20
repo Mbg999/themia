@@ -351,28 +351,30 @@ class TestCohereEmbedding:
         from scripts.ingest import generate_embeddings
         return generate_embeddings
 
-    def test_calls_ollama_embed_with_bge_m3(self):
-        """ollama.embed is called with model='bge-m3'."""
-        generate_embeddings = self._import()
+    def _make_client_mock(self, embeddings):
+        """Return a mock ollama.Client whose .embed() returns the given embeddings."""
+        mock_client = MagicMock()
+        mock_client.embed.return_value = {"embeddings": embeddings}
+        return mock_client
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.return_value = {"embeddings": [[0.1] * 1024, [0.2] * 1024]}
+    def test_calls_ollama_embed_with_bge_m3(self):
+        """client.embed is called with model='bge-m3'."""
+        generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024, [0.2] * 1024])
+
+        with patch("ollama.Client", return_value=mock_client):
             generate_embeddings(["texto uno", "texto dos"])
 
-        mock_embed.assert_called_once()
-        call_kwargs = mock_embed.call_args[1] if mock_embed.call_args[1] else {}
-        call_args = mock_embed.call_args[0] if mock_embed.call_args[0] else ()
-        # Accept either positional or keyword
-        all_kwargs = dict(zip(["model", "input"], call_args))
-        all_kwargs.update(call_kwargs)
-        assert all_kwargs.get("model") == "bge-m3"
+        mock_client.embed.assert_called_once()
+        call_kwargs = mock_client.embed.call_args.kwargs
+        assert call_kwargs.get("model") == "bge-m3"
 
     def test_returns_list_of_float_vectors(self):
         """Result has 2 vectors of 1024 dimensions each."""
         generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024, [0.2] * 1024])
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.return_value = {"embeddings": [[0.1] * 1024, [0.2] * 1024]}
+        with patch("ollama.Client", return_value=mock_client):
             result = generate_embeddings(["texto uno", "texto dos"])
 
         assert len(result) == 2
@@ -380,28 +382,29 @@ class TestCohereEmbedding:
         assert len(result[1]) == 1024
 
     def test_batches_multiple_texts_in_single_call(self):
-        """3 texts (< batch size 50) → ollama.embed called once."""
+        """3 texts (< batch size 50) → client.embed called once."""
         generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024] * 3)
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.return_value = {"embeddings": [[0.1] * 1024] * 3}
+        with patch("ollama.Client", return_value=mock_client):
             generate_embeddings(["t1", "t2", "t3"])
 
-        assert mock_embed.call_count == 1
+        assert mock_client.embed.call_count == 1
 
     def test_batch_boundary_51_texts_two_calls(self):
-        """51 texts → ollama.embed called twice (50 + 1)."""
+        """51 texts → client.embed called twice (50 + 1)."""
         generate_embeddings = self._import()
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            {"embeddings": [[0.1] * 1024] * 50},
+            {"embeddings": [[0.2] * 1024] * 1},
+        ]
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.side_effect = [
-                {"embeddings": [[0.1] * 1024] * 50},
-                {"embeddings": [[0.2] * 1024] * 1},
-            ]
+        with patch("ollama.Client", return_value=mock_client):
             with patch("time.sleep"):  # skip inter-batch pause
                 result = generate_embeddings(["text"] * 51)
 
-        assert mock_embed.call_count == 2
+        assert mock_client.embed.call_count == 2
         assert len(result) == 51
 
 
@@ -421,46 +424,51 @@ class TestKeyRotation:
         return generate_embeddings
 
     def test_retries_on_transient_error(self):
-        """ollama.embed fails twice, succeeds on 3rd attempt → returns result."""
+        """client.embed fails twice, succeeds on 3rd attempt → returns result."""
         generate_embeddings = self._import()
 
         ok_response = {"embeddings": [[0.5] * 1024]}
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            Exception("connection error"),
+            Exception("connection error"),
+            ok_response,
+        ]
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.side_effect = [
-                Exception("connection error"),
-                Exception("connection error"),
-                ok_response,
-            ]
+        with patch("ollama.Client", return_value=mock_client):
             with patch("time.sleep"):
                 result = generate_embeddings(["texto"])
 
-        assert mock_embed.call_count == 3
+        assert mock_client.embed.call_count == 3
         assert len(result) == 1
         assert result[0] == [0.5] * 1024
 
     def test_raises_after_max_retries(self):
-        """ollama.embed fails all 3 attempts (1 initial + 2 retries) → exception propagates."""
+        """client.embed fails all 3 attempts (1 initial + 2 retries) → exception propagates."""
         generate_embeddings = self._import()
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.side_effect = Exception("persistent error")
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = Exception("persistent error")
+
+        with patch("ollama.Client", return_value=mock_client):
             with patch("time.sleep"):
                 with pytest.raises(Exception, match="persistent error"):
                     generate_embeddings(["texto"])
 
         # _EMBED_RETRY_COUNT = 2 → total attempts = 1 + 2 = 3
-        assert mock_embed.call_count == 3
+        assert mock_client.embed.call_count == 3
 
     def test_interbatch_sleep_pause(self):
         """51 texts → time.sleep called between batches (inter-batch pause)."""
         generate_embeddings = self._import()
 
-        with patch("ollama.embed") as mock_embed:
-            mock_embed.side_effect = [
-                {"embeddings": [[0.1] * 1024] * 50},
-                {"embeddings": [[0.2] * 1024] * 1},
-            ]
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            {"embeddings": [[0.1] * 1024] * 50},
+            {"embeddings": [[0.2] * 1024] * 1},
+        ]
+
+        with patch("ollama.Client", return_value=mock_client):
             with patch("time.sleep") as mock_sleep:
                 generate_embeddings(["text"] * 51)
 

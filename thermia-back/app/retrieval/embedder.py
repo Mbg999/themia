@@ -3,19 +3,25 @@ Ollama embedding helper for query-time embeddings.
 
 Uses bge-m3 (1024 dimensions) via the Ollama Python client.
 The ollama.Client is a module-level singleton keyed to OLLAMA_HOST;
-it is rebuilt whenever the env var changes.
+it is rebuilt (under a lock) whenever the env var changes.
 
 Retry strategy: up to 2 retries on transient failures with a fixed 5-second
 delay between attempts.  Non-retryable failures (ollama.ResponseError with a
 4xx status code) are re-raised immediately without retrying.
 
-Thread-safety: _ollama_client is only written inside _get_ollama_client(),
-which rebuilds atomically based on the current OLLAMA_HOST value.
+Thread-safety: _get_ollama_client() uses double-checked locking (_ollama_lock)
+to prevent concurrent rebuilds under multi-threaded FastAPI workers.
+
+Security: OLLAMA_HOST must use https:// for any non-localhost target; a
+RuntimeError is raised at client-build time if the scheme is wrong.  A 30s
+read timeout prevents thread-pool exhaustion on a hung Ollama server.
 """
 from __future__ import annotations
 
 import os
+import threading
 import time
+from urllib.parse import urlparse
 
 import ollama
 
@@ -23,24 +29,40 @@ _DEFAULT_HOST = "http://localhost:11434"
 _EMBED_MODEL = "bge-m3"
 _MAX_RETRIES = 2
 _RETRY_DELAY = 5  # seconds
+_EXPECTED_DIM = 1024
+_CLIENT_TIMEOUT = 30.0  # seconds — prevents thread-pool exhaustion on hung server
 
 # Module-level singletons — reset to None in tests via direct attribute access
 _ollama_client: ollama.Client | None = None
 _ollama_client_host: str | None = None  # tracks which host the current client was built for
+_ollama_lock = threading.Lock()
+
+
+def _validate_host(host: str) -> None:
+    """Raise RuntimeError if a non-localhost host does not use https://."""
+    parsed = urlparse(host)
+    hostname = parsed.hostname or ""
+    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("127.")
+    if not is_local and parsed.scheme != "https":
+        raise RuntimeError(
+            f"OLLAMA_HOST must use https:// for non-localhost targets, got: {host!r}"
+        )
 
 
 def _get_ollama_client() -> ollama.Client:
     """Return (or rebuild) the module-level ollama.Client singleton.
 
-    Reads OLLAMA_HOST from the environment on every call and rebuilds the
-    client only when the host changes.  This ensures that tests can rotate
-    hosts between calls without requiring an explicit reset.
+    Uses double-checked locking so that concurrent FastAPI worker threads
+    never build the client more than once for a given host value.
     """
     global _ollama_client, _ollama_client_host
     host = os.environ.get("OLLAMA_HOST", _DEFAULT_HOST)
     if _ollama_client is None or host != _ollama_client_host:
-        _ollama_client = ollama.Client(host=host)
-        _ollama_client_host = host
+        with _ollama_lock:
+            if _ollama_client is None or host != _ollama_client_host:
+                _validate_host(host)
+                _ollama_client = ollama.Client(host=host, timeout=_CLIENT_TIMEOUT)
+                _ollama_client_host = host
     return _ollama_client
 
 
@@ -66,6 +88,9 @@ def get_query_embedding(text: str) -> list[float]:
 
     Raises
     ------
+    RuntimeError
+        If OLLAMA_HOST uses an insecure scheme for a non-localhost target,
+        or if the returned embedding has unexpected dimensionality.
     ollama.ResponseError
         For non-retryable 4xx errors from the Ollama server.
     Exception
@@ -79,7 +104,12 @@ def get_query_embedding(text: str) -> list[float]:
         client = _get_ollama_client()
         try:
             response = client.embed(model=_EMBED_MODEL, input=[text])
-            return response["embeddings"][0]
+            vec = response["embeddings"][0]
+            if len(vec) != _EXPECTED_DIM:
+                raise ValueError(
+                    f"Expected {_EXPECTED_DIM}-dim embedding from Ollama, got {len(vec)}"
+                )
+            return vec
         except Exception as exc:
             # Non-retryable: ollama.ResponseError with 4xx status code.
             # Use duck-typing (hasattr) so the check is robust when ollama is
@@ -87,7 +117,5 @@ def get_query_embedding(text: str) -> list[float]:
             if hasattr(exc, "status_code") and 400 <= exc.status_code < 500:
                 raise
             last_exc = exc
-            continue
 
-    # All retries exhausted
-    raise last_exc
+    raise last_exc or RuntimeError("all retries exhausted with no recorded exception")

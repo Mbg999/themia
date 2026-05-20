@@ -39,7 +39,7 @@ class TestHostConfiguration:
     """EM-T1 — OLLAMA_HOST env var controls client host."""
 
     def test_default_host(self, monkeypatch):
-        """OLLAMA_HOST absent → Client built with http://localhost:11434."""
+        """OLLAMA_HOST absent → Client built with http://localhost:11434 and timeout."""
         monkeypatch.delenv("OLLAMA_HOST", raising=False)
 
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
@@ -50,11 +50,13 @@ class TestHostConfiguration:
             import app.retrieval.embedder as mod
             mod.get_query_embedding("hello")
 
-        mock_ollama.Client.assert_called_once_with(host="http://localhost:11434")
+        mock_ollama.Client.assert_called_once_with(
+            host="http://localhost:11434", timeout=mod._CLIENT_TIMEOUT
+        )
 
     def test_custom_host(self, monkeypatch):
-        """OLLAMA_HOST set → Client built with that host."""
-        monkeypatch.setenv("OLLAMA_HOST", "http://my-ollama-server:11434")
+        """OLLAMA_HOST set to https remote → Client built with that host and timeout."""
+        monkeypatch.setenv("OLLAMA_HOST", "https://my-ollama-server:11434")
 
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
@@ -64,7 +66,35 @@ class TestHostConfiguration:
             import app.retrieval.embedder as mod
             mod.get_query_embedding("hello")
 
-        mock_ollama.Client.assert_called_once_with(host="http://my-ollama-server:11434")
+        mock_ollama.Client.assert_called_once_with(
+            host="https://my-ollama-server:11434", timeout=mod._CLIENT_TIMEOUT
+        )
+
+
+# ---------------------------------------------------------------------------
+# Security: SSRF host validation
+# ---------------------------------------------------------------------------
+
+
+class TestHostValidation:
+    """S-1 — _validate_host rejects http:// for non-localhost targets."""
+
+    def test_localhost_http_allowed(self):
+        from app.retrieval.embedder import _validate_host
+        _validate_host("http://localhost:11434")  # must not raise
+
+    def test_localhost_ip_http_allowed(self):
+        from app.retrieval.embedder import _validate_host
+        _validate_host("http://127.0.0.1:11434")  # must not raise
+
+    def test_remote_https_allowed(self):
+        from app.retrieval.embedder import _validate_host
+        _validate_host("https://ollama.example.com")  # must not raise
+
+    def test_remote_http_rejected(self, monkeypatch):
+        from app.retrieval.embedder import _validate_host
+        with pytest.raises(RuntimeError, match="https://"):
+            _validate_host("http://ollama.example.com")
 
 
 # ---------------------------------------------------------------------------
