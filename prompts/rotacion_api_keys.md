@@ -1,0 +1,2 @@
+We are using API keys from free-tier Cohere and Groq accounts. I need you to create a fallback system so that if one account starts failing due to usage limits, the application automatically switches to a different API key.
+Use a dynamic list of API keys stored in the .env file. It should support adding as many API keys as needed, with no hard limit, but there must always be at least one key available.

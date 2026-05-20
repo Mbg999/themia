@@ -2,15 +2,15 @@
 # These are local to each machine and should not be committed
 
 # Database
-*.db
-*.db-wal
-*.db-shm
+# *.db
+# *.db-wal
+# *.db-shm
 
-# Cache
-cache/
+# # Cache
+# cache/
 
-# Logs
-*.log
+# # Logs
+# *.log
 
-# Hook markers
-.dirty
+# # Hook markers
+# .dirty
