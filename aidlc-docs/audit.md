@@ -494,3 +494,23 @@
 - [TE-T2] POST /analyze smoke test: deferred — Ollama service not running locally; endpoint functional pending deployment
 - [AC-8] Rollback: git revert <commit-range>; restore COHERE_API_KEYS env var; redeploy
 - [Stage] CONSTRUCTION - Complete
+
+## 2026-05-20T12:20:00+00:00 REVIEW - PARALLEL REVIEWER POOL [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Orchestrator] spawned 3 reviewers in parallel: reviewer-code, reviewer-security, reviewer-simplifier
+- [reviewer-code] PASS_WITH_NOTES — P0=0 P1=3 P2=7 P3=3 (race condition, embedding dim validation, raise None)
+- [reviewer-security] NEEDS_WORK — P0=0 P1=3 P2=3 P3=2 (SSRF x2, timeout/DoS)
+- [reviewer-simplifier] PASS_WITH_NOTES — P0=0 P1=0 P2=9 P3=1 (stale names, over-eng host tracking)
+- [Merge] aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-review-report.md — 31 total findings
+- [Overall] NEEDS_WORK — P1 security findings (SSRF + timeout) must be fixed before ship
+
+## 2026-05-20T12:35:00+00:00 REVIEW - P1 FIXES APPLIED [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [User] Approved all P1 fixes
+- [S-1] _validate_host() added to embedder.py — rejects http:// for non-localhost targets
+- [S-2] ingest.py generate_embeddings() uses explicit ollama.Client(host=validated_host) instead of module-level ollama.embed()
+- [S-3] timeout=30.0 added to ollama.Client in both embedder.py and ingest.py
+- [C-1] raise last_exc → raise last_exc or RuntimeError("all retries exhausted")
+- [C-2] threading.Lock double-checked locking in _get_ollama_client()
+- [C-3] assert len(vec) == 1024 after every embed call
+- [Tests] test_embedder.py: 10/10 pass (4 new SSRF validation tests added); test_ingestion.py: patched ollama.Client instead of ollama.embed
+- [Suite] 110/110 migration-scope tests pass; 2 pre-existing TestLLMKeyPool failures unchanged
+- [Commit] 01972b8
