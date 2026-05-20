@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Double-checked locking singleton for thread-safe client initialisation.
 - FastAPI lifespan calls `_validate_host()` at startup — server refuses to start with an
   invalid host.
+- new `/analyze/text` endpoint: accepts raw text, returns analysis with embedded sources (no
+  ingestion required).
 
 ### Changed
 

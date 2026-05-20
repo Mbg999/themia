@@ -1,7 +1,6 @@
 """
 Thermia backend — FastAPI application entry point.
 """
-import asyncio
 import hmac
 import io
 import logging
@@ -17,13 +16,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import app.config  # noqa: F401 — side-effect: load_dotenv()
-from app.constants.constants import default_invalid_resume_msg, default_not_related_msg
 from app.db.connection import get_engine
-from app.retrieval.context_builder import build_context
-from app.retrieval.embedder import _validate_host as _validate_ollama_host, get_query_embedding
-from app.retrieval.fusion import rrf_fusion
-from app.retrieval.llm import analyze_with_llm
-from app.retrieval.searcher import bm25_search, vector_search
+from app.retrieval.analysis_pipeline import run_analysis
+from app.retrieval.embedder import _validate_host as _validate_ollama_host
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +36,7 @@ async def lifespan(app: FastAPI):
         tunnel.stop()
 
 
-app = FastAPI(title="Thermia API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Thermia API", version="0.3.0", lifespan=lifespan)
 app.state.limiter = _limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -112,7 +107,7 @@ async def analyze(
     200 : Structured analysis JSON
     401 : Missing or invalid bearer token
     413 : PDF exceeds 10 MB
-    422 : Non-PDF file or non-legal / empty document
+    422 : Non-PDF file  / empty document
     429 : Rate limit exceeded
     """
     _check_auth(authorization)
@@ -144,42 +139,50 @@ async def analyze(
             detail="El documento no contiene contenido legal reconocible.",
         )
 
-    engine = request.app.state.engine
+    result = await run_analysis(request.app.state.engine, query_text)
+    return JSONResponse(content=result)
 
-    embedding = get_query_embedding(query_text)
-    vector_results, bm25_results = await asyncio.gather(
-        asyncio.to_thread(vector_search, engine, embedding, 10),
-        asyncio.to_thread(bm25_search, engine, query_text, 10),
-    )
-    top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
-    context = build_context(top_docs)
-    result = await asyncio.to_thread(analyze_with_llm, context, query_text)
-    resume = (result.get("resumen") or "").strip().lower()
-    
-    invalid_phrases = [
-        default_invalid_resume_msg.lower(),
-        default_not_related_msg.lower(),
-    ]
 
-    should_add_fuentes = not any(
-        phrase in resume
-        for phrase in invalid_phrases
-    )
+@app.post("/analyze/text")
+@_limiter.limit(_ANALYZE_RATE_LIMIT)
+async def analyze_text(
+    request: Request,
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
+    """Analyze a Spanish legal text and return structured legal insights.
 
-    result["fuentes"] = [
-        {
-            **(doc.source_metadata_ or {}),
-            "law_id": doc.metadata_.get("law_id", ""),
-            "law_title": doc.metadata_.get("law_title", ""),
-            "article": doc.metadata_.get("article", ""),
-            "section": doc.metadata_.get("section", ""),
-            "hierarchy_path": doc.metadata_.get("hierarchy_path", ""),
-            "legal_rank": doc.legal_rank or "",
-            "status": doc.status or "",
-            "jurisdiction": doc.jurisdiction or "",
-            "eli": doc.metadata_.get("eli") or "",
-        }
-        for doc in top_docs
-    ] if should_add_fuentes else []
+    Authentication
+    --------------
+    Requires ``Authorization: Bearer <API_KEY>`` header (added by nginx in
+    Docker deployments; skipped when THERMIA_ENV=local).
 
+    Request body (application/json)
+    --------------------------------
+    text : Legal text to analyze (string)
+
+    Responses
+    ---------
+    200 : Structured analysis JSON
+    401 : Missing or invalid bearer token
+    413 : Text exceeds limit
+    422 : Empty or missing text
+    429 : Rate limit exceeded
+    """
+    _check_auth(authorization)
+
+    body = await request.json()
+    if not body or "text" not in body:
+        raise HTTPException(status_code=422, detail="El cuerpo de la solicitud debe contener un campo 'text'.")
+
+    text = body["text"]
+
+    _QUERY_CHAR_LIMIT = 2000
+    if len(text) > _QUERY_CHAR_LIMIT:
+        log.warning("Text truncated from %d to %d chars for embedding.", len(text), _QUERY_CHAR_LIMIT)
+    query_text = text.strip()[:_QUERY_CHAR_LIMIT]
+
+    if not query_text:
+        raise HTTPException(status_code=422, detail="El texto no contiene contenido legal reconocible.")
+
+    result = await run_analysis(request.app.state.engine, query_text)
     return JSONResponse(content=result)
