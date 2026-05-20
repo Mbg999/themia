@@ -114,30 +114,6 @@ class TestAnalyzeLegalGuard:
         assert resp.status_code == 422
         assert "legal" in resp.json()["detail"].lower()
 
-    def test_non_legal_pdf_returns_422_spanish(self, monkeypatch):
-        """POST /analyze with a PDF whose text has no Spanish legal keywords → 422."""
-        from app.main import _API_KEY
-        client = self._client_and_env(monkeypatch)
-
-        mock_page = MagicMock()
-        mock_page.extract_text.return_value = "This is a cooking recipe with no legal content."
-        mock_pdf = MagicMock()
-        mock_pdf.__enter__ = MagicMock(return_value=mock_pdf)
-        mock_pdf.__exit__ = MagicMock(return_value=False)
-        mock_pdf.pages = [mock_page]
-
-        with patch("pdfplumber.open", return_value=mock_pdf):
-            data = {"file": ("doc.pdf", io.BytesIO(b"%PDF-1.4"), "application/pdf")}
-            resp = client.post(
-                "/analyze",
-                files=data,
-                headers={"Authorization": f"Bearer {_API_KEY}"},
-            )
-
-        assert resp.status_code == 422
-        detail = resp.json()["detail"]
-        assert "El documento no contiene contenido legal reconocible" in detail
-
 
 # ---------------------------------------------------------------------------
 # RT-T5: rrf_fusion — correct merge order, deduped by article

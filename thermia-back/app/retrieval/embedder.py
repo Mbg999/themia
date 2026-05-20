@@ -1,20 +1,13 @@
 """
 Ollama embedding helper for query-time embeddings.
 
-Uses bge-m3 (1024 dimensions) via the Ollama Python client.
-The ollama.Client is a module-level singleton keyed to OLLAMA_HOST;
-it is rebuilt (under a lock) whenever the env var changes.
-
-Retry strategy: up to 2 retries on transient failures with a fixed 5-second
-delay between attempts.  Non-retryable failures (ollama.ResponseError with a
-4xx status code) are re-raised immediately without retrying.
-
-Thread-safety: _get_ollama_client() uses double-checked locking (_ollama_lock)
-to prevent concurrent rebuilds under multi-threaded FastAPI workers.
-
-Security: OLLAMA_HOST must use https:// for any non-localhost target; a
-RuntimeError is raised at client-build time if the scheme is wrong.  A 30s
-read timeout prevents thread-pool exhaustion on a hung Ollama server.
+Model: bge-m3 (1024 dimensions) via the Ollama Python client.
+Host: OLLAMA_HOST env var (default http://localhost:11434); non-localhost
+      hosts must use https:// — RuntimeError raised otherwise.
+Retry: up to 2 retries on transient failures, fixed 5 s delay.
+       Non-retryable 4xx errors re-raised immediately.
+Timeout: 30 s on the HTTP client to prevent thread-pool exhaustion.
+Thread-safety: double-checked locking in _get_ollama_client().
 """
 from __future__ import annotations
 
@@ -32,9 +25,8 @@ _RETRY_DELAY = 5  # seconds
 _EXPECTED_DIM = 1024
 _CLIENT_TIMEOUT = 30.0  # seconds — prevents thread-pool exhaustion on hung server
 
-# Module-level singletons — reset to None in tests via direct attribute access
+# Module-level singleton — reset to None in tests via direct attribute access
 _ollama_client: ollama.Client | None = None
-_ollama_client_host: str | None = None  # tracks which host the current client was built for
 _ollama_lock = threading.Lock()
 
 
@@ -53,16 +45,15 @@ def _get_ollama_client() -> ollama.Client:
     """Return (or rebuild) the module-level ollama.Client singleton.
 
     Uses double-checked locking so that concurrent FastAPI worker threads
-    never build the client more than once for a given host value.
+    never build the client more than once.
     """
-    global _ollama_client, _ollama_client_host
-    host = os.environ.get("OLLAMA_HOST", _DEFAULT_HOST)
-    if _ollama_client is None or host != _ollama_client_host:
+    global _ollama_client
+    if _ollama_client is None:
         with _ollama_lock:
-            if _ollama_client is None or host != _ollama_client_host:
+            if _ollama_client is None:
+                host = os.environ.get("OLLAMA_HOST", _DEFAULT_HOST)
                 _validate_host(host)
                 _ollama_client = ollama.Client(host=host, timeout=_CLIENT_TIMEOUT)
-                _ollama_client_host = host
     return _ollama_client
 
 

@@ -21,13 +21,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 @pytest.fixture(autouse=True)
 def reset_embedder_singletons():
-    """Reset _ollama_client and _ollama_client_host before every test."""
+    """Reset _ollama_client singleton before every test."""
     import app.retrieval.embedder as mod
     mod._ollama_client = None
-    mod._ollama_client_host = None
     yield
     mod._ollama_client = None
-    mod._ollama_client_host = None
 
 
 # ---------------------------------------------------------------------------
@@ -40,14 +38,13 @@ class TestHostConfiguration:
 
     def test_default_host(self, monkeypatch):
         """OLLAMA_HOST absent → Client built with http://localhost:11434 and timeout."""
+        import app.retrieval.embedder as mod
         monkeypatch.delenv("OLLAMA_HOST", raising=False)
 
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
             mock_client.embed.return_value = {"embeddings": [[0.1] * 1024]}
             mock_ollama.Client.return_value = mock_client
-
-            import app.retrieval.embedder as mod
             mod.get_query_embedding("hello")
 
         mock_ollama.Client.assert_called_once_with(
@@ -56,14 +53,13 @@ class TestHostConfiguration:
 
     def test_custom_host(self, monkeypatch):
         """OLLAMA_HOST set to https remote → Client built with that host and timeout."""
+        import app.retrieval.embedder as mod
         monkeypatch.setenv("OLLAMA_HOST", "https://my-ollama-server:11434")
 
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
             mock_client.embed.return_value = {"embeddings": [[0.1] * 1024]}
             mock_ollama.Client.return_value = mock_client
-
-            import app.retrieval.embedder as mod
             mod.get_query_embedding("hello")
 
         mock_ollama.Client.assert_called_once_with(
@@ -107,6 +103,7 @@ class TestEmbeddingSuccess:
 
     def test_embedding_success(self, monkeypatch):
         """Returns 1024-dimensional list[float] from embed response."""
+        import app.retrieval.embedder as mod
         monkeypatch.delenv("OLLAMA_HOST", raising=False)
         expected = [float(i) / 1024 for i in range(1024)]
 
@@ -114,8 +111,6 @@ class TestEmbeddingSuccess:
             mock_client = MagicMock()
             mock_client.embed.return_value = {"embeddings": [expected]}
             mock_ollama.Client.return_value = mock_client
-
-            import app.retrieval.embedder as mod
             result = mod.get_query_embedding("test query")
 
         assert result == expected
@@ -145,13 +140,13 @@ class TestRetryBehaviour:
                 raise ConnectionError("transient connection error")
             return success_response
 
+        import app.retrieval.embedder as mod
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
             mock_client.embed.side_effect = embed_side_effect
             mock_ollama.Client.return_value = mock_client
 
             with patch("app.retrieval.embedder.time") as mock_time:
-                import app.retrieval.embedder as mod
                 result = mod.get_query_embedding("hello")
 
         assert result == [0.1] * 1024
@@ -164,24 +159,20 @@ class TestRetryBehaviour:
         """ollama.ResponseError with 4xx status_code → re-raises immediately (no retry)."""
         monkeypatch.delenv("OLLAMA_HOST", raising=False)
 
+        # Non-retryable detection uses hasattr(exc, "status_code") duck-typing,
+        # not isinstance — FakeResponseError simulates that shape.
+        class FakeResponseError(Exception):
+            def __init__(self, msg, status_code):
+                super().__init__(msg)
+                self.status_code = status_code
+
+        import app.retrieval.embedder as mod
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
-            err = MagicMock()
-            err.status_code = 400
-            mock_ollama.ResponseError = Exception
-            # Use a real ResponseError-like object: we need to check isinstance
-            # so we mock ResponseError on the module and make embed raise it
-            class FakeResponseError(Exception):
-                def __init__(self, msg, status_code):
-                    super().__init__(msg)
-                    self.status_code = status_code
-
-            mock_ollama.ResponseError = FakeResponseError
             mock_client.embed.side_effect = FakeResponseError("bad request", 400)
             mock_ollama.Client.return_value = mock_client
 
             with patch("app.retrieval.embedder.time") as mock_time:
-                import app.retrieval.embedder as mod
                 with pytest.raises(FakeResponseError):
                     mod.get_query_embedding("hello")
 
@@ -192,13 +183,13 @@ class TestRetryBehaviour:
         """After 2 retries still failing → raises the exception."""
         monkeypatch.delenv("OLLAMA_HOST", raising=False)
 
+        import app.retrieval.embedder as mod
         with patch("app.retrieval.embedder.ollama") as mock_ollama:
             mock_client = MagicMock()
             mock_client.embed.side_effect = ConnectionError("persistent connection error")
             mock_ollama.Client.return_value = mock_client
 
             with patch("app.retrieval.embedder.time") as mock_time:
-                import app.retrieval.embedder as mod
                 with pytest.raises(ConnectionError):
                     mod.get_query_embedding("hello")
 

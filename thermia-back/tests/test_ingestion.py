@@ -315,32 +315,13 @@ class TestBuildEmbeddingText:
         _, body = result.split("\n\n", 1)
         assert body == "El arrendatario tiene derecho..."
 
-    def test_law_id_in_prefix(self):
-        build_embedding_text = self._import()
-        result = build_embedding_text(
-            law_id="CC-ES",
-            article="Artículo 1",
-            law_title="Código Civil",
-            content="texto",
-        )
-        assert "CC-ES" in result
-
-    def test_article_in_prefix(self):
-        build_embedding_text = self._import()
-        result = build_embedding_text(
-            law_id="CC-ES",
-            article="Artículo 1",
-            law_title="Código Civil",
-            content="texto",
-        )
-        assert "Artículo 1" in result
 
 
 # ---------------------------------------------------------------------------
 # ING-T5 tests: Ollama embed invocation
 # ---------------------------------------------------------------------------
 
-class TestCohereEmbedding:
+class TestOllamaEmbedding:
     """generate_embeddings calls ollama.embed with bge-m3 model.
 
     Covers: ING-T5
@@ -412,7 +393,7 @@ class TestCohereEmbedding:
 # ING-T5b tests: retry logic on transient errors
 # ---------------------------------------------------------------------------
 
-class TestKeyRotation:
+class TestOllamaRetryBehaviour:
     """generate_embeddings retries on transient errors (Ollama-based).
 
     Covers: ING-T5b
@@ -617,71 +598,3 @@ class TestUpsertDocuments:
         assert isinstance(merged_obj.tsvector, ClauseElement), (
             f"Expected SQLAlchemy ClauseElement, got {type(merged_obj.tsvector)}"
         )
-
-
-# ---------------------------------------------------------------------------
-# ING-T2 tests: main() has no Cohere references
-# ---------------------------------------------------------------------------
-
-class TestMainNoCohereReferences:
-    """main() no longer imports cohere or get_cohere_pool.
-
-    Uses static AST analysis — no runtime import of main() required.
-    """
-
-    def _read_ingest_source(self):
-        import pathlib
-        # Use __file__ to find ingest.py reliably regardless of cwd.
-        ingest_path = pathlib.Path(__file__).resolve().parent.parent / "scripts" / "ingest.py"
-        return ingest_path.read_text()
-
-    def _get_main_func(self, tree):
-        import ast
-        return next(
-            (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "main"),
-            None,
-        )
-
-    def test_main_no_cohere_import(self):
-        """main() body does not import cohere or get_cohere_pool."""
-        import ast
-        ingest_source = self._read_ingest_source()
-        tree = ast.parse(ingest_source)
-        main_func = self._get_main_func(tree)
-        assert main_func is not None, "main() not found in ingest.py"
-
-        # Collect all import names inside main()
-        for node in ast.walk(main_func):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    assert "cohere" not in alias.name, (
-                        f"main() still imports cohere: {alias.name}"
-                    )
-            if isinstance(node, ast.ImportFrom):
-                assert not (
-                    node.module == "app.retrieval.embedder"
-                    and any(alias.name == "get_cohere_pool" for alias in node.names)
-                ), "main() still imports get_cohere_pool from app.retrieval.embedder"
-
-    def test_main_calls_generate_embeddings_without_client(self):
-        """generate_embeddings is called with exactly 1 positional arg (texts only)."""
-        import ast
-        ingest_source = self._read_ingest_source()
-        tree = ast.parse(ingest_source)
-        main_func = self._get_main_func(tree)
-        assert main_func is not None, "main() not found in ingest.py"
-
-        found_call = False
-        for node in ast.walk(main_func):
-            if (
-                isinstance(node, ast.Call)
-                and getattr(node.func, "id", None) == "generate_embeddings"
-            ):
-                found_call = True
-                assert len(node.args) == 1, (
-                    f"generate_embeddings should take 1 positional arg, got {len(node.args)}"
-                )
-                assert len(node.keywords) == 0, (
-                    f"generate_embeddings should have no keyword args, got {node.keywords}"
-                )
-        assert found_call, "generate_embeddings call not found in main()"

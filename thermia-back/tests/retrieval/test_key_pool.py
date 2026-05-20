@@ -303,8 +303,9 @@ class TestKeyPoolRotation:
         for t in threads:
             t.join()
 
-        # After all threads, cursor should be at k2 and only 1 rotation happened
+        # After all threads, cursor should be at k2 and at least 1 rotation happened
         assert pool.current() == "k2"
+        assert rotation_count >= 1
         # rotation_count tracks how many threads saw k1; mark_failed is idempotent
         # (once k1 is in cooldown, subsequent calls from threads that also see k1
         # still call mark_failed, but they all see k2 next — we just need cursor=k2)
@@ -389,9 +390,9 @@ class TestLLMKeyPool:
         llm_mod._groq_pool = pool
 
         mock_llm_instance = MagicMock()
-        mock_llm_instance.with_structured_output.return_value = mock_llm_instance
         mock_response = MagicMock()
-        mock_response.model_dump.return_value = {"resumen": "test", "implicaciones_legales": [], "fundamento_juridico": []}
+        import json
+        mock_response.content = json.dumps({"resumen": "test", "implicaciones_legales": [], "fundamento_juridico": []})
         mock_llm_instance.invoke.return_value = mock_response
 
         captured_api_key = {}
@@ -431,7 +432,8 @@ class TestLLMKeyPool:
                 )
             else:
                 mock_resp = MagicMock()
-                mock_resp.model_dump.return_value = {"resumen": "ok", "implicaciones_legales": [], "fundamento_juridico": []}
+                import json
+                mock_resp.content = json.dumps({"resumen": "ok", "implicaciones_legales": [], "fundamento_juridico": []})
                 mock_llm.invoke.return_value = mock_resp
             return mock_llm
 

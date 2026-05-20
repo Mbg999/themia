@@ -2,8 +2,8 @@
 Provider-agnostic API key pool with sticky-then-rotate fallback strategy.
 
 Key design decisions:
-- threading.Lock (not asyncio.Lock): ingest.py is synchronous; FastAPI's
-  Groq calls run in worker threads; threading.Lock covers both.
+- threading.Lock (not asyncio.Lock): FastAPI's Groq calls run in worker
+  threads; threading.Lock covers concurrent thread access safely.
 - Module-level singleton per provider via from_env(); explicit-keys
   constructor for unit-test isolation (no os.environ monkey-patching needed).
 - Cool-down state is in-process only — a process restart resets all cool-downs.

@@ -31,6 +31,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import ollama as _ollama
 import tiktoken
 
 # ---------------------------------------------------------------------------
@@ -59,11 +60,10 @@ _SUB_CHUNK_SIZE = 512    # maximum tokens per sub-chunk
 _OVERLAP = 50            # token overlap between consecutive sub-chunks
 
 # Ollama embedding configuration
-_EMBED_BATCH_SIZE = 50              # max texts per embed() call
-_EMBED_RETRY_COUNT = 2              # number of retries after initial attempt
-_EMBED_RETRY_DELAY = 5.0            # seconds to wait between retries
-# Configurable via EMBED_INTER_BATCH_SLEEP
-_EMBED_INTER_BATCH_SLEEP = float(os.environ.get("EMBED_INTER_BATCH_SLEEP", "1.0"))
+_EMBED_BATCH_SIZE = 50    # max texts per embed() call
+_EMBED_RETRY_COUNT = 2    # retries after initial attempt
+_EMBED_RETRY_DELAY = 5.0  # seconds between retries
+_EMBED_INTER_BATCH_SLEEP = 1.0  # polite pause between batches (seconds)
 
 # Tiktoken encoding — cl100k_base is compatible with multilingual models
 _ENC = tiktoken.get_encoding("cl100k_base")
@@ -330,8 +330,6 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
     Returns:
         List of 1024-dimensional float vectors, one per input text.
     """
-    import ollama as _ollama
-
     host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
     _validate_ollama_host(host)
     client = _ollama.Client(host=host, timeout=30.0)
@@ -355,6 +353,12 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
                         _EMBED_RETRY_DELAY,
                     )
                     time.sleep(_EMBED_RETRY_DELAY)
+                else:
+                    log.error(
+                        "Embedding batch failed after %d attempts: %s",
+                        _EMBED_RETRY_COUNT + 1,
+                        type(exc).__name__,
+                    )
         if last_exc is not None:
             raise last_exc
         if i + _EMBED_BATCH_SIZE < len(texts):
@@ -499,7 +503,7 @@ def main(argv: list[str] | None = None) -> None:
             log.info("  [ok] %s — %d chunks upserted.", rel_path, len(chunks))
 
         except Exception as exc:  # noqa: BLE001
-            log.error("  [error] %s — %s", rel_path, exc)
+            log.error("  [error] %s — %s", rel_path, type(exc).__name__)
             failed_files.append(rel_path)
             continue
 

@@ -62,6 +62,7 @@ def _stubbed_heavy_imports():
             "get_remote_address": MagicMock(),
             "get_engine": MagicMock(),
             "build_context": MagicMock(),
+            "_validate_host": MagicMock(),
             "get_query_embedding": MagicMock(),
             "rrf_fusion": MagicMock(),
             "analyze_with_llm": MagicMock(),
