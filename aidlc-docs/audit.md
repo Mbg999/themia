@@ -514,3 +514,17 @@
 - [Tests] test_embedder.py: 10/10 pass (4 new SSRF validation tests added); test_ingestion.py: patched ollama.Client instead of ollama.embed
 - [Suite] 110/110 migration-scope tests pass; 2 pre-existing TestLLMKeyPool failures unchanged
 - [Commit] 01972b8
+
+## 2026-05-20T14:35:46+00:00 OPERATIONS - SHIP AGENT START [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Orchestrator] spawned ship-agent (inline)
+- [Skills] shipping-and-launch, git-workflow-and-versioning, ci-cd-and-automation, documentation-and-adrs, deprecation-and-migration, using-agent-skills
+
+## 2026-05-20T14:41:00+00:00 OPERATIONS - SHIP AGENT COMPLETE [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Version] 0.2.0 → 0.3.0 (minor) — embedding provider replaced, SSRF controls added, credential model changed
+- [RELEASE_NOTES.md] 0.3.0 entry appended — sections: Added, Changed, Fixed, Deprecated, Security
+- [CHANGELOG.md] [0.3.0] entry inserted (Keep-a-Changelog format); created from scratch
+- [ADR-0001] ollama-bge-m3-as-embedding-backend — provider-switch rationale, trade-offs, risks
+- [ADR-0002] ssrf-protection-ollama-host-validation — _validate_host() design, localhost allowlist, open gaps
+- [Migration] aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-migration-plan.md — env delta, re-ingestion procedure, rollback window, Cohere deprecation deadline 2026-08-20
+- [CI/CD] .github/workflows/ci.yml assessed — no changes required; retrieval/ and ingestion/ tests fully covered
+- [Skill] shipping-and-launch: PASS | git-workflow-and-versioning: PASS | ci-cd-and-automation: PASS | documentation-and-adrs: PASS | deprecation-and-migration: PASS

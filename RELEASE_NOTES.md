@@ -1,5 +1,69 @@
 # Release Notes
 
+## 0.3.0 (2026-05-20)
+
+### Added
+
+- **Ollama BGE-M3 embedding backend**: `thermia-back/app/retrieval/embedder.py` is now a
+  singleton that calls the self-hosted Ollama endpoint
+  (`https://ollama.cvbooster.es/api/embeddings`, model `bge-m3`). The 1024-dimension
+  interface is preserved; no callers needed changes.
+- **`_validate_host()` SSRF guard**: the Ollama host is validated at module load and at
+  FastAPI startup (lifespan hook). Non-localhost hosts must use `https://`; bare `http://`
+  to external addresses is rejected (CWE-918).
+- **30-second client timeout**: `ollama.Client` is initialised with `timeout=30.0` to
+  prevent unbounded blocking on a slow or unresponsive Ollama node (CWE-400 / DoS
+  hardening).
+- **Double-checked locking singleton**: the `EmbedderClient` class uses a module-level
+  `_lock` and a double-check pattern so concurrent startup requests cannot race to create
+  two clients.
+- **Startup validation in FastAPI lifespan**: `_validate_host()` is called inside
+  `app/main.py` lifespan so the server refuses to start with an invalid `OLLAMA_HOST`
+  value rather than failing at first embed call.
+
+### Changed
+
+- **`KeyPool` stripped of Cohere-specific logic** (`app/retrieval/key_pool.py`): all
+  Cohere API-key rotation, per-key rate-limit tracking, and fallback logic removed. The
+  class now holds general-purpose API keys without vendor assumptions.
+- **Ingestion pipeline** (`scripts/ingest.py`): `generate_embeddings()` now calls
+  `ollama.Client.embeddings()` directly. Cohere batch API calls and credential management
+  removed.
+- **Exception logging sanitised**: caught exceptions in the embedder no longer log the
+  raw Ollama URL, preventing host/path leakage in log aggregators.
+- **`OLLAMA_HOST` env var** replaces `COHERE_API_KEYS` as the primary embedding
+  configuration variable. `OLLAMA_MODEL` (default `bge-m3`) controls the model name.
+
+### Fixed
+
+- `raise last_exc` guard added to the embedder retry loop so a retry exhaustion that
+  set no exception cannot silently swallow failures.
+- Embedding dimension mismatch detection: the embedder validates the returned vector
+  length against `EMBEDDING_DIM` and raises `ValueError` immediately rather than
+  propagating a wrong-sized vector into pgvector.
+
+### Deprecated
+
+- **Cohere `embed-multilingual-v3.0` integration** is fully replaced and will not be
+  restored. `COHERE_API_KEYS` env var is no longer read by the application. Remove it
+  from all deployment environments by **2026-08-20**.
+- **Re-ingestion required**: documents already stored in pgvector were embedded with the
+  Cohere model. Those embeddings are incompatible with BGE-M3 vectors. A full
+  re-ingestion pass is required before semantic search produces correct results
+  (see migration plan at `aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-migration-plan.md`).
+
+### Security
+
+- **CWE-918 (SSRF)**: `_validate_host()` in `embedder.py` enforces `https://` for
+  non-localhost `OLLAMA_HOST` values, blocking SSRF via a crafted host pointing to
+  internal infrastructure.
+- **CWE-918 (SSRF in ingestion)**: same host-validation logic applied to `ingest.py`
+  to prevent the ingestion CLI from being used as an SSRF vector.
+- **CWE-400 (DoS via unbounded HTTP)**: 30-second timeout on the Ollama client prevents
+  slow-loris style denial-of-service against the embedding service.
+
+---
+
 ## 0.2.0 (2026-05-20)
 
 ### Added
