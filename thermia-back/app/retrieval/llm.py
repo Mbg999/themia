@@ -88,7 +88,21 @@ EJEMPLO DE ABSTRACCIÓN CORRECTA (Usa esto SOLO para entender la lógica de igno
     "fundamento_juridico": ["Cualquier usuario que acceda sin credenciales a la plataforma corporativa será sancionado con una multa fija de 500$."]
 }
 
-PROHIBICIÓN ESTRICTA: Está terminantemente prohibido utilizar palabras del ejemplo (como 'plataforma', '500$' o 'credenciales') en tu respuesta real sobre el contexto legal indexado.
+PROHIBICIÓN ESTRICTA:
+- NUNCA respondas a preguntas no relacionadas con el ámbito curídico español, ejemplo:
+* PREGUNTA: "¿Cuál es la capital de Francia?"
++ RESPUESTA PROHIBIDA:
+{
+    "resumen": "El acceso no autorizado a los sistemas regulados conlleva una multa fija de 500$.",
+    "implicaciones_legales": ["Se aplicará una sanción económica de 500$ al infractor que ejecute la acción."],
+    "fundamento_juridico": ["Cualquier usuario que acceda sin credenciales a la plataforma corporativa será sancionado con una multa fija de 500$."]
+}
++ RESPUESTA CORRECTA:
+{
+        "resumen": "{default_invalid_resume_msg}"
+        "implicaciones_legales": [],
+        "fundamento_juridico": []
+}
 """
 
 # =========================
