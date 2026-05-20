@@ -146,6 +146,13 @@ async def analyze(
     top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
     context = build_context(top_docs)
     result = await asyncio.to_thread(analyze_with_llm, context, query_text)
+    resume = result.get("resumen", "")
+
+    is_valid_response = (
+        resume != default_invalid_resume_msg
+        and "no tiene relación con el contexto legal proporcionado." not in resume
+    )
+
     result["fuentes"] = [
         {
             **(doc.source_metadata_ or {}),
@@ -160,6 +167,6 @@ async def analyze(
             "eli": doc.metadata_.get("eli") or "",
         }
         for doc in top_docs
-    ] if result.get("resumen") != default_invalid_resume_msg else []
+    ] if is_valid_response else []
 
     return JSONResponse(content=result)
