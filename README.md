@@ -37,7 +37,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # fill in values
 .venv/bin/alembic upgrade head          # run DB migrations
-uvicorn app.main:app --reload --port 8000
+.venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 ### Frontend
@@ -84,6 +84,29 @@ python scripts/ingest.py --shard 3/4
 ```
 
 > **Note:** `--reset` truncates the table and should only be run once before launching the shards.
+
+### Tracking progress with `.indexed` and `.lock`
+
+The ingestion script maintains a lightweight progress file inside the cloned corpus directory so repeated runs (or parallel shards) skip files that were already processed.
+
+- Location: the script clones the corpus into a repo directory (default: `/tmp/legalize-es`). The progress file is written to `<repo_dir>/.indexed` and contains one relative path per line for files that completed upsert.
+- Locking: the script uses a separate lock file (`<repo_dir>.lock`) and an exclusive `flock` while reading/writing `.indexed` so multiple instances can coordinate safely.
+- When written: a file is appended to `.indexed` only after a successful `upsert_documents()` call for that file. If the upsert fails the path is not marked.
+
+Commands to inspect or reset:
+
+```bash
+# show recent processed files
+tail -n 50 /tmp/legalize-es/.indexed
+
+# count processed files
+wc -l /tmp/legalize-es/.indexed
+
+# remove the progress file to force re-indexing of all files
+rm /tmp/legalize-es/.indexed
+```
+
+If you prefer not to rely on `.indexed`, run `python scripts/ingest.py --reset` to truncate the `documents` table and re-ingest everything (use with caution).
 
 ---
 

@@ -20,6 +20,24 @@ Environment variables (all read from .env when THERMIA_ENV=local):
     DB_NAME              — PostgreSQL database name (local only)
     DATABASE_URL         — full connection URL (production only)
 """
+# Progress tracking and locking
+# -----------------------------
+# This script clones the legal corpus into a local repo directory
+# (default: /tmp/legalize-es). To coordinate repeated runs and
+# parallel shard instances it maintains lightweight progress state:
+#
+# - <repo_dir>/.indexed : newline-separated list of relative file
+#   paths that completed a successful `upsert_documents()` and
+#   therefore can be skipped on subsequent runs.
+# - <repo_dir>.lock     : a lock file used only for flock-based
+#   exclusivity while reading/writing `.indexed` to avoid races
+#   when multiple processes run concurrently.
+#
+# Behaviour: entries are appended to `.indexed` only after a file's
+# upsert succeeds; failures do not mark the file. The lock file is
+# not used to store entries — it is used only to coordinate access.
+# Use `tail -n 50 /tmp/legalize-es/.indexed` or `wc -l` to inspect.
+
 from __future__ import annotations
 
 import argparse
@@ -421,26 +439,80 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 
 def _clone_or_pull(repo_dir: Path) -> None:
+    import fcntl
     from git import Repo, InvalidGitRepositoryError, NoSuchPathError
 
-    if repo_dir.exists():
-        try:
-            repo = Repo(str(repo_dir))
-            log.info("Fetching %s ...", _REPO_URL)
-            repo.remotes.origin.fetch()
-        except (InvalidGitRepositoryError, NoSuchPathError):
+    lock_path = Path(str(repo_dir) + ".lock")
+    with open(lock_path, "w") as _lock:
+        fcntl.flock(_lock, fcntl.LOCK_EX)
+
+        if repo_dir.exists():
+            try:
+                repo = Repo(str(repo_dir))
+                log.info("Fetching %s ...", _REPO_URL)
+                repo.remotes.origin.fetch()
+            except (InvalidGitRepositoryError, NoSuchPathError):
+                log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
+                repo = Repo.clone_from(_REPO_URL, str(repo_dir))
+        else:
             log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
             repo = Repo.clone_from(_REPO_URL, str(repo_dir))
-    else:
-        log.info("Cloning %s into %s ...", _REPO_URL, repo_dir)
-        repo = Repo.clone_from(_REPO_URL, str(repo_dir))
 
-    log.info("Checking out pinned commit %s ...", _REPO_COMMIT)
-    repo.git.checkout(_REPO_COMMIT)
+        log.info("Checking out pinned commit %s ...", _REPO_COMMIT)
+        repo.git.checkout(_REPO_COMMIT)
 
 
 def _scan_md_files(repo_dir: Path) -> list[Path]:
     return sorted(repo_dir.rglob("*.md"))
+
+
+def _lock_path(repo_dir: Path) -> Path:
+    """Return the path used for the repo-level lock file (repo_dir + '.lock')."""
+    return Path(str(repo_dir) + ".lock")
+
+
+def _indexed_path(repo_dir: Path) -> Path:
+    """Path to the file that records already-indexed relative paths (one per line)."""
+    return repo_dir / ".indexed"
+
+
+def _read_indexed(repo_dir: Path) -> set[str]:
+    """Read the `.indexed` file under an exclusive flock and return a set of entries."""
+    import fcntl
+
+    lock = _lock_path(repo_dir)
+    # Ensure parent exists (repo_dir should exist after clone/pull)
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    entries: set[str] = set()
+    # Use 'a+' so the file exists and we can lock it reliably
+    with open(lock, "a+") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        idx = _indexed_path(repo_dir)
+        if idx.exists():
+            with idx.open("r", encoding="utf-8") as f:
+                entries = {line.strip() for line in f if line.strip()}
+        fcntl.flock(lf, fcntl.LOCK_UN)
+    return entries
+
+
+def _append_indexed(repo_dir: Path, rel_path: str) -> None:
+    """Append `rel_path` to `.indexed` under an exclusive flock if not present."""
+    import fcntl
+
+    lock = _lock_path(repo_dir)
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    idx = _indexed_path(repo_dir)
+    with open(lock, "a+") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        # Read current entries to avoid duplicates
+        existing = set()
+        if idx.exists():
+            with idx.open("r", encoding="utf-8") as f:
+                existing = {line.strip() for line in f if line.strip()}
+        if rel_path not in existing:
+            with idx.open("a", encoding="utf-8") as f:
+                f.write(rel_path + "\n")
+        fcntl.flock(lf, fcntl.LOCK_UN)
 
 
 def _parse_shard(value: str) -> tuple[int, int]:
@@ -504,12 +576,29 @@ def main(argv: list[str] | None = None) -> None:
         shard_idx, shard_total = args.shard
         md_files = md_files[shard_idx::shard_total]
         log.info("Shard %d/%d — processing %d file(s).", shard_idx, shard_total, len(md_files))
+    # Skip files that were already indexed according to the repo's `.indexed` file.
+    indexed = _read_indexed(_REPO_DIR)
+    if indexed:
+        before = len(md_files)
+        md_files = [p for p in md_files if str(p.relative_to(_REPO_DIR)) not in indexed]
+        skipped = before - len(md_files)
+        if skipped:
+            log.info("Skipping %d already-indexed file(s).", skipped)
 
     total_inserted = 0
     failed_files: list[str] = []
 
-    for md_path in md_files:
+    total_files = len(md_files)
+    for idx, md_path in enumerate(md_files, start=1):
         rel_path = str(md_path.relative_to(_REPO_DIR))
+        remaining = total_files - idx
+        # Show only numeric progress: current index, total and remaining count.
+        log.info(
+            "Processing %d/%d - %d file(s) remaining",
+            idx,
+            total_files,
+            remaining,
+        )
         try:
             md_text = md_path.read_text(encoding="utf-8", errors="replace")
             chunks = parse_legal_structure(md_text, source_file=rel_path)
@@ -535,6 +624,11 @@ def main(argv: list[str] | None = None) -> None:
             upsert_documents(session_factory, chunks)
             total_inserted += len(chunks)
             log.info("  [ok] %s — %d chunks upserted.", rel_path, len(chunks))
+            try:
+                _append_indexed(_REPO_DIR, rel_path)
+            except Exception:
+                # Non-fatal: indexing metadata failure should not stop ingestion.
+                log.exception("Failed to mark %s as indexed.", rel_path)
 
         except Exception as exc:  # noqa: BLE001
             log.error("  [error] %s — %s", rel_path, type(exc).__name__)
