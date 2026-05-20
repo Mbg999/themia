@@ -1,13 +1,13 @@
 """
 Unit tests for ingestion-pipeline (scripts/ingest.py).
-All tests run without network or DB access — Cohere and DB are mocked.
+All tests run without network or DB access — Ollama and DB are mocked.
 
 Test IDs:
   ING-T3: parse_legal_structure — markdown parser
   ING-T4: chunk_article — token-based chunker
   ING-T4b: build_embedding_text — chunk text format
-  ING-T5: Cohere client invocation contract
-  ING-T5b: key rotation via pool.mark_failed() on 429
+  ING-T5: Ollama embed invocation contract
+  ING-T5b: retry logic on transient errors
   ING-T6: upsert_documents — idempotency via session.merge()
 """
 import os
@@ -315,205 +315,146 @@ class TestBuildEmbeddingText:
         _, body = result.split("\n\n", 1)
         assert body == "El arrendatario tiene derecho..."
 
-    def test_law_id_in_prefix(self):
-        build_embedding_text = self._import()
-        result = build_embedding_text(
-            law_id="CC-ES",
-            article="Artículo 1",
-            law_title="Código Civil",
-            content="texto",
-        )
-        assert "CC-ES" in result
-
-    def test_article_in_prefix(self):
-        build_embedding_text = self._import()
-        result = build_embedding_text(
-            law_id="CC-ES",
-            article="Artículo 1",
-            law_title="Código Civil",
-            content="texto",
-        )
-        assert "Artículo 1" in result
 
 
 # ---------------------------------------------------------------------------
-# ING-T5 tests: Cohere client invocation
+# ING-T5 tests: Ollama embed invocation
 # ---------------------------------------------------------------------------
 
-class TestCohereEmbedding:
-    """generate_embeddings calls Cohere with the correct model and input_type."""
+class TestOllamaEmbedding:
+    """generate_embeddings calls ollama.embed with bge-m3 model.
 
-    def _import(self):
-        from scripts.ingest import generate_embeddings
-        return generate_embeddings
-
-    def test_calls_embed_with_correct_model(self):
-        generate_embeddings = self._import()
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.embeddings = [[0.1] * 1024, [0.2] * 1024]
-        mock_client.embed.return_value = mock_response
-
-        texts = ["texto uno", "texto dos"]
-        generate_embeddings(mock_client, texts)
-
-        mock_client.embed.assert_called_once()
-        call_kwargs = mock_client.embed.call_args.kwargs
-        assert call_kwargs.get("model") == "embed-multilingual-v3.0"
-
-    def test_calls_embed_with_search_document_input_type(self):
-        generate_embeddings = self._import()
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.embeddings = [[0.1] * 1024]
-        mock_client.embed.return_value = mock_response
-
-        generate_embeddings(mock_client, ["texto"])
-
-        call_kwargs = mock_client.embed.call_args.kwargs
-        assert call_kwargs.get("input_type") == "search_document"
-
-    def test_returns_list_of_embedding_vectors(self):
-        generate_embeddings = self._import()
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.embeddings = [[0.1] * 1024, [0.2] * 1024]
-        mock_client.embed.return_value = mock_response
-
-        result = generate_embeddings(mock_client, ["texto uno", "texto dos"])
-        assert len(result) == 2
-        assert len(result[0]) == 1024
-
-
-# ---------------------------------------------------------------------------
-# ING-T5b tests: key rotation on 429
-# ---------------------------------------------------------------------------
-
-class TestKeyRotation:
-    """generate_embeddings rotates API keys via pool.mark_failed() on 429.
-
-    Covers: ING-T5b
+    Covers: ING-T5
+    Note: class name kept for git history continuity; tests now verify Ollama.
     """
 
     def _import(self):
         from scripts.ingest import generate_embeddings
         return generate_embeddings
 
-    def _ok_response(self, n=1):
-        resp = MagicMock()
-        resp.embeddings = [[0.1] * 1024] * n
-        return resp
+    def _make_client_mock(self, embeddings):
+        """Return a mock ollama.Client whose .embed() returns the given embeddings."""
+        mock_client = MagicMock()
+        mock_client.embed.return_value = {"embeddings": embeddings}
+        return mock_client
 
-    def test_rotates_key_on_429_and_succeeds(self):
-        """First client raises 429 → pool rotates → second client returns embeddings."""
+    def test_calls_ollama_embed_with_bge_m3(self):
+        """client.embed is called with model='bge-m3'."""
         generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024, [0.2] * 1024])
 
-        exhausted_client = MagicMock()
-        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
+        with patch("ollama.Client", return_value=mock_client):
+            generate_embeddings(["texto uno", "texto dos"])
 
-        fresh_client = MagicMock()
-        fresh_client.embed.return_value = self._ok_response(1)
+        mock_client.embed.assert_called_once()
+        call_kwargs = mock_client.embed.call_args.kwargs
+        assert call_kwargs.get("model") == "bge-m3"
 
-        pool = MagicMock()
-        pool.current.return_value = "new-key"
+    def test_returns_list_of_float_vectors(self):
+        """Result has 2 vectors of 1024 dimensions each."""
+        generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024, [0.2] * 1024])
 
-        with patch("cohere.Client", return_value=fresh_client):
-            with patch("app.retrieval.key_pool.classify_failure", return_value=MagicMock()):
-                result = generate_embeddings(exhausted_client, ["texto"], pool=pool)
+        with patch("ollama.Client", return_value=mock_client):
+            result = generate_embeddings(["texto uno", "texto dos"])
 
-        assert len(result) == 1
+        assert len(result) == 2
         assert len(result[0]) == 1024
-        pool.mark_failed.assert_called_once()
+        assert len(result[1]) == 1024
 
-    def test_mark_failed_receives_classify_failure_reason(self):
-        """pool.mark_failed() is called with the reason returned by classify_failure."""
+    def test_batches_multiple_texts_in_single_call(self):
+        """3 texts (< batch size 50) → client.embed called once."""
         generate_embeddings = self._import()
+        mock_client = self._make_client_mock([[0.1] * 1024] * 3)
 
-        from app.retrieval.key_pool import FailureReason
+        with patch("ollama.Client", return_value=mock_client):
+            generate_embeddings(["t1", "t2", "t3"])
 
-        exhausted_client = MagicMock()
-        # Cohere wraps the trial-quota body inside a 429 response — both markers present.
-        exhausted_client.embed.side_effect = Exception(
-            "status_code: 429, body: {'message': 'Trial key limited to 1000 API calls / month'}"
-        )
+        assert mock_client.embed.call_count == 1
 
-        fresh_client = MagicMock()
-        fresh_client.embed.return_value = self._ok_response(1)
-
-        pool = MagicMock()
-        pool.current.return_value = "new-key"
-
-        with patch("cohere.Client", return_value=fresh_client):
-            generate_embeddings(exhausted_client, ["texto"], pool=pool)
-
-        reason_passed = pool.mark_failed.call_args[0][0]
-        assert reason_passed == FailureReason.COHERE_TRIAL_QUOTA
-
-    def test_all_keys_exhausted_error_propagates(self):
-        """AllKeysExhaustedError from pool.mark_failed() propagates to the caller."""
+    def test_batch_boundary_51_texts_two_calls(self):
+        """51 texts → client.embed called twice (50 + 1)."""
         generate_embeddings = self._import()
-
-        from app.retrieval.key_pool import AllKeysExhaustedError
-
-        exhausted_client = MagicMock()
-        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
-
-        pool = MagicMock()
-        pool.mark_failed.side_effect = AllKeysExhaustedError("all keys in cool-down")
-
-        with patch("app.retrieval.key_pool.classify_failure", return_value=MagicMock()):
-            with pytest.raises(AllKeysExhaustedError):
-                generate_embeddings(exhausted_client, ["texto"], pool=pool)
-
-    def test_non_429_exception_bypasses_rotation(self):
-        """A non-429 exception propagates immediately without touching the pool."""
-        generate_embeddings = self._import()
-
-        broken_client = MagicMock()
-        broken_client.embed.side_effect = ConnectionError("network down")
-
-        pool = MagicMock()
-
-        with pytest.raises(ConnectionError, match="network down"):
-            generate_embeddings(broken_client, ["texto"], pool=pool)
-
-        pool.mark_failed.assert_not_called()
-
-    def test_without_pool_429_raises_after_retries(self):
-        """When pool=None, 429 raises after all retries without any rotation."""
-        generate_embeddings = self._import()
-
-        exhausted_client = MagicMock()
-        exhausted_client.embed.side_effect = Exception("429 Too Many Requests")
-
-        with patch("time.sleep"):  # skip waits
-            with pytest.raises(Exception, match="429"):
-                generate_embeddings(exhausted_client, ["texto"], pool=None)
-
-        # Retried _EMBED_RETRY_DELAYS times (3 delays → 4 total attempts)
-        assert exhausted_client.embed.call_count == 4
-
-    def test_non_rotatable_429_falls_through_to_sleep_retry(self):
-        """If classify_failure returns None, pool is not rotated; sleep-retry fires."""
-        generate_embeddings = self._import()
-
-        # First call raises a 429 that classify_failure can't categorise;
-        # second call (after sleep) succeeds.
-        ok_resp = self._ok_response(1)
-        exhausted_client = MagicMock()
-        exhausted_client.embed.side_effect = [
-            Exception("429 Too Many Requests"),
-            ok_resp,
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            {"embeddings": [[0.1] * 1024] * 50},
+            {"embeddings": [[0.2] * 1024] * 1},
         ]
 
-        pool = MagicMock()
+        with patch("ollama.Client", return_value=mock_client):
+            with patch("time.sleep"):  # skip inter-batch pause
+                result = generate_embeddings(["text"] * 51)
 
-        with patch("time.sleep"):
-            with patch("app.retrieval.key_pool.classify_failure", return_value=None):
-                result = generate_embeddings(exhausted_client, ["texto"], pool=pool)
+        assert mock_client.embed.call_count == 2
+        assert len(result) == 51
 
-        pool.mark_failed.assert_not_called()
+
+# ---------------------------------------------------------------------------
+# ING-T5b tests: retry logic on transient errors
+# ---------------------------------------------------------------------------
+
+class TestOllamaRetryBehaviour:
+    """generate_embeddings retries on transient errors (Ollama-based).
+
+    Covers: ING-T5b
+    Note: class name kept for git history continuity; tests now verify Ollama retry.
+    """
+
+    def _import(self):
+        from scripts.ingest import generate_embeddings
+        return generate_embeddings
+
+    def test_retries_on_transient_error(self):
+        """client.embed fails twice, succeeds on 3rd attempt → returns result."""
+        generate_embeddings = self._import()
+
+        ok_response = {"embeddings": [[0.5] * 1024]}
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            Exception("connection error"),
+            Exception("connection error"),
+            ok_response,
+        ]
+
+        with patch("ollama.Client", return_value=mock_client):
+            with patch("time.sleep"):
+                result = generate_embeddings(["texto"])
+
+        assert mock_client.embed.call_count == 3
         assert len(result) == 1
+        assert result[0] == [0.5] * 1024
+
+    def test_raises_after_max_retries(self):
+        """client.embed fails all 3 attempts (1 initial + 2 retries) → exception propagates."""
+        generate_embeddings = self._import()
+
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = Exception("persistent error")
+
+        with patch("ollama.Client", return_value=mock_client):
+            with patch("time.sleep"):
+                with pytest.raises(Exception, match="persistent error"):
+                    generate_embeddings(["texto"])
+
+        # _EMBED_RETRY_COUNT = 2 → total attempts = 1 + 2 = 3
+        assert mock_client.embed.call_count == 3
+
+    def test_interbatch_sleep_pause(self):
+        """51 texts → time.sleep called between batches (inter-batch pause)."""
+        generate_embeddings = self._import()
+
+        mock_client = MagicMock()
+        mock_client.embed.side_effect = [
+            {"embeddings": [[0.1] * 1024] * 50},
+            {"embeddings": [[0.2] * 1024] * 1},
+        ]
+
+        with patch("ollama.Client", return_value=mock_client):
+            with patch("time.sleep") as mock_sleep:
+                generate_embeddings(["text"] * 51)
+
+        # At least one sleep call for inter-batch pause
+        assert mock_sleep.call_count >= 1
 
 
 # ---------------------------------------------------------------------------

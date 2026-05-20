@@ -20,7 +20,7 @@ import app.config  # noqa: F401 — side-effect: load_dotenv()
 from app.constants.constants import default_invalid_resume_msg, default_not_related_msg
 from app.db.connection import get_engine
 from app.retrieval.context_builder import build_context
-from app.retrieval.embedder import get_query_embedding
+from app.retrieval.embedder import _validate_host as _validate_ollama_host, get_query_embedding
 from app.retrieval.fusion import rrf_fusion
 from app.retrieval.llm import analyze_with_llm
 from app.retrieval.searcher import bm25_search, vector_search
@@ -32,6 +32,7 @@ _limiter = Limiter(key_func=get_remote_address)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _validate_ollama_host(os.environ.get("OLLAMA_HOST", "http://localhost:11434"))
     engine = get_engine()
     app.state.engine = engine
     yield
@@ -136,6 +137,13 @@ async def analyze(
     if len(full_text) > _QUERY_CHAR_LIMIT:
         log.warning("PDF text truncated from %d to %d chars for embedding.", len(full_text), _QUERY_CHAR_LIMIT)
     query_text = full_text[:_QUERY_CHAR_LIMIT]
+
+    if not query_text:
+        raise HTTPException(
+            status_code=422,
+            detail="El documento no contiene contenido legal reconocible.",
+        )
+
     engine = request.app.state.engine
 
     embedding = get_query_embedding(query_text)

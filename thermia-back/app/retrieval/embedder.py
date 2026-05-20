@@ -1,83 +1,71 @@
 """
-Cohere embedding helper for query-time embeddings.
+Ollama embedding helper for query-time embeddings.
 
-Uses embed-multilingual-v3.0 (1024 dimensions) with input_type="search_query".
-The cohere.Client is a module-level singleton tied to the active pool key;
-it is rebuilt whenever the KeyPool rotates to a new key.
-
-Retries on 429 / rate-limit errors with exponential back-off.  After the
-in-key retry budget (_RETRY_DELAYS) is exhausted the pool is asked to
-rotate.  Non-rotating failures (e.g. 400, 401, 403) are re-raised
-immediately without touching the pool.
-
-Thread-safety: KeyPool is internally locked; _cohere_client is only written
-inside _get_client() which rebuilds atomically based on the pool's current
-key.
+Model: bge-m3 (1024 dimensions) via the Ollama Python client.
+Host: OLLAMA_HOST env var (default http://localhost:11434); non-localhost
+      hosts must use https:// — RuntimeError raised otherwise.
+Retry: up to 2 retries on transient failures, fixed 5 s delay.
+       Non-retryable 4xx errors re-raised immediately.
+Timeout: 30 s on the HTTP client to prevent thread-pool exhaustion.
+Thread-safety: double-checked locking in _get_ollama_client().
 """
 from __future__ import annotations
 
+import os
+import threading
 import time
+from urllib.parse import urlparse
 
-import cohere
+import ollama
 
-from app.retrieval.key_pool import (
-    AllKeysExhaustedError,
-    KeyPool,
-    classify_failure,
-)
+_DEFAULT_HOST = "http://localhost:11434"
+_EMBED_MODEL = "bge-m3"
+_MAX_RETRIES = 2
+_RETRY_DELAY = 5  # seconds
+_EXPECTED_DIM = 1024
+_CLIENT_TIMEOUT = 30.0  # seconds — prevents thread-pool exhaustion on hung server
 
-# Module-level singletons — reset to None in tests via direct attribute access
-_cohere_client: cohere.Client | None = None
-_cohere_client_key: str | None = None  # tracks which key the current client was built for
-_cohere_pool: KeyPool | None = None
-
-_RETRY_DELAYS = (10, 30, 60)
+# Module-level singleton — reset to None in tests via direct attribute access
+_ollama_client: ollama.Client | None = None
+_ollama_lock = threading.Lock()
 
 
-def get_cohere_pool() -> KeyPool:
-    """Return (or initialise) the module-level Cohere KeyPool singleton.
+def _validate_host(host: str) -> None:
+    """Raise RuntimeError if a non-localhost host does not use https://."""
+    parsed = urlparse(host)
+    hostname = parsed.hostname or ""
+    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("127.")
+    if not is_local and parsed.scheme != "https":
+        raise RuntimeError(
+            f"OLLAMA_HOST must use https:// for non-localhost targets, got: {host!r}"
+        )
 
-    On first call reads keys from the environment via
-    ``KeyPool.from_env("cohere")``.  Subsequent calls return the same
-    instance so that ingest.py and the FastAPI route handlers share a
-    single pool.
+
+def _get_ollama_client() -> ollama.Client:
+    """Return (or rebuild) the module-level ollama.Client singleton.
+
+    Uses double-checked locking so that concurrent FastAPI worker threads
+    never build the client more than once.
     """
-    global _cohere_pool
-    if _cohere_pool is None:
-        _cohere_pool = KeyPool.from_env("cohere")
-    return _cohere_pool
-
-
-def _get_client() -> cohere.Client:
-    """Return a cohere.Client for the pool's currently active key.
-
-    Rebuilds the client when the singleton has not been created yet or when
-    the pool's active key has changed (e.g. after a rotation).  Comparing
-    the stored key to the current pool key is the authoritative gate — callers
-    no longer need to set _cohere_client = None to trigger a rebuild.
-    """
-    global _cohere_client, _cohere_client_key
-    pool = get_cohere_pool()
-    active_key = pool.current()
-
-    if _cohere_client is None or active_key != _cohere_client_key:
-        _cohere_client = cohere.Client(active_key)
-        _cohere_client_key = active_key
-    return _cohere_client
+    global _ollama_client
+    if _ollama_client is None:
+        with _ollama_lock:
+            if _ollama_client is None:
+                host = os.environ.get("OLLAMA_HOST", _DEFAULT_HOST)
+                _validate_host(host)
+                _ollama_client = ollama.Client(host=host, timeout=_CLIENT_TIMEOUT)
+    return _ollama_client
 
 
 def get_query_embedding(text: str) -> list[float]:
     """Return a 1024-dimensional embedding vector for *text*.
 
     Retry strategy:
-    1. In-key retries: up to ``len(_RETRY_DELAYS)`` attempts on the current
-       key with exponential back-off (10 s → 30 s → 60 s) for 429 / rate-
-       limit errors.
-    2. Pool rotation: once the in-key budget is exhausted, call
-       ``pool.mark_failed`` to rotate to the next healthy key, rebuild the
-       client, and attempt once on the new key.
-    3. Non-rotating failures (400, 401, 403, …): re-raised immediately
-       without rotating.
+    - Up to ``_MAX_RETRIES`` retries on transient failures.
+    - Fixed ``_RETRY_DELAY`` second sleep between attempts.
+    - Non-retryable = ``ollama.ResponseError`` with a 4xx ``status_code``
+      → re-raised immediately.
+    - All other exceptions are treated as transient and retried.
 
     Parameters
     ----------
@@ -91,45 +79,34 @@ def get_query_embedding(text: str) -> list[float]:
 
     Raises
     ------
-    AllKeysExhaustedError
-        When every key in the pool has been exhausted.
+    RuntimeError
+        If OLLAMA_HOST uses an insecure scheme for a non-localhost target,
+        or if the returned embedding has unexpected dimensionality.
+    ollama.ResponseError
+        For non-retryable 4xx errors from the Ollama server.
     Exception
-        Original exception for non-rotating failure signals.
+        Any other exception after all retries are exhausted.
     """
-    pool = get_cohere_pool()
-
     last_exc: Exception | None = None
-    for delay in (0, *_RETRY_DELAYS):
-        if delay:
-            time.sleep(delay)
-        client = _get_client()
+
+    for attempt in range(_MAX_RETRIES + 1):
+        if attempt > 0:
+            time.sleep(_RETRY_DELAY)
+        client = _get_ollama_client()
         try:
-            response = client.embed(
-                texts=[text],
-                model="embed-multilingual-v3.0",
-                input_type="search_query",
-            )
-            return list(response.embeddings[0])
+            response = client.embed(model=_EMBED_MODEL, input=[text])
+            vec = response["embeddings"][0]
+            if len(vec) != _EXPECTED_DIM:
+                raise ValueError(
+                    f"Expected {_EXPECTED_DIM}-dim embedding from Ollama, got {len(vec)}"
+                )
+            return vec
         except Exception as exc:
-            reason = classify_failure(exc)
-            if reason is None:
-                # Non-rotating failure — re-raise immediately
+            # Non-retryable: ollama.ResponseError with 4xx status code.
+            # Use duck-typing (hasattr) so the check is robust when ollama is
+            # patched with a MagicMock namespace in tests.
+            if hasattr(exc, "status_code") and 400 <= exc.status_code < 500:
                 raise
-            # Rotating failure — collect and retry in-key
             last_exc = exc
-            continue
 
-    # In-key budget exhausted — rotate to next key
-    if last_exc is None:
-        raise RuntimeError("unexpected: retry budget exhausted with no recorded exception")
-    pool.mark_failed(classify_failure(last_exc))  # may raise AllKeysExhaustedError
-    # _get_client() will detect the key change and rebuild automatically
-
-    # One final attempt on the new key (let exceptions propagate)
-    client = _get_client()
-    response = client.embed(
-        texts=[text],
-        model="embed-multilingual-v3.0",
-        input_type="search_query",
-    )
-    return list(response.embeddings[0])
+    raise last_exc or RuntimeError("all retries exhausted with no recorded exception")

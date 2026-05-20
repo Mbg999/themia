@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-20
+
+### Added
+
+- Ollama BGE-M3 self-hosted embedding backend (`embedder.py` singleton with
+  `ollama.Client`, `OLLAMA_HOST` / `OLLAMA_MODEL` env vars).
+- `_validate_host()` SSRF guard: non-localhost `OLLAMA_HOST` must use `https://`.
+- 30-second client timeout on `ollama.Client` (DoS hardening, CWE-400).
+- Double-checked locking singleton for thread-safe client initialisation.
+- FastAPI lifespan calls `_validate_host()` at startup — server refuses to start with an
+  invalid host.
+
+### Changed
+
+- `KeyPool` stripped of Cohere-specific key-rotation and rate-limit logic.
+- `ingest.py` `generate_embeddings()` now uses `ollama.Client.embeddings()` directly.
+- Exception logging in embedder sanitised — raw Ollama URL no longer logged.
+- `OLLAMA_HOST` / `OLLAMA_MODEL` env vars replace `COHERE_API_KEYS`.
+- `cohere` package removed from `requirements.txt`; `ollama` added and pinned.
+
+### Fixed
+
+- `raise last_exc` guard added to embedder retry loop (silent failure on exhaustion).
+- Embedding dimension validation: returned vector length checked against `EMBEDDING_DIM`
+  before insertion into pgvector.
+
+### Deprecated
+
+- Cohere `embed-multilingual-v3.0` integration fully replaced. `COHERE_API_KEYS` env var
+  no longer read. Remove from all deployment environments by **2026-08-20**.
+- Existing pgvector embeddings (Cohere-generated) are incompatible with BGE-M3 vectors;
+  full re-ingestion required (see migration plan).
+
+### Security
+
+- CWE-918 (SSRF): `_validate_host()` in `embedder.py` and `ingest.py` blocks HTTP to
+  non-localhost Ollama hosts.
+- CWE-400 (DoS): 30-second timeout prevents unbounded blocking on a slow Ollama node.
+
 ## [0.2.0] - 2026-05-20
 
 ### Added
@@ -62,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Angular frontend with query input and sources display.
 - Basic ingestion pipeline for Spanish legal Markdown corpus.
 
-[Unreleased]: https://github.com/example/thermia/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/example/thermia/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/example/thermia/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Mbg999/themia/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Mbg999/themia/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/Mbg999/themia/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/Mbg999/themia/releases/tag/v0.1.0

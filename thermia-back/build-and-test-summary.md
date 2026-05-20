@@ -229,7 +229,6 @@ Warnings (non-blocking):
 |------------|-------|-------------|
 | TestAnalyzeAuth | 2 | Bearer token enforcement — missing header → 401, wrong token → 401 |
 | TestAnalyzeFileType | 1 | Non-PDF upload returns 422 |
-| TestAnalyzeLegalGuard | 2 | Empty PDF and non-legal PDF return 422 with Spanish message |
 | TestRRFFusion | 4 | RRF deduplication, top-N limit, rank ordering, formula correctness |
 | TestBuildContext | 3 | Context string format, separator, empty-list edge case |
 | TestVectorSearch | 2 | Returns list, calls DB execute |

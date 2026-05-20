@@ -2,8 +2,8 @@
 Provider-agnostic API key pool with sticky-then-rotate fallback strategy.
 
 Key design decisions:
-- threading.Lock (not asyncio.Lock): ingest.py is synchronous; FastAPI's
-  Cohere/Groq calls run in worker threads; threading.Lock covers both.
+- threading.Lock (not asyncio.Lock): FastAPI's Groq calls run in worker
+  threads; threading.Lock covers concurrent thread access safely.
 - Module-level singleton per provider via from_env(); explicit-keys
   constructor for unit-test isolation (no os.environ monkey-patching needed).
 - Cool-down state is in-process only — a process restart resets all cool-downs.
@@ -27,7 +27,6 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _RATE_LIMIT_RE = re.compile(r"429|rate limit", re.IGNORECASE)
-_COHERE_TRIAL_RE = re.compile(r"trial key|limited to.*api calls", re.IGNORECASE)
 _GROQ_DAILY_RE = re.compile(r"daily.*(token|quota)", re.IGNORECASE)
 _5XX_RE = re.compile(r"(?<!\d)5\d{2}(?!\d)")
 
@@ -35,7 +34,6 @@ _5XX_RE = re.compile(r"(?<!\d)5\d{2}(?!\d)")
 class FailureReason(enum.Enum):
     """Rotation-triggering failure signals (FR-3)."""
     RATE_LIMIT_429 = "429"
-    COHERE_TRIAL_QUOTA = "cohere_trial"
     GROQ_DAILY_QUOTA = "groq_daily"
     PERSISTENT_5XX = "5xx"
 
@@ -60,10 +58,6 @@ def classify_failure(exc_or_text: Any) -> FailureReason | None:
     """
     text = str(exc_or_text)
 
-    # Cohere trial-key quota — check BEFORE generic 429 to get the specific label
-    if _COHERE_TRIAL_RE.search(text):
-        return FailureReason.COHERE_TRIAL_QUOTA
-
     # Groq daily quota
     if _GROQ_DAILY_RE.search(text):
         return FailureReason.GROQ_DAILY_QUOTA
@@ -85,7 +79,7 @@ def classify_failure(exc_or_text: Any) -> FailureReason | None:
 # ---------------------------------------------------------------------------
 
 # Key format: alphanumeric characters, hyphens, and underscores; minimum 8 chars.
-# This is intentionally broad — real Cohere / Groq keys use this character set.
+# This is intentionally broad — real Groq keys use this character set.
 _KEY_FORMAT_RE = re.compile(r"^[\w\-]{8,}$")
 
 
@@ -166,7 +160,6 @@ def _parse_keys_env(provider: str, environ: dict[str, str]) -> list[str]:
 
 # Default cool-down windows per provider (seconds)
 _DEFAULT_COOLDOWNS: dict[str, int] = {
-    "cohere": 2592000,  # 30 days (monthly Trial-key reset)
     "groq": 86400,      # 1 day  (daily token reset)
 }
 
@@ -197,12 +190,12 @@ class KeyPool:
     keys:
         Ordered list of API keys. Position 0 is highest priority.
     provider:
-        Provider name (e.g. ``"cohere"``, ``"groq"``).
+        Provider name (e.g. ``"groq"``).
         Used for log fields and cool-down env-var lookup.
     cooldown_seconds:
         Optional override for the cool-down window. When *None*, the
         value is read from ``<PROVIDER>_KEY_COOLDOWN_SECONDS`` env var or
-        the provider default (30 d / 1 d).
+        the provider default (1 d — daily token reset).
     """
 
     def __init__(
@@ -246,7 +239,7 @@ class KeyPool:
         Parameters
         ----------
         provider:
-            ``"cohere"`` or ``"groq"`` (or any future provider).
+            ``"groq"`` (or any future provider).
         environ:
             Optional dict of environment variables (defaults to ``os.environ``).
             Provide an explicit dict in tests to avoid monkey-patching.

@@ -3,8 +3,8 @@ Thermia ingestion pipeline CLI.
 
 Clones https://github.com/legalize-dev/legalize-es, scans all .md files,
 parses Spanish legal structure (H1=law, H2=title/section, H3+=article),
-chunks each article, generates Cohere embeddings, and upserts into the
-`documents` table idempotently.
+chunks each article, generates embeddings via Ollama (bge-m3 model), and
+upserts into the `documents` table idempotently.
 
 Usage:
     python3 scripts/ingest.py [--reset]
@@ -19,8 +19,6 @@ Environment variables (all read from .env when THERMIA_ENV=local):
     DB_PASSWORD          — PostgreSQL password (local only)
     DB_NAME              — PostgreSQL database name (local only)
     DATABASE_URL         — full connection URL (production only)
-    COHERE_API_KEYS      — JSON array of Cohere API keys, e.g. '["key1","key2"]'
-                           (legacy: COHERE_API_KEY scalar also accepted)
 """
 from __future__ import annotations
 
@@ -33,6 +31,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import ollama as _ollama
 import tiktoken
 
 # ---------------------------------------------------------------------------
@@ -44,7 +43,7 @@ if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
 # Deferred heavy imports so unit-tests can import pure functions without
-# triggering the DB / Cohere imports (which require real env vars).
+# triggering the DB / Ollama imports (which require real env vars).
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -60,18 +59,18 @@ _CHUNK_THRESHOLD = 800   # articles ≤ this produce a single chunk
 _SUB_CHUNK_SIZE = 512    # maximum tokens per sub-chunk
 _OVERLAP = 50            # token overlap between consecutive sub-chunks
 
-# Cohere rate-limit handling
-_EMBED_BATCH_SIZE = 50              # max texts per embed() call (trial: 100 calls/min)
-_EMBED_RETRY_DELAYS = (10, 30, 60)  # seconds to wait on successive 429s
-# Configurable via EMBED_INTER_BATCH_SLEEP — use 0.05 on paid Cohere tier
-_EMBED_INTER_BATCH_SLEEP = float(os.environ.get("EMBED_INTER_BATCH_SLEEP", "1.0"))
+# Ollama embedding configuration
+_EMBED_BATCH_SIZE = 50    # max texts per embed() call
+_EMBED_RETRY_COUNT = 2    # retries after initial attempt
+_EMBED_RETRY_DELAY = 5.0  # seconds between retries
+_EMBED_INTER_BATCH_SLEEP = 1.0  # polite pause between batches (seconds)
 
 # Tiktoken encoding — cl100k_base is compatible with multilingual models
 _ENC = tiktoken.get_encoding("cl100k_base")
 
 
 # ---------------------------------------------------------------------------
-# Pure functions (importable without real DB / Cohere)
+# Pure functions (importable without real DB / Ollama)
 # ---------------------------------------------------------------------------
 
 
@@ -80,7 +79,7 @@ def _count_tokens(text: str) -> int:
 
 
 def build_embedding_text(*, law_id: str, article: str, law_title: str, content: str) -> str:
-    """Return the prefixed text sent to Cohere for embedding.
+    """Return the prefixed text sent to the embedding model.
 
     Format: ``[LAW_ID - ARTICLE - LAW_TITLE]\\n\\ncontent``
     """
@@ -303,78 +302,65 @@ def _extract_year(source_file: str, law_title: str) -> str:
     return m.group(0) if m else ""
 
 
-def generate_embeddings(
-    cohere_client: Any,
-    texts: list[str],
-    *,
-    pool: Any = None,
-) -> list[list[float]]:
-    """Call Cohere embed API and return a list of float vectors.
+def _validate_ollama_host(host: str) -> None:
+    """Raise RuntimeError if a non-localhost host does not use https://."""
+    from urllib.parse import urlparse
+    parsed = urlparse(host)
+    hostname = parsed.hostname or ""
+    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("127.")
+    if not is_local and parsed.scheme != "https":
+        raise RuntimeError(
+            f"OLLAMA_HOST must use https:// for non-localhost targets, got: {host!r}"
+        )
 
-    Sends texts in batches of ``_EMBED_BATCH_SIZE`` to stay within the trial
-    rate limit (100 calls/min, 100k tokens/min). Retries each batch up to
-    ``len(_EMBED_RETRY_DELAYS)`` times on 429 errors with exponential back-off.
 
-    When *pool* is supplied (a ``KeyPool`` instance), a 429 triggers immediate
-    key rotation via ``pool.mark_failed()`` and the batch is retried with the
-    new key before falling back to the sleep-retry schedule.  Raises
-    ``AllKeysExhaustedError`` if every key in the pool is in cool-down.
+def generate_embeddings(texts: list[str]) -> list[list[float]]:
+    """Call Ollama embed API and return a list of float vectors.
+
+    Sends texts in batches of ``_EMBED_BATCH_SIZE``. Retries each batch up to
+    ``_EMBED_RETRY_COUNT`` times on transient errors with a fixed delay.
+
+    Creates an explicit ``ollama.Client`` from ``OLLAMA_HOST`` (validated) so
+    that the call is not subject to the package-level singleton which may be
+    initialised before dotenv is loaded.
 
     Args:
-        cohere_client: An initialised ``cohere.Client`` instance.
         texts: List of strings to embed.
-        pool: Optional ``KeyPool`` for automatic key rotation on 429.
 
     Returns:
         List of 1024-dimensional float vectors, one per input text.
     """
-    import cohere as _cohere
-    from app.retrieval.key_pool import classify_failure
+    host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    _validate_ollama_host(host)
+    client = _ollama.Client(host=host, timeout=30.0)
 
     all_embeddings: list[list[float]] = []
     for i in range(0, len(texts), _EMBED_BATCH_SIZE):
         batch = texts[i : i + _EMBED_BATCH_SIZE]
-
-        # _rotated=True on first entry so the while always runs at least once;
-        # set again inside the loop when a key rotation restarts the retries.
-        _rotated = True
-        while _rotated:
-            _rotated = False
-            last_exc: Exception | None = None
-            for attempt, delay in enumerate([0, *_EMBED_RETRY_DELAYS]):
-                if delay:
+        last_exc: Exception | None = None
+        for attempt in range(1 + _EMBED_RETRY_COUNT):
+            try:
+                response = client.embed(model="bge-m3", input=batch)
+                all_embeddings.extend(response["embeddings"])
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < _EMBED_RETRY_COUNT:
                     log.info(
-                        "Rate limited — waiting %ds before retry (attempt %d/%d)...",
-                        delay, attempt, len(_EMBED_RETRY_DELAYS),
+                        "Embedding attempt %d failed — retrying in %.0fs ...",
+                        attempt + 1,
+                        _EMBED_RETRY_DELAY,
                     )
-                    time.sleep(delay)
-                try:
-                    response = cohere_client.embed(
-                        texts=batch,
-                        model="embed-multilingual-v3.0",
-                        input_type="search_document",
+                    time.sleep(_EMBED_RETRY_DELAY)
+                else:
+                    log.error(
+                        "Embedding batch failed after %d attempts: %s",
+                        _EMBED_RETRY_COUNT + 1,
+                        type(exc).__name__,
                     )
-                    all_embeddings.extend(list(response.embeddings))
-                    last_exc = None
-                    break
-                except Exception as exc:
-                    if "429" in str(exc) or "rate limit" in str(exc).lower():
-                        last_exc = exc
-                        if pool is not None:
-                            reason = classify_failure(exc)
-                            if reason is not None:
-                                # Raises AllKeysExhaustedError if no key available
-                                pool.mark_failed(reason)
-                                cohere_client = _cohere.Client(pool.current())
-                                _rotated = True
-                                break  # restart the retry loop with the new key
-                        continue
-                    raise
-
-            if last_exc is not None and not _rotated:
-                raise last_exc
-
-        # Polite pause between batches to stay well inside the rate limit
+        if last_exc is not None:
+            raise last_exc
         if i + _EMBED_BATCH_SIZE < len(texts):
             time.sleep(_EMBED_INTER_BATCH_SLEEP)
     return all_embeddings
@@ -464,18 +450,9 @@ def main(argv: list[str] | None = None) -> None:
     # Load config (sets env vars from .env)
     import app.config  # noqa: F401 — side-effect: loads .env
 
-    import cohere
     from sqlalchemy.orm import sessionmaker
 
     from app.db.connection import get_engine
-    from app.retrieval.embedder import get_cohere_pool
-
-    # Use the shared KeyPool singleton — do NOT read COHERE_API_KEY directly.
-    # The pool reads COHERE_API_KEYS (JSON array) or falls back to legacy
-    # COHERE_API_KEY with a WARN log. boot-fail-fast is handled by KeyPool.from_env.
-    # Note: do NOT snapshot pool.current() here — re-query on each file so that
-    # mid-run key rotations are reflected in subsequent embed() calls.
-    pool = get_cohere_pool()
 
     engine = get_engine()
     session_factory = sessionmaker(bind=engine)
@@ -517,7 +494,7 @@ def main(argv: list[str] | None = None) -> None:
                 for c in chunks
             ]
 
-            embeddings = generate_embeddings(cohere.Client(pool.current()), embed_texts, pool=pool)
+            embeddings = generate_embeddings(embed_texts)
             for i, emb in enumerate(embeddings):
                 chunks[i]["embedding"] = emb
 
@@ -526,7 +503,7 @@ def main(argv: list[str] | None = None) -> None:
             log.info("  [ok] %s — %d chunks upserted.", rel_path, len(chunks))
 
         except Exception as exc:  # noqa: BLE001
-            log.error("  [error] %s — %s", rel_path, exc)
+            log.error("  [error] %s — %s", rel_path, type(exc).__name__)
             failed_files.append(rel_path)
             continue
 

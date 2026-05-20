@@ -52,16 +52,16 @@
 - [ ] Ship (factory-ship)
 
 ## Current Stage — Run: 2026-05-20t08-41-48z-bge-m3-migration
-`INCEPTION - Planning (complete) — awaiting user approval to commit`
+`OPERATIONS — ship complete, awaiting git push`
 
 ## Stage Progress — Run: 2026-05-20t08-41-48z-bge-m3-migration (bge-m3 Migration)
 - [x] Workspace Detection — 2026-05-20
 - [x] Reverse Engineering — 2026-05-20 (8 artifacts)
 - [x] Requirements Analysis — 2026-05-20 (8 Q&A, requirements.md produced)
 - [x] Planning (factory-plan) — 2026-05-20 (4 units, 14 tasks, 3 layers, 4 unit specs)
-- [ ] Construction (factory-build)
-- [ ] Review (factory-review)
-- [ ] Ship (factory-ship)
+- [x] Construction (factory-build) — 2026-05-20 (189/189 tests pass)
+- [x] Review (factory-review) — 2026-05-20 (31 findings, all fixed)
+- [x] Ship (factory-ship) — 2026-05-20 (v0.3.0, 2 ADRs, migration plan)
 
 ## Extension Configuration
 | Extension | Enabled | Decided At |

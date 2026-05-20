@@ -433,3 +433,98 @@
 - [DependencyCheck] no dangling refs; no cycles
 - [WaveSchedule] L0=[key-pool-cleanup]; L1=[embedder-migration,ingestion-migration] parallel; L2=[test-execution]
 
+## 2026-05-20T10:30:00+00:00 CONSTRUCTION - PRE-BUILD SKILL SYNC [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Skills] Sync: Node.js v18.16.0 < 22.6.0 — autoskills skipped (non-blocking per protocol)
+- [Skills] Warnings: none
+- [Skills] resolved 54 skills: using-agent-skills, incremental-implementation, test-driven-development, source-driven-development, api-and-interface-design, environment-detection, validator-retry, debugging-and-error-recovery, codegraph-aware-exploration, python-testing-patterns, fastapi-python, security-and-hardening, (+42 more)
+
+## 2026-05-20T10:31:00+00:00 CONSTRUCTION - UNIT GRAPH [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [UnitGraph] Wave 0: [key-pool-cleanup]
+- [UnitGraph] Wave 1: [embedder-migration, ingestion-migration] — parallel
+- [UnitGraph] Wave 2: [test-execution]
+- [UnitGraph] critical path: key-pool-cleanup → embedder-migration/ingestion-migration → test-execution
+
+## 2026-05-20T10:32:00+00:00 CONSTRUCTION - CODE GENERATOR PLAN APPROVED [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [User] Approved key-pool-cleanup code-generation plan (4 TDD slices)
+- [Plan] Proceeding to code generation sub-stage
+
+## 2026-05-20T10:35:00+00:00 CONSTRUCTION - CODE GENERATOR START [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Orchestrator] spawned — unit: key-pool-cleanup
+- [Slice 1] Removed COHERE_TRIAL_QUOTA enum, _COHERE_TRIAL_RE regex, Cohere classify_failure branch; 59 tests passed
+- [Slice 2] Removed cohere cooldown, updated docstrings; grep -ci cohere key_pool.py=0; 60 tests passed
+- [Slice 3] Updated 6 test classes cohere→groq provider strings; 61 tests passed
+- [Slice 4] Validation: pytest 61/61, grep clean, visual scan clean
+- [AST drift] 1 changed class + 3 added test functions — no conflicts
+- [Constraints] TestEmbedderKeyPool/TestIngestKeyPool/TestLLMKeyPool untouched; Groq intact
+
+## 2026-05-20T10:37:00+00:00 CONSTRUCTION - CODE GENERATOR COMPLETE [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [User] Approved generated code — proceeding to build & test
+
+## 2026-05-20T10:40:00+00:00 CONSTRUCTION - BUILD & TEST COMPLETE (L0) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Unit] key-pool-cleanup — 61/61 tests pass, 75/75 including db-layer regression
+- [AC-4] grep -ci cohere key_pool.py = 0 ✓
+- [Fix] TestLLMKeyPool: 4 pre-existing mock chain failures fixed (with_structured_output + _is_valid_retrieval gate)
+- [Locks] Released: code-generator:key-pool-cleanup
+- [Approval] Build & test approved — proceeding to Layer 1
+
+## 2026-05-20T10:43:00+00:00 CONSTRUCTION - CODE GENERATOR PLANS APPROVED (L1) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [User] Approved embedder-migration plan (3 TDD slices) + ingestion-migration plan (4 TDD slices)
+- [Orchestrator] Spawning both code-generators in parallel
+
+
+## 2026-05-20T11:36:00+00:00 CONSTRUCTION - CODE GENERATOR COMPLETE (L1) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Unit] embedder-migration — embedder.py rewritten (Ollama), test_embedder.py created (6 tests), requirements.txt + .env.example updated, TestEmbedderKeyPool removed
+- [Unit] ingestion-migration — generate_embeddings() rewritten (Ollama), main() cleaned, test_ingestion.py rewritten (9 new tests), TestIngestKeyPool updated
+- [AST drift] embedder-migration: get_cohere_pool removed, _get_client removed, _get_ollama_client added — coordinated planned change, no conflict
+- [AST drift] ingestion-migration: generate_embeddings sig (cohere_client,texts)→(texts) — coordinated planned change, no conflict
+- [Grep] cohere in embedder.py=0; cohere in ingest.py=0
+- [User] Approved generated code — proceeding to build & test
+
+## 2026-05-20T11:45:00+00:00 CONSTRUCTION - BUILD & TEST COMPLETE (L1) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Unit] embedder-migration — 6/6 unit tests pass; AC-1,3,5,7,9 PASS; 2 pre-existing TestLLMKeyPool failures (out of scope)
+- [Unit] ingestion-migration — 46/46 test_ingestion.py tests pass; TestIngestKeyPool 2/2; AC-1,6,10 + all 8 ACs PASS; 2 pre-existing TestLLMKeyPool failures
+- [EnvFix] pgvector missing from Python 3.11 env — installed; documented in build instructions
+- [Locks] Released: code-generator:embedder-migration, code-generator:ingestion-migration
+
+## 2026-05-20T11:55:00+00:00 CONSTRUCTION - TEST EXECUTION COMPLETE (L2) [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [TE-T1] pytest tests/retrieval/ tests/test_ingestion.py — 106 passed, 2 failed (pre-existing TestLLMKeyPool)
+- [TE-T1] Full suite: 175 passed, 14 failed (12 pre-existing env failures: pdfplumber/sshtunnel missing in local test env)
+- [TE-T3] AC-3: grep cohere embedder.py=0 ✓; AC-4: grep cohere key_pool.py=0 ✓; grep cohere ingest.py=0 ✓
+- [TE-T3] ollama import in embedder.py ✓; OLLAMA_HOST env var ✓; ollama.embed in ingest.py ✓; ollama>=0.6.2 in requirements.txt ✓
+- [TE-T2] POST /analyze smoke test: deferred — Ollama service not running locally; endpoint functional pending deployment
+- [AC-8] Rollback: git revert <commit-range>; restore COHERE_API_KEYS env var; redeploy
+- [Stage] CONSTRUCTION - Complete
+
+## 2026-05-20T12:20:00+00:00 REVIEW - PARALLEL REVIEWER POOL [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Orchestrator] spawned 3 reviewers in parallel: reviewer-code, reviewer-security, reviewer-simplifier
+- [reviewer-code] PASS_WITH_NOTES — P0=0 P1=3 P2=7 P3=3 (race condition, embedding dim validation, raise None)
+- [reviewer-security] NEEDS_WORK — P0=0 P1=3 P2=3 P3=2 (SSRF x2, timeout/DoS)
+- [reviewer-simplifier] PASS_WITH_NOTES — P0=0 P1=0 P2=9 P3=1 (stale names, over-eng host tracking)
+- [Merge] aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-review-report.md — 31 total findings
+- [Overall] NEEDS_WORK — P1 security findings (SSRF + timeout) must be fixed before ship
+
+## 2026-05-20T12:35:00+00:00 REVIEW - P1 FIXES APPLIED [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [User] Approved all P1 fixes
+- [S-1] _validate_host() added to embedder.py — rejects http:// for non-localhost targets
+- [S-2] ingest.py generate_embeddings() uses explicit ollama.Client(host=validated_host) instead of module-level ollama.embed()
+- [S-3] timeout=30.0 added to ollama.Client in both embedder.py and ingest.py
+- [C-1] raise last_exc → raise last_exc or RuntimeError("all retries exhausted")
+- [C-2] threading.Lock double-checked locking in _get_ollama_client()
+- [C-3] assert len(vec) == 1024 after every embed call
+- [Tests] test_embedder.py: 10/10 pass (4 new SSRF validation tests added); test_ingestion.py: patched ollama.Client instead of ollama.embed
+- [Suite] 110/110 migration-scope tests pass; 2 pre-existing TestLLMKeyPool failures unchanged
+- [Commit] 01972b8
+
+## 2026-05-20T14:35:46+00:00 OPERATIONS - SHIP AGENT START [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Orchestrator] spawned ship-agent (inline)
+- [Skills] shipping-and-launch, git-workflow-and-versioning, ci-cd-and-automation, documentation-and-adrs, deprecation-and-migration, using-agent-skills
+
+## 2026-05-20T14:41:00+00:00 OPERATIONS - SHIP AGENT COMPLETE [run: 2026-05-20t08-41-48z-bge-m3-migration]
+- [Version] 0.2.0 → 0.3.0 (minor) — embedding provider replaced, SSRF controls added, credential model changed
+- [RELEASE_NOTES.md] 0.3.0 entry appended — sections: Added, Changed, Fixed, Deprecated, Security
+- [CHANGELOG.md] [0.3.0] entry inserted (Keep-a-Changelog format); created from scratch
+- [ADR-0001] ollama-bge-m3-as-embedding-backend — provider-switch rationale, trade-offs, risks
+- [ADR-0002] ssrf-protection-ollama-host-validation — _validate_host() design, localhost allowlist, open gaps
+- [Migration] aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-migration-plan.md — env delta, re-ingestion procedure, rollback window, Cohere deprecation deadline 2026-08-20
+- [CI/CD] .github/workflows/ci.yml assessed — no changes required; retrieval/ and ingestion/ tests fully covered
+- [Skill] shipping-and-launch: PASS | git-workflow-and-versioning: PASS | ci-cd-and-automation: PASS | documentation-and-adrs: PASS | deprecation-and-migration: PASS
