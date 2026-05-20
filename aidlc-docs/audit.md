@@ -351,3 +351,62 @@
 - [UnitGraph] Wave 1 (serial): ingestion-wiring
 - [UnitGraph] max_parallelism=3, wave_count=2
 
+## 2026-05-20T07:32:27+00:00 OPERATIONS - Review Pool Complete — 3 reviewers
+- report: aidlc-docs/operations/2026-05-19t20-50-00z-metadata-refactor-review-report.md
+
+## 2026-05-20T08:42:30+00:00 INCEPTION - WORKSPACE SCOUT START
+- [Orchestrator] spawned workspace-scout subagent via Task() — input validated OK
+- [Step 1] Existing AIDLC project detected — aidlc-docs/aidlc-state.md found with 3 prior runs. Branch: C (new run for bge-m3 migration feature).
+- [Step 2] Workspace: thermia — monorepo, thermia-back/ (Python FastAPI, SQLAlchemy, Cohere), thermia-front/ (Angular 21.2 SPA).
+- [Step 2] Languages: Python, TypeScript. Existing code: true.
+- [Stack] tech_stack: 8 packages (@angular/core@21.2.0, fastapi, sqlalchemy, cohere, pgvector, alembic, uvicorn, typescript@5.9.2)
+- [CodeGraph] indexed — 1166 nodes, 65 files. Backend: wasm (native failed — NODE_MODULE_VERSION mismatch).
+- [Step 3] Decision: project_type=brownfield, next_phase=reverse-engineering (existing code, no RE artifacts).
+- [Skill] using-agent-skills: PASS — loaded, applied meta-skill to workspace-scout phase, identified codegraph companion.
+- [Skill] codegraph-aware-exploration: PASS — queried .codegraph/codegraph.db via sqlite3 after codegraph status command failed.
+
+## 2026-05-20T08:45:00+00:00 INCEPTION - WORKSPACE SCOUT COMPLETE
+- status: complete
+- [Cohere→bge-m3 context] Embedder uses cohere.Client with embed-multilingual-v3.0 (1024d). Ingest.py calls it via pool singleton. Tests mock cohere module directly. Migration will replace cohere.Client with direct requests to ollama endpoint at https://ollama.cvbooster.es/api/embeddings.
+
+## 2026-05-20T09:06:05+00:00 INCEPTION - User Decision (reverse-engineer gate)
+- [Orchestrator] Classified project_profile: ui=true, api=true, has_legacy=true
+- [Orchestrator] Reverse-engineer gate: user approved — spawning reverse-engineer stage
+
+## 2026-05-20T09:06:26+00:00 INCEPTION - REVERSE ENGINEER START
+- [Orchestrator] spawned reverse-engineer subagent — input validated OK
+- [CodeGraph] indexed=true, backend=wasm; graceful fallback to Read/Glob/Grep
+
+## 2026-05-20T09:10:52+00:00 INCEPTION - REVERSE ENGINEER COMPLETE
+- status: complete
+- 8 artifacts produced in aidlc-docs/inception/reverse-engineering/
+- business-overview.md — legal-tech RAG; Cohere cost driver documented
+- architecture.md — 4 layers (API, Retrieval, DB, Ingestion)
+- code-structure.md — 20 Python files, 6 packages
+- api-docs.md — 2 HTTP endpoints + 6 internal API signatures
+- component-inventory.md — 9 components with migration impact
+- interaction-diagrams.md — 3 Mermaid diagrams (current vs target)
+- technology-stack.md — 20+ libraries catalogued
+- dependencies.md — 21 deps; cohere>=5.0.0 identified for removal
+- [Skill] using-agent-skills: PASS
+- [Skill] codegraph-aware-exploration: PASS
+- Migration impact: HIGH (embedder, key_pool), MEDIUM (ingest, tests), NONE (searcher, fusion, llm)
+
+## 2026-05-20T09:56:03+00:00 INCEPTION - User Answers (requirements-analyst Pass 1)
+- [User] Q1: C — Cost reduction AND ops simplification equally important
+- [User] Q2: B — Simple retry (2 retries, fixed 5s delay)
+- [User] Q3: X — Use ollama-python client (https://github.com/ollama/ollama-python)
+- [User] Q4: A — Remove Cohere from KeyPool only; keep Groq unchanged
+- [User] Q5: X — Check ollama.embed() batching support; fallback B (sequential throttled)
+- [User] Q6: A — Latency not critical; same UX acceptable
+- [User] Q7: F — All scope boundaries — strictly a provider swap
+- [User] Q8: A — Unit tests + manual endpoint test; rollback = revert + keep old key
+
+## 2026-05-20T10:01:11+00:00 INCEPTION - Stage-Routing Decisions
+- [Orchestrator] Complexity tier: MEDIUM (scope=Multiple Components, complexity=Moderate)
+- [Orchestrator] Skip stages: story-writer (single-component migration)
+- [Orchestrator] Skipped (already complete): reverse-engineer
+- [Orchestrator] Reviewer pool: reviewer-code, reviewer-security, reviewer-simplifier
+- [Orchestrator] Merged codegen gate: false (per-unit plan approvals required)
+- [Orchestrator] Next: /factory-plan 2026-05-20t08-41-48z-bge-m3-migration
+

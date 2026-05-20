@@ -1,0 +1,102 @@
+# DRAFT — proposed by ship-agent for run 2026-05-19t20-50-00z-metadata-refactor
+# Review before merging. Adjust secrets names to match your repository settings.
+#
+# Covers:
+#   - pytest (thermia-back, all test modules including ingestion/ and retrieval/)
+#   - alembic check (schema drift detection against head revision)
+#
+# Requirements:
+#   - A PostgreSQL service for DB-dependent tests, OR the test suite must mock the DB.
+#     The current conftest.py uses SQLite in-memory for unit tests, so no service
+#     is needed for the default test run. Adjust if integration tests are added.
+#   - No Cohere or SSH credentials needed for unit tests (all external calls are mocked).
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test-backend:
+    name: Backend — pytest
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: thermia-back
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pytest
+        run: |
+          python -m pytest \
+            --tb=short \
+            --strict-markers \
+            -q
+        env:
+          # Unit tests mock all external services; no real credentials needed.
+          # Set MODE=test if your app reads this env var to skip SSH tunnel setup.
+          THERMIA_MODE: test
+
+  alembic-check:
+    name: Backend — Alembic schema check
+    runs-on: ubuntu-latest
+    needs: test-backend
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: thermia
+          POSTGRES_PASSWORD: thermia
+          POSTGRES_DB: thermia_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    defaults:
+      run:
+        working-directory: thermia-back
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Alembic upgrade to head
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql+psycopg2://thermia:thermia@localhost:5432/thermia_test
+
+      - name: Check for pending migrations (schema drift)
+        run: |
+          # Fails if there are model changes not reflected in a migration file.
+          alembic check
+        env:
+          DATABASE_URL: postgresql+psycopg2://thermia:thermia@localhost:5432/thermia_test

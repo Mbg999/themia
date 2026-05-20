@@ -59,6 +59,7 @@ cd thermia-back
 source .venv/bin/activate
 python scripts/ingest.py --help        # show available options
 python scripts/ingest.py <path>        # ingest a file or directory
+python scripts/ingest.py --reset       # truncates documents table before ingesting 
 ```
 
 ---
