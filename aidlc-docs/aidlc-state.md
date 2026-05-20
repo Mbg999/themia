@@ -52,13 +52,13 @@
 - [ ] Ship (factory-ship)
 
 ## Current Stage — Run: 2026-05-20t08-41-48z-bge-m3-migration
-`INCEPTION - Requirements Analysis (complete) — awaiting /factory-plan`
+`INCEPTION - Planning (complete) — awaiting user approval to commit`
 
 ## Stage Progress — Run: 2026-05-20t08-41-48z-bge-m3-migration (bge-m3 Migration)
 - [x] Workspace Detection — 2026-05-20
 - [x] Reverse Engineering — 2026-05-20 (8 artifacts)
 - [x] Requirements Analysis — 2026-05-20 (8 Q&A, requirements.md produced)
-- [ ] Planning (factory-plan)
+- [x] Planning (factory-plan) — 2026-05-20 (4 units, 14 tasks, 3 layers, 4 unit specs)
 - [ ] Construction (factory-build)
 - [ ] Review (factory-review)
 - [ ] Ship (factory-ship)

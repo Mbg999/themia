@@ -410,3 +410,26 @@
 - [Orchestrator] Merged codegen gate: false (per-unit plan approvals required)
 - [Orchestrator] Next: /factory-plan 2026-05-20t08-41-48z-bge-m3-migration
 
+## 2026-05-20T10:17:29+00:00 INCEPTION - STORY WRITER SKIPPED (complexity-gate)
+- [Orchestrator] story-writer skipped — manifest.skip_stages[] contains story-writer per ComplexityGov
+- [Orchestrator] Reason: single-component backend migration (Cohere→bge-m3); no new user-facing workflows
+- [Orchestrator] Fallback: requirements-analyst output sufficient context for workflow-planner
+
+## 2026-05-20T10:19:14+00:00 INCEPTION - WORKFLOW PLANNER
+- [Orchestrator] spawned (inline)
+- [Skipped] story-writer — manifest.skip_stages[] contains story-writer per ComplexityGov; MEDIUM tier backend migration
+- [PlanDepth] standard — 4 units, 14 tasks, 3 layers
+- [Decomposition] L0: key-pool-cleanup → L1 parallel: embedder-migration + ingestion-migration → L2: test-execution
+- [Coverage] all 10 requirements ACs covered by plan task ACs
+- [ApprovalGate] status=needs_human — awaiting user plan approval before /factory-build
+
+## 2026-05-20T10:21:37+00:00 INCEPTION - User Decision (workflow-planner)
+- [User] Approved 2026-05-20t08-41-48z-bge-m3-migration-execution-plan.md (4 units, 14 tasks, 3 layers)
+
+## 2026-05-20T10:22:44+00:00 INCEPTION - UNIT DECOMPOSER
+- [Orchestrator] spawned (inline)
+- [Units] 4 unit specs produced: key-pool-cleanup, embedder-migration, ingestion-migration, test-execution
+- [DependencyGraph] key-pool-cleanup→[]; embedder-migration→[key-pool-cleanup]; ingestion-migration→[key-pool-cleanup]; test-execution→[embedder-migration,ingestion-migration]
+- [DependencyCheck] no dangling refs; no cycles
+- [WaveSchedule] L0=[key-pool-cleanup]; L1=[embedder-migration,ingestion-migration] parallel; L2=[test-execution]
+
