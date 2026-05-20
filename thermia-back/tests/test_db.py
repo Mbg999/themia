@@ -60,6 +60,52 @@ def test_embedding_dimension():
 
 
 # ---------------------------------------------------------------------------
+# DB-T3 tests: metadata-refactor columns
+# ---------------------------------------------------------------------------
+
+def test_status_column_is_varchar_32():
+    """`status` is VARCHAR(32) — short label like 'vigente' / 'derogada'."""
+    from app.db.models import Document
+
+    col = Document.__table__.c["status"]
+    assert col.type.__class__.__name__ == "VARCHAR"
+    assert col.type.length == 32
+
+
+def test_legal_rank_column_is_varchar_64():
+    """`legal_rank` is VARCHAR(64) — e.g. 'ley', 'decreto', 'reglamento'."""
+    from app.db.models import Document
+
+    col = Document.__table__.c["legal_rank"]
+    assert col.type.__class__.__name__ == "VARCHAR"
+    assert col.type.length == 64
+
+
+def test_jurisdiction_column_is_varchar_8():
+    """`jurisdiction` is VARCHAR(8) — ISO-like code such as 'ES', 'EU'."""
+    from app.db.models import Document
+
+    col = Document.__table__.c["jurisdiction"]
+    assert col.type.__class__.__name__ == "VARCHAR"
+    assert col.type.length == 8
+
+
+def test_source_metadata_column_is_jsonb():
+    """`source_metadata` is JSONB — raw provider payload (two-layer metadata)."""
+    from app.db.models import Document
+
+    col = Document.__table__.c["source_metadata"]
+    assert col.type.__class__.__name__ == "JSONB"
+
+
+def test_source_metadata_python_attribute_maps_to_db_column():
+    """`Document.source_metadata_` Python attr maps to DB column `source_metadata`."""
+    from app.db.models import Document
+
+    assert Document.source_metadata_.property.columns[0].name == "source_metadata"
+
+
+# ---------------------------------------------------------------------------
 # DB-T4 / DB-T5 tests: connection factory
 # ---------------------------------------------------------------------------
 
