@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
 
@@ -32,9 +32,10 @@ export class AnalysisService {
     const formData = new FormData();
     formData.append('file', file);
 
-    return this.http.post<AnalysisResponse>(
-      `${environment.apiUrl}/analyze`,
-      formData,
-    );
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${environment.apiAuthToken}`,
+    });
+
+    return this.http.post<AnalysisResponse>(`${environment.apiUrl}/analyze`, formData, { headers });
   }
 }
