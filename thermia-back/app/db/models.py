@@ -2,7 +2,7 @@
 SQLAlchemy ORM models for Thermia.
 No database connection is required to import this module.
 """
-from sqlalchemy import Column, Text, func
+from sqlalchemy import Column, Index, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, VARCHAR
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.types import Uuid
@@ -30,6 +30,30 @@ class Document(Base):
     """
 
     __tablename__ = "documents"
+
+    __table_args__ = (
+        # ivfflat ANN index — lists=50 tuned for 10k–50k chunks
+        Index(
+            "idx_documents_embedding",
+            "embedding",
+            postgresql_using="ivfflat",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+            postgresql_with={"lists": 50},
+        ),
+        # GIN full-text search index
+        Index("idx_documents_tsvector", "tsvector", postgresql_using="gin"),
+        # B-tree indexes for legal-filter equality / IN queries
+        Index("ix_documents_status", "status"),
+        Index("ix_documents_legal_rank", "legal_rank"),
+        Index("ix_documents_jurisdiction", "jurisdiction"),
+        # GIN index on curated metadata for @> containment queries
+        Index(
+            "ix_documents_metadata_gin",
+            "metadata",
+            postgresql_using="gin",
+            postgresql_ops={"metadata": "jsonb_path_ops"},
+        ),
+    )
 
     id = Column(
         Uuid(as_uuid=True),
