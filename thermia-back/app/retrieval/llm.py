@@ -19,7 +19,7 @@ from typing import List
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
-from app.constants.constants import default_invalid_resume_msg
+from app.constants.constants import default_invalid_resume_msg, default_not_related_msg
 
 from app.retrieval.key_pool import (
     KeyPool,
@@ -47,7 +47,7 @@ def get_groq_pool() -> KeyPool:
 # =========================
 class AnalisisLegal(BaseModel):
     resumen: str = Field(
-        description="Resumen de la situación. Si el contexto es insuficiente, pon exactamente: 'INSUFICIENCIA DE BASE NORMATIVA EN EL CONTEXTO'"
+        description=f"Resumen de la situación. Si el contexto es insuficiente, pon exactamente: '{default_invalid_resume_msg}'"
     )
     implicaciones_legales: List[str] = Field(
         default_factory=list, 
@@ -61,7 +61,7 @@ class AnalisisLegal(BaseModel):
 # =========================
 # SYSTEM PROMPT
 # =========================
-_SYSTEM_PROMPT = _SYSTEM_PROMPT = """
+_SYSTEM_PROMPT = _SYSTEM_PROMPT = f"""
 Eres un asistente jurídico especializado en derecho español que opera estrictamente como un motor de extracción RAG (Generación Aumentada por Recuperación).
 
 PROCESO DE RAZONAMIENTO OBLIGATORIO (Paso a Paso):
@@ -71,12 +71,12 @@ PROCESO DE RAZONAMIENTO OBLIGATORIO (Paso a Paso):
 4. Genera el JSON final asegurando rigor penal: si el artículo impone una consecuencia específica (ej. una multa, una pena de prisión) o una cuantía exacta (ej. de 25 a 250 pesetas, 100 euros, 5 días), DEBES reflejar textualmente ese tipo de sanción y su precio/duración tanto en el 'resumen' como en las 'implicaciones_legales'. No lo generalices como una simple "sanción".
 
 REGLAS ESTRICTAS DE FORMATO (OBLIGATORIAS):
-1. SOLO puedes usar información explícitamente presente en el CONTEXTO. Prohibido usar conocimiento jurídico externo.
+1. SOLO puedes usar información explícitamente presente en el CONTEXTO. Prohibido usar conocimiento jurídico externo, si no está en el contexto, di que el tema {default_not_related_msg}.
 2. Está prohibido actualizar, convertir o inventar monedas o cuantías. Si el texto habla de "pesetas", mantén "pesetas". Si habla de "euros", mantén "euros".
 3. Cada elemento de 'fundamento_juridico' debe ser una cita textual exacta del contexto.
 4. El campo 'implicaciones_legales' DEBE SER SIEMPRE UNA LISTA DE STRINGS (ej. ["texto"]).
 5. El campo 'fundamento_juridico' DEBE SER SIEMPRE UNA LISTA DE STRINGS (ej. ["texto"]).
-6. El valor "INSUFICIENCIA DE BASE NORMATIVA EN EL CONTEXTO" queda reservado EXCLUSIVAMENTE para casos donde el contexto no guarde ninguna relación con el tema de la consulta.
+6. El valor "{default_invalid_resume_msg}" queda reservado EXCLUSIVAMENTE para casos donde el contexto no guarde ninguna relación con el tema de la consulta.
 
 EJEMPLO DE ABSTRACCIÓN CORRECTA (Usa esto SOLO para entender la lógica de ignorar el parentesco, pero sé específico con las penas y precios):
 - Contexto provisto: "Cualquier usuario que acceda sin credenciales a la plataforma corporativa será sancionado con una multa fija de 500$."

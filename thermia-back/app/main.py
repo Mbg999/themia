@@ -17,7 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import app.config  # noqa: F401 — side-effect: load_dotenv()
-from app.constants.constants import default_invalid_resume_msg
+from app.constants.constants import default_invalid_resume_msg, default_not_related_msg
 from app.db.connection import get_engine
 from app.retrieval.context_builder import build_context
 from app.retrieval.embedder import get_query_embedding
@@ -146,11 +146,16 @@ async def analyze(
     top_docs = rrf_fusion(vector_results, bm25_results, top_n=5)
     context = build_context(top_docs)
     result = await asyncio.to_thread(analyze_with_llm, context, query_text)
-    resume = result.get("resumen", "")
+    resume = (result.get("resumen") or "").strip().lower()
+    
+    invalid_phrases = [
+        default_invalid_resume_msg.lower(),
+        default_not_related_msg.lower(),
+    ]
 
-    is_valid_response = (
-        resume != default_invalid_resume_msg
-        and "no tiene relación con el contexto legal proporcionado." not in resume
+    should_add_fuentes = not any(
+        phrase in resume
+        for phrase in invalid_phrases
     )
 
     result["fuentes"] = [
@@ -167,6 +172,6 @@ async def analyze(
             "eli": doc.metadata_.get("eli") or "",
         }
         for doc in top_docs
-    ] if is_valid_response else []
+    ] if should_add_fuentes else []
 
     return JSONResponse(content=result)
