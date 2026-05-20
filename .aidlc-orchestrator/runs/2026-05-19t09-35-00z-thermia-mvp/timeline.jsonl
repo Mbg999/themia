@@ -1,0 +1,34 @@
+{"ts": "2026-05-19T09:36:03+00:00", "evt": "run_init", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "user_request": "Build an MVP called Thermia \u2014 Spanish legal document analyzer with hybrid RAG (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval pipelines."}
+{"ts": "2026-05-19T09:36:18+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "tokens_estimate": 2000, "stage": "workspace-scout"}
+{"ts": "2026-05-19T09:37:07+00:00", "evt": "spawn_end", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "status": "complete", "tokens": 1800, "wall_min": 0.5, "stage": "workspace-scout"}
+{"ts": "2026-05-19T09:37:32+00:00", "evt": "stage_complete", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "workspace-scout", "next_stage": "requirements-analyst", "reason": null}
+{"ts": "2026-05-19T09:38:26+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "tokens_estimate": 8000, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T10:08:38+00:00", "evt": "user_answers_received", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "requirements-analyst"}
+{"ts": "2026-05-19T10:10:01+00:00", "evt": "spawn_end", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "status": "complete", "tokens": 12000, "wall_min": 2.0, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T10:10:16+00:00", "evt": "stage_complete", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "requirements-analyst", "next_stage": "workflow-planner", "reason": null}
+{"ts": "2026-05-19T10:11:03+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "summary": "complexity=LARGE; fast_path=false; no stages skipped; full reviewer pool", "stage": "requirements-analyst"}
+{"ts": "2026-05-19T10:19:08+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "tokens_estimate": 3000, "stage": "story-writer"}
+{"ts": "2026-05-19T10:19:49+00:00", "evt": "spawn_end", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "status": "complete", "tokens": 2800, "wall_min": 0.5, "stage": "story-writer"}
+{"ts": "2026-05-19T10:19:49+00:00", "evt": "stage_complete", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "story-writer", "next_stage": "workflow-planner", "reason": null}
+{"ts": "2026-05-19T10:20:01+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "tokens_estimate": 15000, "stage": "workflow-planner"}
+{"ts": "2026-05-19T10:25:32+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "decision": "approve", "stage": "workflow-planner"}
+{"ts": "2026-05-19T10:25:44+00:00", "evt": "spawn_end", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "status": "complete", "tokens": 14000, "wall_min": 1.5, "stage": "workflow-planner"}
+{"ts": "2026-05-19T10:25:44+00:00", "evt": "stage_complete", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "workflow-planner", "next_stage": "unit-decomposer", "reason": null}
+{"ts": "2026-05-19T10:25:59+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "tokens_estimate": 8000, "stage": "unit-decomposer"}
+{"ts": "2026-05-19T10:28:00+00:00", "evt": "spawn_end", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "status": "complete", "tokens": 7500, "wall_min": 1.0, "stage": "unit-decomposer"}
+{"ts": "2026-05-19T10:28:01+00:00", "evt": "stage_complete", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "stage": "unit-decomposer", "next_stage": "code-generator", "reason": null}
+{"ts": "2026-05-19T10:30:43+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "summary": "3 waves; max_parallelism=2", "stage": "code-generator"}
+{"ts": "2026-05-19T10:31:03+00:00", "evt": "spawn_start", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "unit": "db-layer", "tokens_estimate": 80000, "stage": "code-generator"}
+{"ts": "2026-05-19T10:37:45+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "decision": "approve", "sub_stage": "plan", "rejected_units": "", "stage": "code-generator"}
+{"ts": "2026-05-19T10:58:21+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "decision": "amend", "sub_stage": "generated", "unit": "db-layer", "stage": "code-generator"}
+{"ts": "2026-05-19T11:02:59+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "unit": "db-layer", "sub_stage": "generated", "decision": "approved", "stage": "code-generator"}
+{"ts": "2026-05-19T11:26:36+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "unit": "db-layer", "summary": "db-layer build and test complete: 9/9 tests, migration applied", "stage": "build-test-agent"}
+{"ts": "2026-05-19T11:32:22+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "decision": "approved", "sub_stage": "generated", "units": "ingestion-pipeline,retrieval-api", "stage": "code-generator"}
+{"ts": "2026-05-19T11:34:15+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "units": "ingestion-pipeline,retrieval-api", "summary": "Wave 1 build and test complete: 51/51 tests, both app loads green", "stage": "build-test-agent"}
+{"ts": "2026-05-19T11:44:40+00:00", "evt": "user_decision", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "decision": "approved", "sub_stage": "generated", "units": "frontend,docker-infra", "stage": "code-generator"}
+{"ts": "2026-05-19T11:47:10+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "units": "frontend,docker-infra", "summary": "Wave 2 build and test complete: 16/16 frontend tests, ng build OK, docker-infra validated", "stage": "build-test-agent"}
+{"ts": "2026-05-19T11:47:36+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "summary": "All 5 units built, tested, and committed across 3 waves", "stage": "orchestrator"}
+{"ts": "2026-05-19T12:33:01+00:00", "evt": "resume_requested", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "next_stage": "code-generator"}
+{"ts": "2026-05-19T13:49:49+00:00", "evt": "resume_requested", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "next_stage": "workspace-scout"}
+{"ts": "2026-05-19T14:00:29+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "summary": "code-quality review: 30 findings (4 P1, 18 P2, 8 P3)"}
+{"ts": "2026-05-19T14:00:31+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t09-35-00z-thermia-mvp", "summary": "security review: 15 findings (6 P0, 6 P1, 3 P2)"}

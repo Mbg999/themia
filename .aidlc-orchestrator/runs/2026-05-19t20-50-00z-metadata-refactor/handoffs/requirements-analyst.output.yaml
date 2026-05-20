@@ -1,0 +1,47 @@
+status: complete
+artifacts:
+  - path: aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirements.md
+    kind: spec
+  - path: aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirement-verification-questions.md
+    kind: doc
+request_classification:
+  clarity: Clear
+  type: Refactoring
+  scope: Multiple Components
+  complexity: Moderate
+depth: comprehensive
+needs_user_input: false
+questions_artifact_path: aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirement-verification-questions.md
+audit_entries:
+  - "[RA Pass 1] 6 decision-blocking questions written; user answered all 6"
+  - "[RA Pass 2] requirements.md written: 8 FRs, 6 NFRs, 17 ACs, 7 files affected, 6 ADRs"
+  - "[RA] Key decisions: two-JSONB-column split, 3 real columns promoted, active hash-skip, Spanish status normalization"
+  - "[RA] New module: app/ingestion/metadata_helpers.py with 5 pure helper functions"
+  - "[RA] New migration: 0003_metadata_refactor.py — 4 columns + 4 indexes"
+  - "[Skill] idea-refine PASS — 6 questions asked for decision-blocking ambiguities; answers obtained before spec written"
+  - "[Skill] spec-driven-development PASS — requirements.md covers FRs, NFRs, ACs, files affected, and ADRs"
+  - "[Skill] using-agent-skills PASS — skills loaded, process followed, verification evidence documented"
+skill_compliance:
+  - skill: idea-refine
+    status: PASS
+    evidence: "6 questions asked covering DB schema split, column promotion, hash strategy, status normalization, ELI handling, frontmatter stripping. All answered before Pass 2."
+  - skill: spec-driven-development
+    status: PASS
+    evidence: "requirements.md: 8 FRs with sub-requirements, 6 NFRs, 17 numbered ACs with concrete assertions, files-affected table, 6 ADRs with rationale."
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Read ingest.py (490 lines), models.py (39 lines), 0001_initial.py (54 lines) before writing any requirement. Questions grounded in actual code state."
+  - skill: spec-driven-development-pass2
+    status: PASS
+    evidence: "Pass 2 requirements.md: 283 lines, 8 FRs with numbered sub-reqs, 6 NFRs, 17 ACs with concrete assertions (input→output style), 7-row files table, 6 ADRs with rationale lines."
+emitted_knowledge:
+  - kind: adr
+    title: Two-column JSONB split for Thermia metadata refactor
+    body: "Retrieval metadata stays in existing `metadata JSONB` column (flat, GIN-indexed). Source/informational metadata goes into new `source_metadata JSONB DEFAULT '{}'` column. Decision rationale: keeps retrieval queries simple, allows independent indexing, avoids breaking existing rows."
+    tags: ["thermia", "metadata", "postgresql", "jsonb"]
+    confidence: 0.95
+  - kind: pattern
+    title: Active hash-skip pattern for idempotent embedding pipelines
+    body: "Before calling Cohere embed, query existing content_hash from DB using the stable UUID. Skip embed if hash matches; still upsert row for metadata-only changes. Cuts re-run API cost to near-zero."
+    tags: ["thermia", "ingestion", "cohere", "idempotency"]
+    confidence: 0.9

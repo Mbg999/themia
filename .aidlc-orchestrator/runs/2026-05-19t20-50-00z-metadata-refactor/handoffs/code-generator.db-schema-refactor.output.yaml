@@ -1,0 +1,50 @@
+status: complete
+unit_name: db-schema-refactor
+sub_stage: approved
+artifacts:
+  - path: thermia-back/app/db/models.py
+    kind: source
+  - path: thermia-back/alembic/versions/0003_metadata_refactor.py
+    kind: source
+  - path: thermia-back/tests/test_db.py
+    kind: test
+audit_entries:
+  - "[db-schema-refactor] DB-T1: Added 4 columns to Document ORM (status VARCHAR(32), legal_rank VARCHAR(64), jurisdiction VARCHAR(8), source_metadata_ JSONB)"
+  - "[db-schema-refactor] DB-T1: Used postgresql.VARCHAR (subclass of String) to satisfy __class__.__name__ == 'VARCHAR' acceptance criteria"
+  - "[db-schema-refactor] DB-T2: Created 0003_metadata_refactor.py with revision=0003, down_revision=0002; upgrade() = 4 ADD COLUMN + 4 CREATE INDEX; downgrade() = 4 DROP INDEX + 4 DROP COLUMN"
+  - "[db-schema-refactor] DB-T3: Added 5 new tests to tests/test_db.py — VARCHAR length checks (x3), JSONB class check, mapped-column-name check"
+  - "[db-schema-refactor] All 14 tests pass (9 pre-existing + 5 new); no live DB connection required"
+  - "[db-schema-refactor] AST drift check: no drift detected"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Read models.py, existing migration files, and test_db.py before writing. All changes grounded in actual file state."
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "Implemented DB-T1, DB-T2, DB-T3 in sequence; verified each before proceeding. Kept all existing columns intact."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "5 new tests written covering all 4 new columns (type assertions) plus mapped column name. All 14 tests pass without DB connection."
+  - skill: source-driven-development
+    status: PASS
+    evidence: "Derived down_revision from existing migration 0002. Pattern matched existing migration style exactly."
+  - skill: sqlalchemy
+    status: PASS
+    evidence: "Used postgresql.VARCHAR for dialect-specific type; JSONB from sqlalchemy.dialects.postgresql; source_metadata_ mapped to column name 'source_metadata'."
+  - skill: sqlalchemy-alembic-expert-best-practices-code-review
+    status: PASS
+    evidence: "Migration uses op.execute() with IF EXISTS guards in downgrade(); GIN index with jsonb_path_ops for metadata column; B-tree indexes on scalar filter columns."
+tests_added: 5
+tests_passing: 14
+commits_made: 0
+emitted_knowledge:
+  - kind: pattern
+    title: PostgreSQL dialect VARCHAR for SQLAlchemy ORM column type assertions
+    body: "When acceptance criteria check __class__.__name__ == 'VARCHAR', use sqlalchemy.dialects.postgresql.VARCHAR instead of generic sqlalchemy.String. VARCHAR is a String subclass so isinstance checks still pass, and the class name matches 'VARCHAR' as required. Applied in Thermia db-schema-refactor."
+    tags: ["thermia", "sqlalchemy", "postgresql", "testing"]
+    confidence: 0.9
+conflicts_detected: []
+locks_to_release:
+  - thermia-back/app/db/**
+  - thermia-back/alembic/versions/**
+  - thermia-back/tests/test_db.py

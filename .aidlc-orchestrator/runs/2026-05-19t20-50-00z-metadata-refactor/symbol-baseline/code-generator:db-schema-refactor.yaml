@@ -1,0 +1,7 @@
+thermia-back/app/db/models.py:
+  symbols:
+    Document:
+      kind: class
+      methods: {}
+  lang: python
+  captured_at: '2026-05-19T21:28:57+00:00'

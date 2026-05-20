@@ -1,0 +1,102 @@
+status: needs_human
+unit_name: ingestion-migration
+sub_stage: generated
+
+artifacts:
+  - path: aidlc-docs/construction/plans/2026-05-20t08-41-48z-bge-m3-migration-ingestion-migration-code-generation-plan.md
+    kind: plan
+    checkbox_state: all_checked
+  - path: thermia-back/scripts/ingest.py
+    kind: source
+    changes: "Replaced generate_embeddings(cohere_client, texts, *, pool=None) with generate_embeddings(texts); updated main() to remove cohere/get_cohere_pool imports; updated module docstring; updated constants (_EMBED_RETRY_DELAYS removed, _EMBED_RETRY_COUNT=2 and _EMBED_RETRY_DELAY=5.0 added)"
+  - path: thermia-back/tests/test_ingestion.py
+    kind: test
+    changes: "Rewrote TestCohereEmbedding (4 tests) for Ollama; rewrote TestKeyRotation (3 tests) for simple retry; added TestMainNoCohereReferences (2 tests) for AST-based static verification of main()"
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+    changes: "Updated TestIngestKeyPool class: replaced test_generate_embeddings_uses_pool_singleton with test_generate_embeddings_called_without_pool; replaced test_ingest_main_uses_get_cohere_pool with test_ingest_main_no_cohere_references; updated class docstring"
+
+audit_entries:
+  - "[CodeGraph] CodeGraph DB exists at .codegraph/codegraph.db — running pre-flight"
+  - "[CodeGraph] MCP tools not available in this toolset — fell back to grep/Read for symbol queries (graceful degradation)"
+  - "[Impact] pre-flight: generate_embeddings — callers in production code: 1 (main()), callers in tests: ~18 (test_ingestion.py + test_key_pool.py)"
+  - "[Impact] pre-flight: _EMBED_BATCH_SIZE — referenced 7 times in ingest.py, 1 time in test_ingestion.py (comment only)"
+  - "[Impact] pre-flight: _EMBED_RETRY_DELAYS — referenced 5 times in ingest.py, 1 time in test_ingestion.py (comment only)"
+  - "[Impact] get_cohere_pool — callers across codebase: 3 (embedder.py:60, embedder.py:99, ingest.py:478)"
+  - "[Impact] Low blast radius for all modified symbols — no symbol has >20 callers; proceeding"
+  - "[Plan] 4 TDD slices: (1) generate_embeddings rewrite + test classes, (2) main() cleanup, (3) validation polish, (4) cross-unit TestIngestKeyPool fix"
+  - "[Slice 1 RED] Wrote 7 failing tests in TestCohereEmbedding and TestKeyRotation for Ollama; confirmed 7/7 failed due to old 2-arg signature"
+  - "[Slice 1 GREEN] Replaced generate_embeddings(cohere_client, texts, *, pool=None) with generate_embeddings(texts); added ollama.embed call with model='bge-m3'; replaced _EMBED_RETRY_DELAYS with _EMBED_RETRY_COUNT=2 and _EMBED_RETRY_DELAY=5.0"
+  - "[Slice 1 GREEN] All 7 new tests pass; 29 pre-existing passing tests continue to pass"
+  - "[Slice 1 REFACTOR] Updated comments from 'Cohere' to 'Ollama' in constants section and deferred-imports comment"
+  - "[Slice 1 VALIDATE] 36 tests pass (excluding pre-existing pgvector TestUpsertDocuments failures)"
+  - "[Slice 2 RED] Wrote 2 failing AST tests in TestMainNoCohereReferences; confirmed failure — main() still had cohere import"
+  - "[Slice 2 GREEN] Removed 'import cohere', 'from app.retrieval.embedder import get_cohere_pool', 'pool = get_cohere_pool()' from main(); updated generate_embeddings call from generate_embeddings(cohere.Client(pool.current()), embed_texts, pool=pool) to generate_embeddings(embed_texts)"
+  - "[Slice 2 GREEN] Updated module docstring: removed 'Cohere embeddings' and COHERE_API_KEYS/COHERE_API_KEY env var mentions; added 'via Ollama (bge-m3 model)'"
+  - "[Slice 2 VALIDATE] 38 tests pass (7 Ollama embedding + 2 main() AST + 29 previously passing)"
+  - "[Slice 3 VALIDATE] grep -ci 'cohere' scripts/ingest.py = 0; pre-existing TestUpsertDocuments pgvector failures confirmed pre-existing via git stash verification"
+  - "[Slice 4 RED] TestIngestKeyPool test_generate_embeddings_uses_pool_singleton already failing (TypeError: takes 1 positional argument but 2 were given) from our Slice 1 change"
+  - "[Slice 4 GREEN] Rewrote TestIngestKeyPool: test_generate_embeddings_called_without_pool uses inspect.signature to verify params==['texts']; test_ingest_main_no_cohere_references verifies no 'cohere'/'get_cohere_pool'/'COHERE_API_KEY' string constants in main() AST"
+  - "[Slice 4 VALIDATE] 2/2 TestIngestKeyPool tests pass; 54/56 test_key_pool.py tests pass (2 pre-existing TestLLMKeyPool failures)"
+  - "[Final] grep -ci cohere scripts/ingest.py = 0"
+  - "[Final] 11/11 new/rewritten tests pass; 98/108 total (10 pre-existing failures: 9 pgvector + 2 LLM pydantic)"
+  - "[Self-review] Five-axis: (1) Correctness — retry loop, batch boundary, ollama.embed call, main() cleanup all verified; (2) Coverage — 9 new tests (7 Ollama embed, 2 AST static) + 2 rewritten cross-unit tests; all paths covered; (3) Clarity — constants named clearly, docstrings updated, no dead code; (4) Boundaries — retry loop correctly handles 1+_EMBED_RETRY_COUNT attempts; last_exc cleared on success only; (5) No regressions — TestParseLegalStructure (17), TestChunkArticle (5), TestBuildEmbeddingText (4), TestEmbedderKeyPool (3) all continue passing"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Followed incremental-implementation, test-driven-development, source-driven-development, codegraph-aware-exploration, validator-retry skills throughout execution"
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "CodeGraph DB detected; MCP not available — fell back to grep/Read per graceful degradation. Pre-flight: symbol queries, blast-radius checks all < 20 callers. No gate triggered."
+  - skill: environment-detection
+    status: PASS
+    evidence: "python3 and pytest available at /Users/miguel.belmonte/homebrew/bin/python3; ollama package assumed available from embedder-migration unit (requirements.txt in that unit's scope). No install commands needed."
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "4 slices: Slice 1 (generate_embeddings + 7 tests), Slice 2 (main() + 2 tests), Slice 3 (validation), Slice 4 (TestIngestKeyPool 2 tests). Each slice was independently testable with green tests before proceeding."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "RED→GREEN→REFACTOR executed for all 4 slices. Slice 1: 7 RED confirmed failures, then GREEN implementation. Slice 2: 2 RED confirmed failures, then GREEN main() cleanup. Slice 4: 1 RED confirmed failure (signature change broke old test), then GREEN rewrite."
+  - skill: source-driven-development
+    status: PASS
+    evidence: "Read ingest.py and test_ingestion.py before editing. Read test_key_pool.py TestIngestKeyPool before modifying. Used exact grep output to confirm line numbers before each edit."
+  - skill: validator-retry
+    status: PASS
+    evidence: "Static validator check: grep -ci cohere scripts/ingest.py = 0. pytest runs after each slice all passed (38 after Slice 2, 11 targeted new tests all green, 98 total). No persistent failures introduced."
+  - skill: api-and-interface-design
+    status: PASS
+    evidence: "generate_embeddings(texts: list[str]) -> list[list[float]] — self-contained, no external client dependency. Callers in main() use simple positional call with 1 arg."
+
+tests_added: 11
+tests_passing: 11
+commits_made: 0
+
+emitted_knowledge:
+  - kind: pattern
+    confidence: 0.75
+    title: "AST-based static tests for import cleanup verification"
+    body: |
+      What: Use Python's ast module to statically verify that a function body no longer
+      imports specific modules or references specific names — without executing the function.
+      Why: Runtime tests for import cleanup require mocking all dependencies the function
+      touches, which is brittle. AST tests are simpler, faster, and fail clearly.
+      Where: test_ingestion.py TestMainNoCohereReferences, test_key_pool.py TestIngestKeyPool.
+      Learned: ast.walk(main_func) with isinstance checks for ast.Import/ast.ImportFrom
+      and ast.Constant nodes provides a reliable, portable way to assert code structure.
+      Use pathlib.Path(__file__).resolve().parent.parent to find the source file
+      regardless of cwd.
+
+  - kind: adr
+    confidence: 0.80
+    title: "Simple fixed-delay retry replaces key-rotation retry for Ollama"
+    body: |
+      Context: The Cohere generate_embeddings used a complex retry system with key rotation
+      via KeyPool (mark_failed, classify_failure, AllKeysExhaustedError) and exponential
+      back-off delays (10s, 30s, 60s).
+      Decision: Replace with _EMBED_RETRY_COUNT=2 (3 total attempts) and _EMBED_RETRY_DELAY=5.0s
+      fixed delay. Ollama runs locally — no API keys, no rate-limiting, no key pool needed.
+      Consequences: generate_embeddings signature simplifies to (texts) only. main() no longer
+      needs to manage a KeyPool singleton. Tests are simpler (no pool/client mocking).
+      Trade-offs: Retries are for transient connection errors only, not rate limits.
+      If Ollama goes down, 3 attempts × 5s = 15s max wait per batch before propagation.

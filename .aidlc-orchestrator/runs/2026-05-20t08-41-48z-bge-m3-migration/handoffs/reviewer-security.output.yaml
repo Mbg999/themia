@@ -1,0 +1,92 @@
+status: complete
+reviewer: security
+findings:
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 40
+    cwe: "CWE-918"
+    owasp: "A10:2021"
+    message: "OLLAMA_HOST env var accepted without scheme or host validation, enabling SSRF to internal network services. The ollama.Client constructor (via httpx) accepts any URI scheme (http/https/file/ftp) and follows redirects by default (follow_redirects=True in httpx). An attacker with env-var injection capability (e.g. via container escape, CI misconfiguration, or compromised .env) can point the service to internal metadata endpoints such as http://169.254.169.254/ or http://internal-db:5432/."
+    recommendation: "Validate OLLAMA_HOST at application startup: parse the URL with urllib.parse.urlparse, assert scheme is 'https' (or 'http' only for 127.0.0.1/localhost), and raise RuntimeError if the check fails. Mirror the pattern already in place for API_KEY on main.py line 65-70. Additionally pass timeout=httpx.Timeout(30.0) when constructing ollama.Client to prevent indefinite blocking."
+
+  - severity: P1
+    file: thermia-back/scripts/ingest.py
+    line: 325
+    cwe: "CWE-918"
+    owasp: "A10:2021"
+    message: "ingest.py calls the module-level ollama.embed() function (not an explicit ollama.Client instance). The ollama package creates its internal _client = Client() singleton at import time (ollama/__init__.py line 44), which reads OLLAMA_HOST from the environment at that moment. Because 'import ollama' is deferred inside generate_embeddings() (line 317) and dotenv is loaded only inside main() (line 427), there is a window during which the OLLAMA_HOST value used for embedding may differ from the one intended by the operator. More critically, no URL validation is applied before the module-level client is constructed, carrying the same SSRF risk as embedder.py."
+    recommendation: "Replace ollama.embed() with an explicit ollama.Client(host=validated_host).embed() call, where validated_host is read and validated after dotenv is loaded. This matches the pattern in embedder.py and eliminates the import-time capture ambiguity."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 83
+    cwe: "CWE-400"
+    owasp: "A05:2021"
+    message: "No HTTP timeout is set on the ollama.Client. The ollama library passes timeout=None to httpx.Client (confirmed in _client.py lines 86/94/115), meaning an unresponsive or slow Ollama server will block the calling thread indefinitely. In the /analyze endpoint, get_query_embedding() is called inside asyncio.to_thread(), so a hung Ollama server will exhaust the FastAPI thread-pool workers, causing a denial of service against all concurrent requests."
+    recommendation: "Pass an explicit timeout when constructing ollama.Client: ollama.Client(host=host, timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)). Apply the same timeout in ingest.py."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 482
+    cwe: "CWE-209"
+    owasp: "A09:2021"
+    message: "Exception objects are logged directly via log.error('  [error] %s — %s', rel_path, exc). If ollama raises a ConnectionError or ResponseError, the str() representation includes the full target URL (including OLLAMA_HOST). In production, this surfaces the internal Ollama endpoint URL in application logs, which may be forwarded to log aggregators accessible to unauthorized parties."
+    recommendation: "Replace 'log.error(..., exc)' with 'log.error(..., type(exc).__name__)' for Ollama connection/response errors, or sanitize the exception message to strip URLs before logging."
+
+  - severity: P2
+    file: thermia-back/requirements.txt
+    line: 13
+    cwe: "CWE-1395"
+    owasp: "A06:2021"
+    message: "ollama>=0.6.2 is an unbounded lower-bound pin with no upper-bound constraint. The ollama Python client at 0.6.2 depends on httpx and anyio; no CVEs are known at the time of this review, but the absence of an upper-bound pin means silent major-version upgrades are possible if a future breaking release introduces vulnerabilities or changes the HTTP security defaults (e.g., redirect behavior, TLS validation). The dependency warrants running 'pip-audit' or 'safety check' before each release."
+    recommendation: "Pin with a tighter constraint, e.g. 'ollama>=0.6.2,<1.0.0', and add ollama to CI dependency scanning (pip-audit / Dependabot). Document the minimum acceptable version in a comment."
+
+  - severity: P2
+    file: thermia-back/.env.example
+    line: 29
+    cwe: "CWE-319"
+    owasp: "A02:2021"
+    message: "The default OLLAMA_HOST in .env.example uses http:// (plaintext). While localhost is low-risk, the same default is documented and likely copied for non-local deployments. The production endpoint (https://ollama.cvbooster.es) uses HTTPS, but there is no enforcement or documentation note warning operators that http:// must not be used for non-localhost deployments."
+    recommendation: "Add an inline comment to .env.example explicitly stating that OLLAMA_HOST must use https:// for any non-localhost endpoint. Enforce the scheme check in application code (see P1 finding for embedder.py)."
+
+  - severity: P3
+    file: thermia-back/scripts/ingest.py
+    line: 66
+    cwe: "CWE-20"
+    owasp: "A03:2021"
+    message: "EMBED_INTER_BATCH_SLEEP is read with float() at module load time (line 66) before dotenv is loaded (dotenv is loaded in main() at line 427). If the env var is set to a negative or extremely large value (e.g. '999999'), the pipeline will either sleep for an absurd duration or (negative) skip inter-batch delays. A ValueError from a malformed value (e.g. 'abc') will crash at import time with an unhandled exception traceback."
+    recommendation: "Move EMBED_INTER_BATCH_SLEEP parsing inside main() after dotenv loading, add a try/except with a fallback to the default (1.0), and clamp the value to a reasonable range (0.0–60.0 seconds)."
+
+  - severity: P3
+    file: thermia-back/app/retrieval/embedder.py
+    line: 22
+    cwe: "CWE-547"
+    owasp: "A05:2021"
+    message: "OLLAMA_HOST defaults to 'http://localhost:11434' (plaintext HTTP). There is no startup validation that enforces HTTPS for production deployments. If an operator forgets to set OLLAMA_HOST, or sets it to an HTTP URL for a remote host, embeddings will be transmitted in cleartext, including the text contents of uploaded legal PDF documents."
+    recommendation: "At application startup (before first embedding call), validate that if the parsed OLLAMA_HOST hostname is not 127.0.0.1 / localhost, the scheme must be https://. Raise a RuntimeError on misconfiguration."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 3
+  P2_count: 3
+  P3_count: 2
+audit_entries:
+  - "reviewer-security: threat-modelled 5 surfaces (OLLAMA_HOST SSRF, endpoint auth, HTTP/HTTPS enforcement, timeout/DoS, dependency supply chain)"
+  - "reviewer-security: code-scanned embedder.py, ingest.py, key_pool.py, .env.example, requirements.txt"
+  - "reviewer-security: OWASP scan complete — A02, A03, A05, A06, A09, A10 categories checked"
+  - "reviewer-security: dependency scan — ollama>=0.6.2 flagged for pip-audit requirement; no known CVEs at review time"
+  - "reviewer-security: no hardcoded secrets detected in any changed file"
+  - "reviewer-security: COHERE_API_KEY removal verified — no Cohere credentials remain in reviewed files"
+  - "reviewer-security: key_pool.py — no security regressions; SHA-256 key hashing in logs confirmed safe"
+  - "reviewer-security: main.py — API_KEY enforcement and hmac.compare_digest usage confirmed unchanged and correct"
+  - "reviewer-security: 8 findings total (P0=0, P1=3, P2=3, P3=2)"
+skill_compliance:
+  - skill: security-and-hardening
+    status: PASS
+    evidence: "OWASP Top 10 scan complete across all 5 changed files; CWE references assigned to all findings; threat model covered SSRF, DoS, info-disclosure, supply chain, and crypto-in-transit surfaces"
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "security-and-hardening skill loaded and applied; codegraph-aware-exploration not applicable (no cache path provided)"
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "no codegraph_cache_path in input handoff; proceeded with direct file reads per fallback protocol"

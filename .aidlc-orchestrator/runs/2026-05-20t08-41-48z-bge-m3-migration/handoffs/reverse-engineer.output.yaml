@@ -1,0 +1,58 @@
+# Reverse Engineer — Output Handoff
+status: complete
+artifacts:
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-business-overview.md
+    kind: doc
+    hash: b3e8538714ad6e0184500429cf3e4179125097327fb07f9c1bcc9d6ae43f61da
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-architecture.md
+    kind: doc
+    hash: ec94e6bf45869bb261d06dd8df11c596717d869905cd914c877b1b28399d085e
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-code-structure.md
+    kind: doc
+    hash: 19f78eb3ba69c346e1e002ce3ac8412224ae95c023b333e630c712999ee4d131
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-api-docs.md
+    kind: doc
+    hash: 8369c828456b77c061b652fae2c7840cabff28b564f84f0d9d5cdcd9f22629bd
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-component-inventory.md
+    kind: doc
+    hash: 6bd9f06ea76981b6b520b936ebbf0ad6339af53d308f8b689d41c4b16f6dc1ec
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-interaction-diagrams.md
+    kind: doc
+    hash: 8554f0d44772af5dde73a7af02bb9c336d8a424651d3846f365fae964d5980ff
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-technology-stack.md
+    kind: doc
+    hash: bd18ac05470d3df8b4b3260bcc7141fef7439ce623ba7158de9500fdbbf38e25
+  - path: aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-dependencies.md
+    kind: doc
+    hash: 0b1a56b288268eeafdc6228b3fac7dbac3ac3c8de8695b2b8818c79d0ab12b9a
+audit_entries:
+  - "[CodeGraph] indexed=true (codegraph.db present), backend=wasm — MCP codegraph_* tools not available in this session; fell back to Read gracefully per graceful-degradation rule."
+  - "[CodeGraph] reverse-engineer complete — graph queries: 0, file_reads: 16 (12 Python source + 4 config/manifest)"
+  - "[Skill] using-agent-skills loaded — phase identified as Inception/reverse-engineer; companion skill codegraph-aware-exploration loaded and executed in parallel."
+  - "[Skill] codegraph-aware-exploration Step 1 (Detect): .codegraph/codegraph.db present (indexed). codegraph status CLI failed — wasm backend; MCP codegraph_* tools unavailable in session. Graceful fallback to Read/Glob/Grep per skill's 'not indexed' path since backend tools not callable."
+  - "[Rationalization-rejected] codegraph-aware-exploration Step 3 'grep is faster for this lookup' — rejected: used Read for comprehensive file analysis instead of piecemeal grep."
+  - "business-overview.md — domain mapped: legal-tech RAG for Spanish law; user types identified: legal professional, system admin, developer; business drivers documented: Cohere cost reduction via bge-m3 migration."
+  - "architecture.md — 4 layers documented (API, Retrieval, DB, Ingestion); deployment model: Docker container + PostgreSQL/pgvector + external APIs; key boundaries identified for migration."
+  - "code-structure.md — directory tree mapped: 20 Python files across 6 packages; module roles documented for all retrieval modules; build/test conventions captured."
+  - "api-docs.md — 2 HTTP endpoints documented (GET /health, POST /analyze); 6 internal library API signatures catalogued; embedding API contract defined for migration compatibility."
+  - "component-inventory.md — 9 components inventoried with responsibilities, dependencies, and migration impact assessment."
+  - "interaction-diagrams.md — 3 Mermaid sequence diagrams: query-time embedding (current vs target), ingestion pipeline (current vs target), full RAG analysis pipeline."
+  - "technology-stack.md — 20+ libraries catalogued with versions and roles; external service matrix created; observability patterns documented."
+  - "dependencies.md — 21 direct dependencies listed with migration impact; cohere>=5.0.0 identified for removal; requests/httpx identified for addition."
+  - "Dependency scan: 21 packages in requirements.txt reviewed; 2 embedding-specific call sites identified in embedder.py (1) and ingest.py (1); KeyPool removal candidate identified."
+  - "Migration impact assessment: HIGH on embedder.py (full Cohere→Ollama rewrite), HIGH on key_pool.py (simplification/removal), MEDIUM on ingest.py (generate_embeddings refactor), MEDIUM on test files (mock changes), NONE on searcher/fusion/context_builder/llm."
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded skill via skill() tool at start of session. Phase identified as Inception/reverse-engineer. Applied meta-skill pattern to discover and load codegraph-aware-exploration as companion. All 8 RE artifacts produced per the inception phase workflow."
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "Step 1 (Detect) executed: .codegraph/codegraph.db present (indexed). codegraph status CLI failed (wasm backend mismatch). MCP codegraph_* tools not available in session — graceful fallback to Read/Glob/Grep per degradation rule. Step 2 routing table used mental model: config/manifest files read directly, Python source files read via Read (codegraph_node unavailable). Step 3 audit entry emitted. Step 4 (blast-radius) N/A for reverse-engineer stage. No codegraph_context called from main session."
+tech_stack_summary:
+  primary_languages:
+    - Python
+    - SQL (PostgreSQL/pgvector)
+  build_system: pip + requirements.txt
+  runtime: Python 3.12 (asyncio/uvicorn)
+  infra: Docker container + PostgreSQL
+  observability: Python logging (structured), no APM/OpenTelemetry

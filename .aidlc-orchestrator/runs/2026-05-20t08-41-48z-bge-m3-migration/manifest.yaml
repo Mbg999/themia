@@ -1,0 +1,98 @@
+completed_stages:
+- workspace-scout
+- reverse-engineer
+- requirements-analyst
+- workflow-planner
+- unit-decomposer
+- construction
+complexity_tier: MEDIUM
+current_stage: review
+failed_stages: []
+last_checkpoint_at: '2026-05-20T10:22:44+00:00'
+merge_codegen_gate: false
+orchestrator_version: 0.1.0
+project_profile:
+  api: true
+  has_legacy: true
+  ui: true
+project_slug: thermia
+reviewer_pool:
+- reviewer-code
+- reviewer-security
+- reviewer-simplifier
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+skill_paths:
+  idea-refine: .agents/skills/idea-refine/SKILL.md
+  spec-driven-development: .agents/skills/spec-driven-development/SKILL.md
+  using-agent-skills: .agents/skills/using-agent-skills/SKILL.md
+skill_paths_resolved:
+- .agents/skills/accessibility/SKILL.md
+- .agents/skills/adev-writing-guide/SKILL.md
+- .agents/skills/angular-developer/SKILL.md
+- .agents/skills/api-and-interface-design/SKILL.md
+- .agents/skills/browser-testing-with-devtools/SKILL.md
+- .agents/skills/ci-cd-and-automation/SKILL.md
+- .agents/skills/code-review-and-quality/SKILL.md
+- .agents/skills/code-simplification/SKILL.md
+- .agents/skills/codegraph-aware-exploration/SKILL.md
+- .agents/skills/context-engineering/SKILL.md
+- .agents/skills/debugging-and-error-recovery/SKILL.md
+- .agents/skills/deprecation-and-migration/SKILL.md
+- .agents/skills/documentation-and-adrs/SKILL.md
+- .agents/skills/doubt-driven-development/SKILL.md
+- .agents/skills/environment-detection/SKILL.md
+- .agents/skills/fastapi-python/SKILL.md
+- .agents/skills/fastapi-templates/SKILL.md
+- .agents/skills/frontend-design/SKILL.md
+- .agents/skills/frontend-ui-engineering/SKILL.md
+- .agents/skills/git-workflow-and-versioning/SKILL.md
+- .agents/skills/idea-refine/SKILL.md
+- .agents/skills/incremental-implementation/SKILL.md
+- .agents/skills/interview-me/SKILL.md
+- .agents/skills/nodejs-backend-patterns/SKILL.md
+- .agents/skills/nodejs-best-practices/SKILL.md
+- .agents/skills/performance-optimization/SKILL.md
+- .agents/skills/planning-and-task-breakdown/SKILL.md
+- .agents/skills/pr_review/SKILL.md
+- .agents/skills/python-executor/SKILL.md
+- .agents/skills/python-testing-patterns/SKILL.md
+- .agents/skills/reference-compiler-cli/SKILL.md
+- .agents/skills/reference-core/SKILL.md
+- .agents/skills/reference-signal-forms/SKILL.md
+- .agents/skills/requirements-intelligence/SKILL.md
+- .agents/skills/security-and-hardening/SKILL.md
+- .agents/skills/seo/SKILL.md
+- .agents/skills/shipping-and-launch/SKILL.md
+- .agents/skills/source-driven-development/SKILL.md
+- .agents/skills/spec-driven-development/SKILL.md
+- .agents/skills/sqlalchemy/SKILL.md
+- .agents/skills/sqlalchemy-alembic-expert-best-practices-code-review/SKILL.md
+- .agents/skills/test-driven-development/SKILL.md
+- .agents/skills/typescript-advanced-types/SKILL.md
+- .agents/skills/using-agent-skills/SKILL.md
+- .agents/skills/validator-retry/SKILL.md
+- .agents/skills/vitest/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/azure-observability/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/caveman/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/caveman-commit/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/caveman-compress/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/caveman-help/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/caveman-review/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/compress/SKILL.md
+- /Users/miguel.belmonte/.agents/skills/find-skills/SKILL.md
+skip_stages:
+- reverse-engineer
+- story-writer
+skipped_stages: []
+started_at: '2026-05-20T08:41:48+00:00'
+unit_max_parallelism: 2
+unit_wave_count: 3
+unit_waves:
+- - key-pool-cleanup
+- - embedder-migration
+  - ingestion-migration
+- - test-execution
+user_request: 'migrate the current embeddings system to use bge-m3 over ollama instead
+  of Cohere embed-multilingual-v3.0. The ollama endpoint is at https://ollama.cvbooster.es/api/embeddings
+  with model bge-m3. Cohere API costs are too high. Main affected files: thermia-back/app/retrieval/embedder.py,
+  thermia-back/scripts/ingest.py, and their unit test files.'

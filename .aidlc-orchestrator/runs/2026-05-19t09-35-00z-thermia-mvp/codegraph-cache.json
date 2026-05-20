@@ -1,0 +1,551 @@
+{
+  "generated_at": "2026-05-19T15:50:00+00:00",
+  "source_files": [
+    "thermia-back/app/__init__.py",
+    "thermia-back/app/config.py",
+    "thermia-back/app/main.py",
+    "thermia-back/app/db/__init__.py",
+    "thermia-back/app/db/connection.py",
+    "thermia-back/app/db/models.py",
+    "thermia-back/app/retrieval/__init__.py",
+    "thermia-back/app/retrieval/context_builder.py",
+    "thermia-back/app/retrieval/embedder.py",
+    "thermia-back/app/retrieval/fusion.py",
+    "thermia-back/app/retrieval/llm.py",
+    "thermia-back/app/retrieval/searcher.py",
+    "thermia-back/scripts/ingest.py",
+    "thermia-back/alembic/versions/0001_initial.py",
+    "thermia-front/src/app/analysis.service.ts",
+    "thermia-front/src/app/app.config.ts",
+    "thermia-front/src/app/app.routes.ts",
+    "thermia-front/src/app/app.ts",
+    "thermia-back/tests/test_db.py",
+    "thermia-front/src/app/app.spec.ts",
+    "thermia-front/src/app/analysis.service.spec.ts"
+  ],
+  "symbols": {
+    "API_KEY": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "AnalysisResponse": {
+      "file": "thermia-front/src/app/analysis.service.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "AnalysisService": {
+      "file": "thermia-front/src/app/analysis.service.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 2,
+      "impact": [
+        "http",
+        "analyze"
+      ]
+    },
+    "App": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 10,
+      "impact": [
+        "analysisService",
+        "selectedFile",
+        "isLoading",
+        "result",
+        "error",
+        "constructor",
+        "isAnalyzeEnabled",
+        "onFileChange",
+        "onAnalyze",
+        "mapError"
+      ]
+    },
+    "COHERE_API_KEY": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "CORS_ORIGINS": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "DATABASE_URL": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "DB_NAME": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "DB_PASSWORD": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "DB_USER": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "GROQ_API_KEY": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "SSH_HOST": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "SSH_PASSWORD": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "SSH_REMOTE_BIND_PORT": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "SSH_USER": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "THERMIA_ENV": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "analysis.service.spec.ts": {
+      "file": "thermia-front/src/app/analysis.service.spec.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 7,
+      "impact": [
+        "vitest",
+        "rxjs",
+        "@angular/common/http",
+        "./analysis.service",
+        "@angular/core",
+        "makeHttpClientMock",
+        "buildService"
+      ]
+    },
+    "analysis.service.ts": {
+      "file": "thermia-front/src/app/analysis.service.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 6,
+      "impact": [
+        "@angular/core",
+        "@angular/common/http",
+        "rxjs",
+        "../environments/environment",
+        "AnalysisResponse",
+        "AnalysisService"
+      ]
+    },
+    "analysisService": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "analyze": {
+      "file": "thermia-back/app/main.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "analyze_with_llm": {
+      "file": "thermia-back/app/retrieval/llm.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "app": {
+      "file": "thermia-back/app/main.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "app.config.ts": {
+      "file": "thermia-front/src/app/app.config.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 5,
+      "impact": [
+        "@angular/core",
+        "@angular/router",
+        "@angular/common/http",
+        "./app.routes",
+        "appConfig"
+      ]
+    },
+    "app.routes.ts": {
+      "file": "thermia-front/src/app/app.routes.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 2,
+      "impact": [
+        "@angular/router",
+        "routes"
+      ]
+    },
+    "app.spec.ts": {
+      "file": "thermia-front/src/app/app.spec.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 6,
+      "impact": [
+        "vitest",
+        "rxjs",
+        "@angular/common/http",
+        "./app",
+        "./analysis.service",
+        "makeService"
+      ]
+    },
+    "app.ts": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 4,
+      "impact": [
+        "@angular/core",
+        "@angular/common/http",
+        "./analysis.service",
+        "App"
+      ]
+    },
+    "appConfig": {
+      "file": "thermia-front/src/app/app.config.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "bm25_search": {
+      "file": "thermia-back/app/retrieval/searcher.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "buildService": {
+      "file": "thermia-front/src/app/analysis.service.spec.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 1,
+      "impact": [
+        "AnalysisService"
+      ]
+    },
+    "build_embedding_text": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "chunk_article": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "config.py": {
+      "file": "thermia-back/app/config.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 15,
+      "impact": [
+        "os",
+        "dotenv",
+        "THERMIA_ENV",
+        "DATABASE_URL",
+        "SSH_HOST",
+        "SSH_USER",
+        "SSH_PASSWORD",
+        "SSH_REMOTE_BIND_PORT",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_NAME",
+        "COHERE_API_KEY",
+        "API_KEY",
+        "GROQ_API_KEY",
+        "CORS_ORIGINS"
+      ]
+    },
+    "constructor": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "error": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "generate_embeddings": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "health": {
+      "file": "thermia-back/app/main.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "http": {
+      "file": "thermia-front/src/app/analysis.service.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "ingest.py": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 32,
+      "impact": [
+        "argparse",
+        "logging",
+        "os",
+        "re",
+        "sys",
+        "time",
+        "pathlib",
+        "typing",
+        "tiktoken",
+        "_SCRIPT_DIR",
+        "_BACKEND_ROOT",
+        "log",
+        "_REPO_URL",
+        "_REPO_DIR",
+        "_CHUNK_THRESHOLD",
+        "_SUB_CHUNK_SIZE",
+        "_OVERLAP",
+        "_EMBED_BATCH_SIZE",
+        "_EMBED_RETRY_DELAYS",
+        "_ENC",
+        "_count_tokens",
+        "build_embedding_text",
+        "chunk_article",
+        "parse_legal_structure",
+        "_derive_law_id",
+        "_YEAR_RE",
+        "_extract_year",
+        "generate_embeddings",
+        "upsert_documents",
+        "_clone_or_pull",
+        "_scan_md_files",
+        "main"
+      ]
+    },
+    "isAnalyzeEnabled": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "isLoading": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "llm.py": {
+      "file": "thermia-back/app/retrieval/llm.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 6,
+      "impact": [
+        "json",
+        "os",
+        "langchain_groq",
+        "langchain_core.messages",
+        "_SYSTEM_PROMPT",
+        "analyze_with_llm"
+      ]
+    },
+    "log": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "main": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "main.py": {
+      "file": "thermia-back/app/main.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 14,
+      "impact": [
+        "io",
+        "os",
+        "pdfplumber",
+        "fastapi",
+        "fastapi.middleware.cors",
+        "fastapi.responses",
+        "app.config",
+        "app",
+        "_cors_origins",
+        "_LEGAL_KEYWORDS",
+        "_is_legal_text",
+        "_check_auth",
+        "health",
+        "analyze"
+      ]
+    },
+    "makeHttpClientMock": {
+      "file": "thermia-front/src/app/analysis.service.spec.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "makeService": {
+      "file": "thermia-front/src/app/app.spec.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "mapError": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "onAnalyze": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "onFileChange": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "parse_legal_structure": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "result": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "routes": {
+      "file": "thermia-front/src/app/app.routes.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "searcher.py": {
+      "file": "thermia-back/app/retrieval/searcher.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 7,
+      "impact": [
+        "pgvector.sqlalchemy",
+        "sqlalchemy",
+        "sqlalchemy.engine",
+        "sqlalchemy.orm",
+        "app.db.models",
+        "vector_search",
+        "bm25_search"
+      ]
+    },
+    "selectedFile": {
+      "file": "thermia-front/src/app/app.ts",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "upsert_documents": {
+      "file": "thermia-back/scripts/ingest.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    },
+    "vector_search": {
+      "file": "thermia-back/app/retrieval/searcher.py",
+      "caller_count": 0,
+      "callers": [],
+      "blast_radius": 0,
+      "impact": []
+    }
+  }
+}

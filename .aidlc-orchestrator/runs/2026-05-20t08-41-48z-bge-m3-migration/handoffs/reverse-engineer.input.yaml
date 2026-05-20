@@ -1,0 +1,17 @@
+run_id: "2026-05-20t08-41-48z-bge-m3-migration"
+stage_id: "reverse-engineer"
+user_request: "migrate the current embeddings system to use bge-m3 over ollama instead of Cohere embed-multilingual-v3.0. The ollama endpoint is at https://ollama.cvbooster.es/api/embeddings with model bge-m3. Cohere API costs are too high. Main affected files: thermia-back/app/retrieval/embedder.py, thermia-back/scripts/ingest.py, and their unit test files."
+predecessor_artifacts:
+  - .aidlc-orchestrator/runs/2026-05-20t08-41-48z-bge-m3-migration/handoffs/workspace-scout.output.yaml
+workspace_state:
+  project_type: brownfield
+  existing_code: "Monorepo: thermia-back/ (Python FastAPI with SQLAlchemy, pgvector, Cohere), thermia-front/ (Angular 21.2.0 SPA)"
+  next_phase: reverse-engineering
+  tech_stack_summary: "Python/FastAPI backend, Angular 21.2 frontend, PostgreSQL/pgvector, Cohere embeddings, Ollama (target)"
+  legacy_patterns:
+    - Cohere embed-multilingual-v3.0 usage in embedder.py and ingest.py
+    - KeyPool API key rotation pattern for rate-limit handling
+skills_required:
+  - using-agent-skills
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md

@@ -1,0 +1,72 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+stage_id: reviewer-code
+reviewer: code-quality
+user_request: "Metadata Refactor for Thermia Legal RAG — refactor ingestion pipeline
+  metadata architecture to support production-grade Spanish legal RAG with two-layer
+  metadata (retrieval + source), YAML/frontmatter extraction, content hashing, legal
+  rank/status extraction, and PostgreSQL optimization."
+predecessor_artifacts:
+  # db-schema-refactor
+  - thermia-back/app/db/models.py
+  - thermia-back/alembic/versions/0003_metadata_refactor.py
+  - thermia-back/tests/test_db.py
+  # metadata-helpers
+  - thermia-back/app/ingestion/metadata_helpers.py
+  - thermia-back/tests/ingestion/test_metadata_helpers.py
+  - thermia-back/requirements.txt
+  # ingestion-wiring
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/test_ingestion.py
+  # sources-display + enrichment
+  - thermia-back/app/main.py
+  - thermia-back/app/retrieval/searcher.py
+  - thermia-back/app/retrieval/context_builder.py
+  - thermia-front/src/app/analysis.service.ts
+  - thermia-front/src/app/app.ts
+  - thermia-front/src/app/app.html
+  - thermia-front/src/app/app.scss
+  - thermia-front/src/app/analysis.service.spec.ts
+scope_paths:
+  - thermia-back/app/db/**
+  - thermia-back/app/ingestion/**
+  - thermia-back/app/retrieval/**
+  - thermia-back/app/main.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/versions/0003_metadata_refactor.py
+  - thermia-back/tests/**
+  - thermia-front/src/app/**
+skills_required:
+  - python-testing-patterns
+  - sqlalchemy
+  - sqlalchemy-alembic-expert-best-practices-code-review
+  - fastapi-python
+  - angular-developer
+  - security-and-hardening
+skill_paths_resolved:
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/sqlalchemy/SKILL.md
+  - .agents/skills/sqlalchemy-alembic-expert-best-practices-code-review/SKILL.md
+  - .agents/skills/fastapi-python/SKILL.md
+  - .agents/skills/angular-developer/SKILL.md
+  - .agents/skills/security-and-hardening/SKILL.md
+model_override: sonnet
+context_pointers:
+  - "thermia-back/app/ingestion/metadata_helpers.py — 5 pure helpers: parse_frontmatter,
+    compute_content_hash, extract_legal_rank, normalize_status, derive_eli"
+  - "thermia-back/scripts/ingest.py — ingestion pipeline: parse_legal_structure calls
+    parse_frontmatter; generate_embeddings has _rotated sentinel loop for key rotation;
+    upsert_documents writes 4 new columns"
+  - "thermia-back/app/retrieval/searcher.py — only_active=True default filters
+    WHERE status IN ('vigente', '') — excludes derogated laws"
+  - "thermia-back/app/retrieval/context_builder.py — LLM context block now includes
+    law_title, legal_rank, status per chunk"
+  - "PRIOR (pattern): PostgreSQL dialect VARCHAR required for __class__.__name__ == 'VARCHAR'
+    assertions — use sqlalchemy.dialects.postgresql.VARCHAR not generic String"
+  - "PRIOR (pattern): parse_frontmatter body retention — closing --- newline stays in body;
+    split-on-marker must not consume the trailing newline"
+  - "PRIOR (lesson): extract_legal_rank most-specific-first — 'ley orgánica' before 'ley';
+    'real decreto-ley' before 'real decreto'"
+  - "CRITICAL: when hash-skip fires, chunk['embedding']=None — upsert_documents guards
+    with conditional set only when not None to prevent NULL pgvector overwrite"
+gates: []
+locks_required: []

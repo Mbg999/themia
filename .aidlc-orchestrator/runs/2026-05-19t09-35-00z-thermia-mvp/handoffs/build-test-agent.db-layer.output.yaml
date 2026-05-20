@@ -1,0 +1,83 @@
+status: needs_human
+unit_name: db-layer
+build_status: success
+tests_total: 9
+tests_passing: 9
+tests_failing: 0
+
+artifacts:
+  - path: thermia-back/build-instructions.md
+    kind: doc
+  - path: thermia-back/build-and-test-summary.md
+    kind: doc
+  - path: thermia-back/alembic/env.py
+    kind: source
+  - path: thermia-back/app/db/connection.py
+    kind: source
+  - path: thermia-back/requirements.txt
+    kind: config
+  - path: thermia-back/tests/test_db.py
+    kind: test
+
+audit_entries:
+  - "[Env] python3 detected via system PATH: /Users/miguel.belmonte/homebrew/bin/python3, version 3.14.5. venv already present at thermia-back/.venv — skipping install."
+  - "[Env] pytest 9.0.3 detected in venv. alembic 1.18.4 detected in venv. No install required."
+  - "[Env] paramiko 5.0.0 detected — incompatible with sshtunnel 0.4.0 (DSSKey removed in 3.x). Downgraded to paramiko 2.12.0 and pinned in requirements.txt."
+  - "[Skills] universal skill: environment-detection — LOADED (no applies_to constraint)"
+  - "[Skills] universal skill: test-driven-development — LOADED"
+  - "[Skills] universal skill: debugging-and-error-recovery — LOADED (triggered by alembic failures)"
+  - "[Skills] universal skill: validator-retry — LOADED"
+  - "[Skills] universal skill: using-agent-skills — not available as Skill tool; proceeding with manual skill protocol"
+  - "[CodeGraph] no .codegraph/codegraph.db found — running full test suite"
+  - "[Tests] pytest tests/test_db.py -v: 9/9 passed (first run, pre-fix)"
+  - "[Validator] No tsc/pyright/ruff/pylint configured in project — static validation not applicable for this pure-runtime Python unit"
+  - "[Alembic] First failure: alembic/env.py used engine_from_config with DATABASE_URL='postgresql://user:pass@host/db' (placeholder). Host 'host' not resolvable. Root cause: env.py never called get_engine() so SSH tunnel was never opened."
+  - "[Fix-1] alembic/env.py: replaced engine_from_config with get_engine() import from app.db.connection. Added finally block to stop tunnel. Exit code changed from 1 to next error."
+  - "[Alembic] Second failure: paramiko.DSSKey AttributeError. Root cause: sshtunnel 0.4.0 references paramiko.DSSKey removed in paramiko 3.x. paramiko 5.0.0 was installed."
+  - "[Fix-2] requirements.txt: added paramiko<3 pin. Installed paramiko 2.12.0."
+  - "[Alembic] Third failure: Password is required for key ~/.ssh/id_rsa. Root cause: SSHTunnelForwarder default scans ~/.ssh/ and found a passphrase-protected id_rsa before attempting password auth."
+  - "[Fix-3] app/db/connection.py: added allow_agent=False, host_pkey_directories=[] to SSHTunnelForwarder constructor."
+  - "[Tests] test_local_creates_ssh_tunnel: failed after Fix-3 because assert_called_once_with used original 4-arg signature, not the updated 6-arg call. Updated test to match new signature."
+  - "[Tests] pytest tests/test_db.py -v: 9/9 passed (after all fixes)"
+  - "[Alembic] Fourth failure: Authentication (password) failed. Paramiko log confirms TCP connects, kex handshake completes, password auth attempted, rejected by server. SSH_PASSWORD in .env is incorrect for user themiauser@pgdb.cvbooster.es. This is an environmental credential issue — code is correct."
+  - "[Status] build_status=success (code compiles and imports without error). tests_passing=9/9. alembic blocked by invalid SSH_PASSWORD credential in .env — not a code defect."
+
+skill_compliance:
+  - skill: environment-detection
+    status: PASS
+    evidence: "Detected python3 3.14.5, pytest 9.0.3, alembic 1.18.4 from existing venv before any install commands. Detected paramiko 5.0.0 incompatibility; downgraded to 2.12.0. All detections logged with [Env] prefix."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Ran full test suite tests/test_db.py -v. Captured 9 pass / 0 fail counts. Did not skip any tests. Did not invent coverage numbers (none measured)."
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: "Triaged 4 sequential alembic failures: (1) DNS resolution failure traced to placeholder DATABASE_URL bypassing SSH tunnel; (2) paramiko.DSSKey AttributeError traced to sshtunnel/paramiko version incompatibility; (3) key-file scan failure traced to missing allow_agent/host_pkey_directories args; (4) SSH auth failure traced to invalid SSH_PASSWORD credential. Root causes documented; code defects fixed; environmental issue (bad credential) surfaced to human."
+  - skill: validator-retry
+    status: N/A
+    evidence: "No static type-checker (pyright, mypy, ruff) or linter configured in this project. Python files import cleanly (verified via pytest collection with 0 import errors). N/A is appropriate — not a skip."
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skill loading protocol followed: checked tech_stack (Python/FastAPI/SQLAlchemy/Alembic), loaded universal skills only. No framework-specific skills had applies_to matches in tech_stack. Documented in audit_entries."
+  - skill: codegraph-aware-exploration
+    status: N/A
+    evidence: ".codegraph/codegraph.db not present in workspace. Fell back to full test suite as required. Emitted [CodeGraph] log entry."
+
+emitted_knowledge:
+  - kind: lesson
+    title: "sshtunnel 0.4.0 incompatible with paramiko >= 3.x"
+    body: "What: SSHTunnelForwarder.__init__ calls get_keys() which references paramiko.DSSKey, removed in paramiko 3.0. Why: sshtunnel is unmaintained since 2021 and has not tracked paramiko's breaking changes. Where: thermia-back/requirements.txt. Learned: always pin paramiko<3 when using sshtunnel<=0.4.0. The test suite did not catch this because unit tests mock SSHTunnelForwarder entirely — the incompatibility only manifests at actual import/instantiation time."
+    tags: [sshtunnel, paramiko, dependency-pinning, python]
+    confidence: 0.95
+  - kind: lesson
+    title: "alembic env.py must use app connection factory for SSH-tunnelled local environments"
+    body: "What: The code-generator produced an alembic/env.py that reads DATABASE_URL directly via engine_from_config, bypassing the get_engine() SSH tunnel factory. For THERMIA_ENV=local this means the tunnel is never opened and migrations fail. Why: Standard alembic boilerplate uses DATABASE_URL; the tunnel integration requires explicitly calling the application's connection factory. Where: thermia-back/alembic/env.py. Learned: For any project with environment-specific connection factories (SSH tunnel, IAM auth, etc.), alembic env.py must import and use that factory rather than reading a URL directly. Tests that mock get_engine() would have caught this gap if they covered the alembic invocation path."
+    tags: [alembic, sshtunnel, connection-factory, code-generator-gap]
+    confidence: 0.9
+  - kind: lesson
+    title: "SSHTunnelForwarder with password auth requires allow_agent=False and host_pkey_directories=[]"
+    body: "What: SSHTunnelForwarder by default scans ~/.ssh/ for key files and queries the SSH agent before attempting password auth. If a passphrase-protected key is found, the tunnel fails before reaching password auth. Why: sshtunnel treats available key files as higher priority than password. Where: thermia-back/app/db/connection.py. Learned: Password-only SSH tunnel connections must always set allow_agent=False and host_pkey_directories=[] to avoid interference from local key files. The existing test mocked SSHTunnelForwarder so it did not catch the missing parameters until the constructor call signature assertion failed."
+    tags: [sshtunnel, paramiko, ssh-auth, password-auth]
+    confidence: 0.9
+
+conflicts_detected: []
+locks_to_release: []

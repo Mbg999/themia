@@ -1,0 +1,40 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+stage_id: reviewer-performance
+reviewer: performance
+user_request: >-
+  Build an MVP called Thermia — Spanish legal document analyzer with hybrid RAG
+  (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval pipelines.
+predecessor_artifacts:
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/code-generator.db-layer.output.yaml
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/build-test-agent.db-layer.output.yaml
+  - aidlc-docs/audit.md
+  - aidlc-docs/operations/2026-05-19t09-35-00z-thermia-mvp-review-report.md
+scope_paths:
+  - thermia-back/app/**/*.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/**/*.py
+  - thermia-front/src/app/**/*.ts
+skills_required:
+  - performance-optimization
+  - using-agent-skills
+  - codegraph-aware-exploration
+  - api-and-interface-design
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+  - .agents/skills/api-and-interface-design/SKILL.md
+context_pointers:
+  - "pgvector ivfflat index: CREATE INDEX ON documents USING ivfflat(embedding vector_cosine_ops) WITH (lists=100) — check if lists param is appropriate for document count and whether probes is set at query time"
+  - "vector_search uses Session-per-call pattern (new Session(engine) for every query in /analyze)"
+  - "bm25_search also opens a separate Session — two round-trips per /analyze request"
+  - "RRF fusion iterates both result lists twice: once for ranked insertion, once for dedup by article key"
+  - "ingest.py: _EMBED_BATCH_SIZE=50, 1s inter-batch pause; embedder.py get_query_embedding has no batching (single vector)"
+  - "pdfplumber.open() loads full PDF into memory via io.BytesIO before any size check"
+  - "LLM call in llm.py: ChatGroq temperature=0.0, no streaming, full response buffered before JSON parse"
+  - "Angular frontend: no debounce on analyze button, no request cancellation if user re-submits"
+budget:
+  max_tokens: 80000
+  max_wall_clock_min: 12
+gates: []
+locks_required: []
+model_override: sonnet

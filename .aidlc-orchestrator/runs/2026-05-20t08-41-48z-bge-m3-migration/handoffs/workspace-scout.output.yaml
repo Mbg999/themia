@@ -1,0 +1,73 @@
+# Workspace Scout — Output Handoff
+status: complete
+artifacts:
+  - path: aidlc-docs/aidlc-state.md
+    kind: state
+audit_entries:
+  - "[Step 1] Existing AIDLC project detected — aidlc-docs/aidlc-state.md found with 3 prior runs (thermia-mvp, api-key-fallback, metadata-refactor). Current run: 2026-05-20t08-41-48z-bge-m3-migration."
+  - "[Step 1] Branch classification: C (existing AIDLC project with completed Construction stages; new run for bge-m3 migration feature)."
+  - "[Step 2] Workspace scan complete. Project: thermia — monorepo with thermia-back/ (Python FastAPI backend) and thermia-front/ (Angular 21.2 SPA frontend)."
+  - "[Step 2] Languages detected: Python (30 source files in thermia-back/), TypeScript (10 source files in thermia-front/), HTML/CSS (6 files)."
+  - "[Step 2] Project structure: monorepo with backend (FastAPI, SQLAlchemy, Alembic, pgvector, Cohere) and frontend (Angular 21.2, Vitest)."
+  - "[Step 2] Existing code: TRUE — production-level retrieval pipeline with embedder.py (Cohere embed-multilingual-v3.0), ingest.py, key_pool.py, and comprehensive tests."
+  - "[Step 2.5] Manifest files detected: thermia-front/package.json (npm — Angular 21.2.0 ecosystem), thermia-back/requirements.txt (pip — FastAPI, SQLAlchemy, Cohere, pgvector). Root requirements.txt (AIDLC harness only)."
+  - "[Stack] tech_stack: 8 packages detected (@angular/core@21.2.0, fastapi, sqlalchemy, cohere, pgvector, alembic, uvicorn, typescript@5.9.2)"
+  - "[Step 2.6] CodeGraph: indexed — 1166 nodes, 65 files. Backend: wasm (native better-sqlite3 failed — NODE_MODULE_VERSION mismatch: 127 vs 108)."
+  - "[CodeGraph] backend: wasm — 5x slower; native install recommended. `codegraph status --json` failed; counts obtained via direct sqlite3 queries on codegraph.db."
+  - "[Step 3] Decision: project_type=brownfield, next_phase=reverse-engineering. Rationale: existing code present, no RE artifacts at aidlc-docs/inception/reverse-engineering/."
+  - "[Step 4] aidlc-state.md already exists — not overwritten. Referenced in artifacts[] for orchestrator post-validation update."
+  - "[Skill] using-agent-skills loaded and executed: verified workspace-scout phase, loaded codegraph-aware-exploration as companion skill. Skill discovery tree confirmed this is inception phase."
+  - "[Skill] codegraph-aware-exploration executed: detected .codegraph/codegraph.db (indexed), attempted codegraph status (failed — wasm backend breakage), queried DB directly via sqlite3 for node/file counts. Rationalization rejected: 'just grep for file counts' — used sqlite3 on graph DB instead."
+  - "[Rationalization-rejected] using sqlite3 directly instead of codegraph status command — status command failed due to wasm/native module mismatch; direct DB query was the correct fallback."
+  - "[Cohere→bge-m3 context] Embedder currently uses cohere.Client with embed-multilingual-v3.0 (1024d). Ingest.py calls it via pool singleton. Tests mock cohere module directly. Migration will need to replace cohere.Client with direct requests to ollama endpoint at https://ollama.cvbooster.es/api/embeddings."
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded skill via skill() tool. Verified workspace-scout is inception-phase. Applied meta-skill to identify codegraph-aware-exploration as companion. Phase mapping: Workspace Detection is the first step under Inception per the skill lifecycle sequence."
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "Detected .codegraph/codegraph.db (indexed=true). codegraph status --json failed (wasm vs native NODE_MODULE_VERSION mismatch). Fell back to direct sqlite3 query: COUNT(*) FROM nodes = 1166, COUNT(*) FROM files = 65. Emitted [CodeGraph] audit entry with backend=wasm warning. No codegraph_context called from main session."
+workspace_state:
+  project_type: brownfield
+  existing_code: true
+  programming_languages:
+    - Python
+    - TypeScript
+  build_system: FastAPI + Angular CLI
+  project_structure: monorepo
+  workspace_root: /Users/miguel.belmonte/Desktop/thermia
+  next_phase: reverse-engineering
+  reverse_engineering_artifacts_present: false
+  tech_stack:
+    - package: "@angular/core"
+      version: "21.2.0"
+      ecosystem: npm
+    - package: typescript
+      version: "5.9.2"
+      ecosystem: npm
+    - package: fastapi
+      version: "0.115.0"
+      ecosystem: pip
+    - package: sqlalchemy
+      version: "2.0.0"
+      ecosystem: pip
+    - package: cohere
+      version: "5.0.0"
+      ecosystem: pip
+    - package: pgvector
+      version: "0.3.0"
+      ecosystem: pip
+    - package: alembic
+      version: "1.14.0"
+      ecosystem: pip
+    - package: uvicorn
+      version: "0.32.0"
+      ecosystem: pip
+  workspace_dirs:
+    - thermia-back/
+    - thermia-front/
+  codegraph_state:
+    indexed: true
+    nodes: 1166
+    files: 65
+    backend: wasm

@@ -1,0 +1,65 @@
+status: complete
+unit_name: key-pool-fallback-refix
+build_status: success
+tests_total: 121
+tests_passing: 95
+tests_failing: 26
+artifacts:
+  - path: thermia-back/app/retrieval/key_pool.py
+    kind: source
+  - path: thermia-back/app/retrieval/embedder.py
+    kind: source
+  - path: thermia-back/scripts/ingest.py
+    kind: source
+  - path: thermia-back/app/main.py
+    kind: source
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+  - path: thermia-back/tests/test_main_auth.py
+    kind: test
+  - path: thermia-back/tests/conftest.py
+    kind: test
+  - path: thermia-back/.env.example
+    kind: config
+audit_entries:
+  - "[Env] python3.11 detected at /Users/miguel.belmonte/homebrew/bin/python3.11 version 3.11.9 — no install required"
+  - "[Env] pytest 9.0.3 available — no install required"
+  - "[Env] cohere 6.1.0 installed — no install required"
+  - "[Env] langchain_groq installed — no install required"
+  - "[Build] AST parse check passed for key_pool.py, embedder.py, main.py, ingest.py — zero parse errors"
+  - "[Test] Target suite (test_key_pool.py + test_main_auth.py): 70/70 passed in 0.53s"
+  - "[Test] Full suite: 95 passed, 26 failed — all 26 failures are pre-existing ModuleNotFoundError for pgvector, sshtunnel, pdfplumber (known-non-regressions per task specification)"
+  - "[Test] New tests from refix: TestClassifyFailureFalsePositives (false-positive regex), TestFlagResetAfterRecovery (flag reset on recovery), TestKeyFormatValidation (key format), TestAPIKeyStartupRejection, TestConstantTimeCompare — all PASS"
+  - "[Pylance] main.py:88 'request: Request' unused in body — confirmed false positive. slowapi @_limiter.limit decorator requires Request in function signature for get_remote_address; FastAPI injects it. Parameter must remain. No fix applied."
+  - "[Validator] clean — all target files parse and import without errors under python3.11"
+  - "[CodeGraph] no codegraph affected test detection run — codegraph not used; full suite executed"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills loaded as instructed; environment detection ran first before any install commands; all detection results logged with [Env] prefix in audit_entries"
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Target test suite (70 tests) run first; full suite (121 tests) run second; pass/fail counts recorded; no tests skipped; test results verified against concrete exit codes"
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: "26 failures in full suite investigated — all confirmed as pre-existing ModuleNotFoundError for optional infrastructure modules (pgvector, sshtunnel, pdfplumber); no new regressions introduced by refix; Pylance false positive on main.py:88 diagnosed and documented"
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "pytest -v used for verbose output; conftest.py API_KEY fixture validated; new test classes use proper pytest patterns (parametrize for false-positive matrix, threading for concurrency test); 70 target tests all pass"
+  - skill: security-and-hardening
+    status: PASS
+    evidence: "Verified hmac.compare_digest constant-time compare in _check_auth; startup RuntimeError on short/missing API_KEY confirmed present and tested; THERMIA_ENV auth bypass removal confirmed; TestConstantTimeCompare 5 tests all pass; TestAPIKeyStartupRejection 5 tests all pass"
+emitted_knowledge:
+  - kind: lesson
+    title: "slowapi @limiter.limit requires Request in FastAPI function signature even when not used in body"
+    body: "What: The 'request: Request' parameter in a FastAPI endpoint decorated with @_limiter.limit appears unused to static analysers (Pylance reports 'No se accede a request'), but is mandatory. Why: slowapi's rate-limiter extracts the remote address via get_remote_address(request) at the middleware/decorator layer — the parameter is consumed by the decorator wrapping, not by the function body. Where: thermia-back/app/main.py analyze() endpoint. Learned: Never remove or suppress a Request parameter in a slowapi-decorated FastAPI endpoint based on a 'unused variable' diagnostic. The test that should catch this but doesn't: the existing TestAnalyzeAuth tests would fail with a 500 if Request were removed, but the static analyser warning looks like a genuine smell. Add a comment explaining why Request is required."
+    tags:
+      - fastapi
+      - slowapi
+      - rate-limiting
+      - false-positive
+    related_artifacts:
+      - thermia-back/app/main.py
+    confidence: 0.9
+conflicts_detected: []
+locks_to_release: []

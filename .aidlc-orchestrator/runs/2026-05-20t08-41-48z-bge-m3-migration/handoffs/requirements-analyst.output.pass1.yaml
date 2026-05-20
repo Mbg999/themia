@@ -1,0 +1,61 @@
+status: needs_human
+needs_user_input: true
+questions_artifact_path: aidlc-docs/inception/requirements/2026-05-20t08-41-48z-bge-m3-migration-requirement-verification-questions.md
+depth: standard
+request_classification:
+  clarity: Clear
+  type: Migration
+  scope: Multiple Components
+  complexity: Moderate
+artifacts:
+  - path: aidlc-docs/inception/requirements/2026-05-20t08-41-48z-bge-m3-migration-requirement-verification-questions.md
+    kind: questions
+audit_entries:
+  - "[SkillRead] aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-architecture.md L121-123: \"Embedding calls in two places: embedder.py (query-time) and ingest.py (ingestion-time) both call Cohere. Both must be migrated.\""
+  - "[SkillRead] aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-component-inventory.md L7: \"Migration Target: Replace Cohere embed-multilingual-v3.0 with Ollama bge-m3.\""
+  - "[SkillRead] aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-dependencies.md L72-73: \"Auth: None (self-hosted) ... Rate Limits: None (self-hosted)\""
+  - "[SkillRead] aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-business-overview.md L38: \"Reduce cost: Migrate from paid Cohere API ... to self-hosted bge-m3 via Ollama, eliminating per-request API costs\""
+  - "[SkillRead] aidlc-docs/inception/reverse-engineering/2026-05-20t08-41-48z-bge-m3-migration-interaction-diagrams.md L138: \"No batch size limit, no inter-batch sleep\" (assumption for Ollama target)"
+  - "[SkillRead] .aidlc-orchestrator/runs/2026-05-20t08-41-48z-bge-m3-migration/handoffs/workspace-scout.output.yaml L22: \"Embedder currently uses cohere.Client with embed-multilingual-v3.0 (1024d).\""
+  - "[SkillRead] aidlc-docs/inception/requirements/2026-05-19t09-35-00z-thermia-mvp-requirements.md ING-8: \"Generate embeddings via Cohere embed-multilingual-v3.0 (1024d, cosine)\""
+  - "[SignalScore] clarity=Clear, risk=medium, novelty=low, stakes=prod, ambiguity_count=1"
+  - "[Rationalization-rejected] idea-refine: Skipping divergent exploration because migration seems straightforward — rejected. Explored 4 approaches: (1) direct HTTP via httpx, (2) OpenAI-compatible openai client, (3) LangChain Ollama integration, (4) custom async httpx client. Converged on approach 1 (simplest, least invasive, no new dependencies)."
+  - "[Rationalization-rejected] spec-driven-development: Skipping questions because request is Clear + scope well-defined — rejected. Generated 8 questions across 6 coverage axes at standard depth per coverage-map mandate."
+  - "[Rationalization-rejected] requirements-intelligence: Skipping SkillRead quotes because I already read all artifacts — rejected. Quoted 7 prior artifacts per protocol."
+  - "[Depth determination] Depth=standard. Rationale: Clarity=Clear so no need for comprehensive depth. Scope=Multiple Components and complexity=Moderate so minimal depth is insufficient. Standard depth gives 6 required coverage axes with 5-10 question budget."
+  - "[Completeness gaps identified] 5 ambiguity areas warranting questions: (1) Ollama error handling unspecified, (2) HTTP client & timeout configuration not specified, (3) KeyPool removal scope unclear, (4) ingestion batching assumption unverified, (5) performance/latency expectations unstated. All covered by questions Q2-Q6."
+  - "[Extension opt-in scan] aidlc-rules/aws-aidlc-rules/extensions/ — no opt-in prompts found (directory does not exist in workspace)."
+  - "[Techniques] applied: [coverage-map]"
+  - "[CoverageMap] | Axis | Required at | Question IDs | Status |"
+  - "[CoverageMap] |---|---|---|---|"
+  - "[CoverageMap] | Purpose | all | Q1 | covered |"
+  - "[CoverageMap] | Needs | all | Q2, Q3, Q4, Q5 | covered |"
+  - "[CoverageMap] | Limits | standard+ | Q7 | covered |"
+  - "[CoverageMap] | Expectations | all | Q6 | covered |"
+  - "[CoverageMap] | Context | standard+ | workspace-scout + 8 RE docs | covered (by evidence) |"
+  - "[CoverageMap] | Acceptance | all | Q8 | covered |"
+  - "[CoverageMap] | Risks | comprehensive | — | not required at standard |"
+  - "[CoverageMap] | Unknowns | comprehensive | — | not required at standard |"
+  - "[CoverageMap] Context axis coverage evidence: workspace-scout.output.yaml covers project_type=brownfield, tech_stack=8 packages, build_system=FastAPI+Angular CLI, project_structure=monorepo. All 8 reverse-engineering artifacts (architecture, components, dependencies, tech-stack, code-structure, api-docs, interactions, business-overview) provide exhaustive context. No context question needed."
+  - "[QuestionBudget] used/max: 8/10 (standard depth: 5-10)"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded via skill() tool at session start. Skill discovery tree identified Inception/requirements-analyst phase. All 3 companion skills loaded (idea-refine, spec-driven-development, requirements-intelligence). Core behaviors applied: surface assumptions (depth determination rationale emitted), scope discipline (questions target only migration-related concerns), verify-don't-assume (SkillRead quotes from 7 prior artifacts)."
+  - skill: idea-refine
+    status: PASS
+    evidence: "Divergent exploration: generated 4 approaches for the migration implementation — (1) direct HTTP via httpx (simplest, no new deps), (2) openai-compatible client (well-tested SDK, bigger dep), (3) LangChain ollama-embeddings (consistent pattern, overkill), (4) custom async httpx (async-native, needs design). Converged on approach 1 per simplicity enforcement. Rationalization explicitly rejected ('migration seems straightforward, skip divergent thinking'). All 3 phases honored: Understand&Expand (4 approaches via inversion/constraint-removal/simplification lenses), Evaluate&Converge (stress-test vs user-value/feasibility/differentiation), Sharpen (requirements questions file as output)."
+  - skill: spec-driven-development
+    status: PASS
+    evidence: "Phase 1 (Specify) executed via 8-question coverage map covering 6 required axes at standard depth. Assumptions surfaced before writing (depth=standard, scope=Multiple Components). Questions file format follows question-format-guide.md (MCQ with X) Other every question, [Answer]: tag format). Extension opt-in scan performed (no opt-in prompts found). Verification: all 6 required coverage axes show status=covered. Success criteria — each question probes a concrete decision needed before spec can be written."
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: "axes covered: 6/6 (Purpose, Needs, Limits, Expectations, Context, Acceptance); techniques applied: [coverage-map]; questions: 8/10 budget; rule-file quoted: 7 SkillRead entries from prior artifacts; coverage-map.md loaded and enforced; ambiguity_count=1 (below threshold for ambiguity-detection); clarity=Clear so socratic/assumption-mining/pre-mortem not triggered at standard depth."
+cost:
+  tokens_in: 0
+  tokens_out: 0
+  wall_clock_min: 0
+  retries_used: 0
+locks_to_release: []
+conflicts_detected: []
+emitted_knowledge: []

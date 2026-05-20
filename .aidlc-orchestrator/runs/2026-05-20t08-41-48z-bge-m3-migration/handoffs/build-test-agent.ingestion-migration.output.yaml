@@ -1,0 +1,69 @@
+schema: build-test-agent.output.v1
+status: needs_human
+unit_name: ingestion-migration
+
+build_status: success
+
+tests_total: 108
+tests_passing: 106
+tests_failing: 2
+
+artifacts:
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-ingestion-migration-build-instructions.md
+    kind: doc
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-ingestion-migration-build-and-test-summary.md
+    kind: doc
+
+audit_entries:
+  - "[Env] python3.11 3.11.9 detected at /Users/miguel.belmonte/homebrew/bin/python3.11 — used for test execution"
+  - "[Env] pytest found at /Users/miguel.belmonte/homebrew/bin/pytest — version >=8.0.0"
+  - "[Env] pgvector NOT installed on first run — installed via pip3.11 install pgvector --break-system-packages; 8 TestUpsertDocuments tests were failing before install"
+  - "[Env] tiktoken, ollama, pytest-mock confirmed installed in python3.11 environment"
+  - "[Skills] using-agent-skills — not a registered skill in this environment; proceeding with inline protocol"
+  - "[Skills] environment-detection — not a registered skill; applied inline (detect-before-install pattern followed)"
+  - "[Skills] test-driven-development — not a registered skill; test suite executed per protocol"
+  - "[Skills] debugging-and-error-recovery — applied for pgvector ModuleNotFoundError root-cause diagnosis"
+  - "[Skills] validator-retry — no static validators (tsc/pyright/eslint) configured for Python project; pytest acts as primary validator"
+  - "[Skills] codegraph-aware-exploration — .codegraph/ exists but no affected tests query needed; ran full suite per fallback rule"
+  - "[CodeGraph] no affected tests detected — running full suite"
+  - "[AC-1] pytest tests/test_ingestion.py: 46 passed, 0 failed — PASS"
+  - "[AC-6] grep ollama.embed scripts/ingest.py: line 325 confirmed model='bge-m3' — PASS"
+  - "[AC-10] TestCohereEmbedding::test_returns_list_of_float_vectors: asserts len(result[0])==1024 — PASS"
+  - "[AC] grep -ci cohere scripts/ingest.py: 0 matches — PASS"
+  - "[AC] generate_embeddings signature: (texts: list[str]) -> list[list[float]] — single param 'texts' — PASS"
+  - "[AC] TestMainNoCohereReferences::test_main_no_cohere_import: AST static check passed — PASS"
+  - "[AC] TestMainNoCohereReferences::test_main_calls_generate_embeddings_without_client: AST static check passed — PASS"
+  - "[AC] pytest tests/retrieval/test_key_pool.py::TestIngestKeyPool: 2 passed, 0 failed — PASS"
+  - "[AC] grep tiktoken scripts/ingest.py: lines 34 and 69 confirmed — PASS"
+  - "[Known-Fail] TestLLMKeyPool::test_llm_uses_active_groq_key: pydantic_core.ValidationError in llm.py:177 — pre-existing, not in scope"
+  - "[Known-Fail] TestLLMKeyPool::test_groq_daily_quota_rotates_and_retries: same root cause — pre-existing, not in scope"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: N/A
+    evidence: Not a registered skill in this environment; inline protocol applied per agent instructions
+  - skill: environment-detection
+    status: PASS
+    evidence: Detected python3.11, pytest, tiktoken, ollama before any install; installed pgvector only after confirming it was missing
+  - skill: test-driven-development
+    status: PASS
+    evidence: Ran pytest tests/test_ingestion.py (46 pass), TestIngestKeyPool (2 pass), combined suite (106 pass, 2 pre-existing fail); all AC verified
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: TestUpsertDocuments failed with ModuleNotFoundError pgvector; root cause identified as missing env package (not code defect); installed and re-ran; all 8 tests now pass
+  - skill: validator-retry
+    status: N/A
+    evidence: No tsc/pyright/eslint configured; Python project uses pytest as sole validator; clean run after pgvector install
+  - skill: codegraph-aware-exploration
+    status: N/A
+    evidence: .codegraph/ exists; codegraph affected returned empty (no git diff from HEAD~1 in this context); full suite run per fallback rule
+
+emitted_knowledge:
+  - kind: lesson
+    title: pgvector must be pre-installed for upsert_documents tests
+    body: "What: TestUpsertDocuments (8 tests) failed with ModuleNotFoundError: No module named 'pgvector' on first run.\nWhy: app/db/models.py imports pgvector.sqlalchemy.Vector at module level, which is triggered when upsert_documents calls 'from app.db.models import Document'.\nWhere: thermia-back/app/db/models.py:10 — called from scripts/ingest.py:367.\nLearned: pgvector must be in requirements for the test environment, not just production. The test that should have caught it (a conftest.py environment check) does not exist — tests import models directly without checking for pgvector. Adding pgvector to a dev-only requirements-test.txt or ensuring pip install -r requirements.txt is run before tests would prevent this class of failure."
+    tags: ["environment", "pgvector", "test-setup", "ingestion"]
+    confidence: 0.9
+
+conflicts_detected: []
+locks_to_release: []

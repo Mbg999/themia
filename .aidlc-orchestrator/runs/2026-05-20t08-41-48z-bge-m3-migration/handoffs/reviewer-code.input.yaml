@@ -1,0 +1,40 @@
+schema: reviewer.input.v1
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+reviewer: reviewer-code
+focus: code quality, correctness, maintainability, test coverage
+tags: [python, fastapi, ollama, migration, embeddings, retry-logic, tdd]
+
+files_to_review:
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/tests/retrieval/test_embedder.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/tests/test_ingestion.py
+
+change_summary: >
+  Migrated embedding provider from Cohere embed-multilingual-v3.0 to Ollama BGE-M3.
+  embedder.py rewritten: Ollama singleton client keyed to OLLAMA_HOST env var, 2-retry
+  with 5s fixed delay, duck-typed non-retryable detection (4xx status_code).
+  ingest.py: generate_embeddings(texts) now uses ollama.embed(model='bge-m3') with
+  batch input, removed KeyPool/Cohere from main(). key_pool.py: Cohere-specific code
+  (COHERE_TRIAL_QUOTA enum, _COHERE_TRIAL_RE regex, classify_failure branch) removed.
+
+context_pointers:
+  - "embedder.py uses ollama.Client singleton rebuilt when OLLAMA_HOST changes"
+  - "generate_embeddings in ingest.py: batches of 50, 2 retries, 5s delay"
+  - "non-retryable detection: hasattr(exc, 'status_code') and 400<=exc.status_code<500"
+  - "test_embedder.py: 6 tests covering host config, success, retry, non-retryable, exhausted"
+  - "TestIngestKeyPool rewritten: inspect.signature check + AST static analysis"
+
+skills_required:
+  - code-review-and-quality
+  - python-testing-patterns
+  - fastapi-python
+  - debugging-and-error-recovery
+
+skill_paths_resolved:
+  - .agents/skills/code-review-and-quality/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/fastapi-python/SKILL.md
+  - .agents/skills/debugging-and-error-recovery/SKILL.md

@@ -1,0 +1,214 @@
+status: complete
+unit_name: key-pool-fallback-refix
+sub_stage: approved
+
+artifacts:
+  - path: thermia-back/app/retrieval/key_pool.py
+    kind: source
+  - path: thermia-back/app/retrieval/embedder.py
+    kind: source
+  - path: thermia-back/scripts/ingest.py
+    kind: source
+  - path: thermia-back/app/main.py
+    kind: source
+  - path: thermia-back/.env.example
+    kind: config
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+  - path: thermia-back/tests/test_main_auth.py
+    kind: test
+  - path: thermia-back/tests/conftest.py
+    kind: config
+  - path: thermia-back/tests/test_retrieval.py
+    kind: test
+
+audit_entries:
+  - "[Baseline] Run: 50/50 tests passing in tests/retrieval/test_key_pool.py before any changes."
+
+  - "[FIX-1] key_pool.py: Changed _5XX_RE from r'5\\d{2}' to r'(?<!\\d)5\\d{2}(?!\\d)' to
+    prevent false positives on large numbers containing 5xx substrings (e.g. '15000').
+    Removed misleading comment claiming digit-prefix detection. Simplified classify_failure()
+    to remove the redundant inner for-loop — the look-around regex makes it unnecessary."
+
+  - "[Validator] FIX-1: 50/50 tests pass."
+
+  - "[FIX-2] key_pool.py: Updated _current_unlocked() to reset _was_degraded and
+    _was_exhausted flags after cooldown expiry re-admits keys. The reset happens after
+    computing healthy_count: if healthy_count > 1, _was_degraded is cleared; if
+    healthy_count > 0, _was_exhausted is cleared. This ensures future degradation/exhaustion
+    events fire their log transitions again."
+
+  - "[TEST-B] test_key_pool.py: Added TestFlagResetAfterRecovery class with
+    test_flags_reset_after_cooldown_expiry_and_fire_again. Verifies full cycle: degrade,
+    exhaust, expire cooldowns, confirm flags reset, confirm logs fire again."
+
+  - "[Validator] FIX-2 + TEST-B: 58/60 tests pass (2 expected failures: TEST-C key format
+    tests waiting for FIX-7)."
+
+  - "[FIX-3a] embedder.py: Added _cohere_client_key module-level variable. Updated
+    _get_client() to compare pool.current() to _cohere_client_key and rebuild the client
+    if they differ. This eliminates the fragile implicit contract requiring callers to
+    set _cohere_client = None after rotation."
+
+  - "[FIX-3b] embedder.py: Replaced 'assert last_exc is not None' with explicit
+    'if last_exc is None: raise RuntimeError(...)' guard. Removed manual _cohere_client = None
+    in retry loop (now handled by _get_client() key comparison). Also updated
+    TestEmbedderKeyPool.setup_method to reset _cohere_client_key."
+
+  - "[Validator] FIX-3: 58/60 tests pass."
+
+  - "[FIX-4] ingest.py: Removed one-time cohere_client snapshot at main() startup.
+    Now calls cohere.Client(pool.current()) per-file inside the ingestion loop, ensuring
+    that mid-run key rotations are reflected in subsequent embed() calls."
+
+  - "[Validator] FIX-4: 58/60 tests pass."
+
+  - "[FIX-5] main.py: Removed THERMIA_ENV=local auth bypass entirely. Auth is now always
+    enforced regardless of environment. Updated .env.example to document that API_KEY
+    must be set for local dev."
+
+  - "[FIX-6] main.py: Added module-level _API_KEY = os.environ.get('API_KEY', '') with
+    startup RuntimeError if len < 16. Replaced per-request os.environ read and plain !=
+    comparison with hmac.compare_digest(_API_KEY, token) for constant-time comparison.
+    Added 'import hmac'. Updated conftest.py to set API_KEY=test-dev-token-1234 so the
+    module can be imported during tests. Updated test_retrieval.py tests to use _API_KEY
+    value from the frozen module singleton rather than monkeypatched env vars."
+
+  - "[TEST-C (main auth)] tests/test_main_auth.py: Created new file with TestAPIKeyStartupRejection
+    (5 tests) and TestConstantTimeCompare (5 tests). Uses _stubbed_heavy_imports() context
+    manager to stub pdfplumber and other unavailable packages during reload, with full
+    sys.modules restoration on exit."
+
+  - "[Validator] FIX-5 + FIX-6 + TEST-C/D: 68/70 tests pass (2 expected: TEST-C key format)."
+
+  - "[FIX-7] key_pool.py: Added _KEY_FORMAT_RE regex and _validate_key_format() function.
+    Called in _parse_keys_env() for both JSON array and legacy scalar paths. Validates:
+    non-empty, alphanumeric/hyphens/underscores, minimum 8 chars. Logs count of loaded
+    keys (never key material). Updated TestFromEnv tests to use 8+ char keys (k1->key_one_1234,
+    k2->key_two_5678, gk1->groqkey-1234)."
+
+  - "[TEST-A] test_key_pool.py: Added TestClassifyFailureFalsePositives with
+    test_5xx_no_false_positive_in_large_numbers (4 parametrized cases)."
+
+  - "[TEST-C (key format)] test_key_pool.py: Added TestKeyFormatValidation with 5 tests
+    covering empty string, short keys, invalid chars, and valid formats."
+
+  - "[Validator] FIX-7 + TEST-A: 70/70 tests pass."
+
+  - "[Self-review] Five-axis review:
+    Correctness: All 7 P1 fixes applied. FIX-1 regex uses look-around (not range-check).
+    FIX-2 resets flags in _current_unlocked() on cooldown expiry. FIX-3 key-tracking guard
+    is authoritative. FIX-4 per-iteration pool query. FIX-5 bypass removed. FIX-6 startup
+    assertion + constant-time compare. FIX-7 key format validation.
+    Security: No timing oracle in auth. No key material in logs. Short/empty keys rejected.
+    Empty API_KEY causes startup failure.
+    Performance: All changes are surgical; no hot-path regressions. _get_client() key
+    comparison is O(n) but keys are short.
+    Maintainability: _validate_key_format() is a named helper. _was_degraded reset logic
+    is co-located with the code that reads healthy_count. Test isolation via context manager.
+    Test coverage: 70 tests (50 original + 20 new). All P1 findings have tests. No silent
+    error handling added."
+
+  - "[Final] 70/70 tests passing. 0 commits (per protocol — orchestrator commits after approval)."
+
+skill_compliance:
+  - skill: source-driven-development
+    status: PASS
+    evidence: "Read all 7 files before touching any. Changes are surgical (not wholesale rewrites)."
+
+  - skill: test-driven-development
+    status: PASS
+    evidence: "TEST-C (key format) written before FIX-7 applied — confirmed Red state (2 failures).
+    TEST-B written alongside FIX-2. TEST-A written before FIX-7. TEST-C/D (main auth) written
+    as new test file targeting the new behaviour. All new tests confirmed Green after fixes."
+
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "Fixes applied in order FIX-1 → FIX-2+TEST-B → FIX-3 → FIX-4 → FIX-5+FIX-6+TEST-C/D → FIX-7+TEST-A.
+    Test suite run after each fix confirmed no regressions before proceeding."
+
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "Used pytest.mark.parametrize for TEST-A false-positive cases. Context manager for
+    sys.modules isolation in test_main_auth.py. setup_method reset of all module singletons.
+    caplog for log assertion tests."
+
+  - skill: security-and-hardening
+    status: PASS
+    evidence: "P1-SEC-1: THERMIA_ENV bypass removed. P1-SEC-2: API_KEY frozen at startup,
+    hmac.compare_digest used. P1-SEC-3: key-tracking guard in _get_client(). P1-SEC-4: assert
+    replaced with RuntimeError. P1-SEC-5: _validate_key_format() with 8-char minimum."
+
+  - skill: validator-retry
+    status: PASS
+    evidence: "Run tests after each fix. All 70 tests pass on final run. No static type errors
+    introduced (Python 3.11 type annotations preserved)."
+
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: "Identified sys.modules pollution issue from test_main_auth.py stub insertion at
+    module level. Fixed with _stubbed_heavy_imports() context manager that saves/restores
+    originals. Identified that TestFromEnv tests used short keys incompatible with FIX-7
+    and updated them surgically."
+
+tests_added: 20
+tests_passing: 70
+commits_made: 0
+
+emitted_knowledge:
+  - kind: pattern
+    title: "Module-level API key frozen at import time — test isolation via conftest + reload"
+    body: |
+      What: When a FastAPI module reads a config value (e.g. API_KEY) at module load time
+      using os.environ.get(), all tests that import that module share the frozen value.
+      Why: Python caches module imports; monkeypatch.setenv() after the first import is
+      a no-op for module-level constants.
+      Where: thermia-back/app/main.py (_API_KEY), thermia-back/tests/conftest.py,
+      thermia-back/tests/test_main_auth.py.
+      Learned: Set the env var in conftest.py BEFORE any import chain can reach the module.
+      For tests that need to verify rejection (short/missing key), use importlib.reload()
+      inside a sys.modules cleanup context. Never rely on monkeypatch.setenv() to change
+      a module-level constant after the module is cached.
+    tags: ["python", "testing", "fastapi", "security", "env-vars"]
+    confidence: 0.85
+
+  - kind: antipattern
+    title: "Stubbing heavy imports at test module level pollutes sys.modules globally"
+    body: |
+      What: Inserting MagicMock stubs into sys.modules at module level in a test file
+      (e.g. _stub_heavy_imports() called at import time) pollutes sys.modules for the
+      entire pytest session.
+      Why: All test files collected in the same session share sys.modules. A stub inserted
+      at module level persists and prevents real imports in other test files.
+      Where: Discovered in tests/test_main_auth.py when TestEmbedderKeyPool tests started
+      failing with ImportError: cannot import name 'retrieval' from 'app'.
+      Fix: Use a context manager (_stubbed_heavy_imports()) that saves originals on entry
+      and restores them on exit. Call it inside each test method, not at module level.
+    tags: ["python", "testing", "sys.modules", "isolation"]
+    confidence: 0.9
+
+  - kind: pattern
+    title: "Key-tracking guard in client factories: compare active key, not None check"
+    body: |
+      What: When a singleton client is tied to a rotating API key (e.g. cohere.Client),
+      use an explicit key-tracking variable (_client_key) rather than relying on callers
+      to null out the singleton after rotation.
+      Why: The None-check approach creates a fragile implicit contract: every caller that
+      rotates must remember to null the singleton. If a second consumer uses the pool, the
+      contract breaks silently.
+      Where: thermia-back/app/retrieval/embedder.py _get_client() / _cohere_client_key.
+      Learned: Store the key used to build the current client. On every factory call,
+      compare pool.current() to the stored key. Rebuild if they differ. This is
+      self-contained and requires no cooperation from callers.
+    tags: ["python", "api-keys", "singleton", "rotation", "design-pattern"]
+    confidence: 0.88
+
+conflicts_detected: []
+locks_to_release:
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/app/main.py
+  - thermia-back/.env.example

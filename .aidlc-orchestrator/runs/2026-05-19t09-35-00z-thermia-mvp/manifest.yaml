@@ -1,0 +1,71 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+started_at: '2026-05-19T09:36:03+00:00'
+last_checkpoint_at: '2026-05-19T14:30:19+00:00'
+user_request: "Build an MVP called Thermia \u2014 Spanish legal document analyzer\
+  \ with hybrid RAG (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval\
+  \ pipelines."
+project_slug: thermia
+current_stage: review
+completed_stages: '[workspace-scout,requirements-analyst,story-writer,workflow-planner,unit-decomposer,code-generator,build-test-agent]'
+skipped_stages: []
+failed_stages: []
+orchestrator_version: unknown
+project_profile:
+  ui: true
+  api: true
+  has_legacy: false
+units:
+- name: db-layer
+  layer: 0
+  dependencies: []
+- name: ingestion-pipeline
+  layer: 1
+  dependencies:
+  - db-layer
+- name: retrieval-api
+  layer: 1
+  dependencies:
+  - db-layer
+- name: frontend
+  layer: 2
+  dependencies:
+  - retrieval-api
+- name: docker-infra
+  layer: 2
+  dependencies:
+  - retrieval-api
+  - ingestion-pipeline
+skill_paths:
+  using-agent-skills: .agents/skills/using-agent-skills/SKILL.md
+  idea-refine: .agents/skills/idea-refine/SKILL.md
+  spec-driven-development: .agents/skills/spec-driven-development/SKILL.md
+complexity_tier: LARGE
+skip_stages: []
+merge_codegen_gate: false
+reviewer_pool:
+- reviewer-code
+- reviewer-security
+- reviewer-performance
+- reviewer-simplifier
+skill_paths_resolved:
+- .agents/skills/using-agent-skills/SKILL.md
+- .agents/skills/incremental-implementation/SKILL.md
+- .agents/skills/test-driven-development/SKILL.md
+- .agents/skills/source-driven-development/SKILL.md
+- .agents/skills/frontend-ui-engineering/SKILL.md
+- .agents/skills/api-and-interface-design/SKILL.md
+- .agents/skills/environment-detection/SKILL.md
+- .agents/skills/validator-retry/SKILL.md
+- .agents/skills/debugging-and-error-recovery/SKILL.md
+- .agents/skills/codegraph-aware-exploration/SKILL.md
+- .agents/skills/angular-developer/SKILL.md
+- .agents/skills/python-testing-patterns/SKILL.md
+- .agents/skills/vitest/SKILL.md
+unit_waves:
+- - db-layer
+- - ingestion-pipeline
+  - retrieval-api
+- - docker-infra
+  - frontend
+unit_wave_count: 3
+unit_max_parallelism: 2

@@ -1,0 +1,38 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+stage_id: reviewer-simplifier
+reviewer: simplifier
+user_request: >-
+  Build an MVP called Thermia — Spanish legal document analyzer with hybrid RAG
+  (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval pipelines.
+predecessor_artifacts:
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/code-generator.db-layer.output.yaml
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/build-test-agent.db-layer.output.yaml
+  - aidlc-docs/audit.md
+  - aidlc-docs/operations/2026-05-19t09-35-00z-thermia-mvp-review-report.md
+scope_paths:
+  - thermia-back/app/**/*.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/**/*.py
+  - thermia-front/src/app/**/*.ts
+  - thermia-front/src/app/**/*.html
+skills_required:
+  - code-simplification
+  - using-agent-skills
+  - codegraph-aware-exploration
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+context_pointers:
+  - "MVP constraint: No overengineering, keep it simple, no microservices, avoid unnecessary abstractions (from original spec)"
+  - "config.py exports 12 vars but main.py re-reads CORS_ORIGINS directly from os.environ — duplication already flagged by code-quality reviewer"
+  - "retrieval pipeline split across 5 files: embedder.py, searcher.py, fusion.py, context_builder.py, llm.py — each is 30-70 lines"
+  - "ingest.py has two top-level constants _EMBED_BATCH_SIZE and _EMBED_RETRY_DELAYS that are only used in generate_embeddings"
+  - "app/retrieval/__init__.py exists but is empty — all imports are done inline in main.py at request time"
+  - "alembic/script.py.mako is standard boilerplate, untouched"
+  - "existing review already flagged: lazy imports in main.py, empty routes file, unused Session import in upsert_documents"
+budget:
+  max_tokens: 80000
+  max_wall_clock_min: 12
+gates: []
+locks_required: []
+model_override: sonnet

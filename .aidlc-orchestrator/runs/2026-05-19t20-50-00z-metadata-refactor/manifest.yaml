@@ -1,0 +1,43 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+started_at: '2026-05-19T20:50:00+00:00'
+last_checkpoint_at: '2026-05-19T21:28:32+00:00'
+user_request: "Metadata Refactor for Thermia Legal RAG \u2014 refactor ingestion pipeline\
+  \ metadata architecture to support production-grade Spanish legal RAG with two-layer\
+  \ metadata (retrieval + source), YAML/frontmatter extraction, content hashing, legal\
+  \ rank/status extraction, and PostgreSQL optimization."
+project_slug: thermia
+current_stage: unit-decomposer
+completed_stages:
+- workspace-scout
+- requirements-analyst
+- workflow-planner
+- unit-decomposer
+skipped_stages:
+- reverse-engineer
+failed_stages: []
+orchestrator_version: unknown
+project_profile:
+  ui: true
+  api: true
+  has_legacy: true
+skill_paths:
+  using-agent-skills: .agents/skills/using-agent-skills/SKILL.md
+  idea-refine: .agents/skills/idea-refine/SKILL.md
+  spec-driven-development: .agents/skills/spec-driven-development/SKILL.md
+complexity_tier: MEDIUM
+skip_stages:
+- reverse-engineer
+- story-writer
+merge_codegen_gate: false
+reviewer_pool:
+- reviewer-code
+- reviewer-security
+- reviewer-simplifier
+skill_paths_resolved: '[''.agents/skills/accessibility/SKILL.md'',''.agents/skills/sqlalchemy/SKILL.md'',''.agents/skills/sqlalchemy-alembic-expert-best-practices-code-review/SKILL.md'',''.agents/skills/python-testing-patterns/SKILL.md'',''.agents/skills/fastapi-python/SKILL.md'',''.agents/skills/angular-developer/SKILL.md'',''.agents/skills/spec-driven-development/SKILL.md'',''.agents/skills/using-agent-skills/SKILL.md'',''.agents/skills/codegraph-aware-exploration/SKILL.md'',''.agents/skills/security-and-hardening/SKILL.md'']'
+unit_waves:
+- - db-schema-refactor
+  - metadata-helpers
+  - sources-display
+- - ingestion-wiring
+unit_wave_count: 2
+unit_max_parallelism: 3

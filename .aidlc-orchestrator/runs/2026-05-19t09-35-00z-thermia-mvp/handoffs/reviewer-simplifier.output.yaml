@@ -1,0 +1,156 @@
+status: complete
+reviewer: simplifier
+findings:
+  - severity: P0
+    file: thermia-back/scripts/ingest.py
+    line: 409
+    simplification_pattern: dead-code
+    message: >-
+      Inside main(), line 406 assigns `Session = sessionmaker(bind=engine)` (a
+      sessionmaker instance). Line 409 then imports `from sqlalchemy.orm import
+      Session as _Session` purely to avoid overwriting that variable. The alias
+      `_Session` exists only to work around the fragile name collision between
+      the two `Session` bindings in the same scope. If the alias were dropped,
+      the sessionmaker instance would be silently overwritten and the
+      `upsert_documents(Session, chunks)` call on line 448 would receive the ORM
+      class instead of a callable factory, producing a silent runtime bug.
+    recommendation: >-
+      Rename the sessionmaker instance to something unambiguous, e.g.
+      `session_factory = sessionmaker(bind=engine)`, then pass
+      `session_factory` to `upsert_documents`. Remove the `_Session` alias
+      entirely; use `with Session(engine) as session:` directly in the reset
+      branch. This eliminates the collision and makes the intent clear.
+
+  - severity: P1
+    file: thermia-back/app/config.py
+    line: 12
+    simplification_pattern: dead-code
+    message: >-
+      config.py exports 12 module-level constants (DATABASE_URL, SSH_HOST,
+      SSH_USER, SSH_PASSWORD, SSH_REMOTE_BIND_PORT, DB_USER, DB_PASSWORD,
+      DB_NAME, COHERE_API_KEY, API_KEY, GROQ_API_KEY, CORS_ORIGINS). Zero of
+      these constants are imported by any downstream module — every consumer
+      (connection.py, embedder.py, llm.py, main.py, ingest.py) calls
+      os.environ.get() directly. The only import of this module is
+      `from app.config import THERMIA_ENV  # noqa: F401` in main.py, used
+      solely for the side-effect of load_dotenv(). The 12 exported constants
+      are unreachable dead code.
+    recommendation: >-
+      Remove the 12 exported constants. Either keep config.py as a one-liner
+      that just calls load_dotenv(), or inline the load_dotenv() call into
+      main.py directly (e.g. `from dotenv import load_dotenv; load_dotenv()`
+      at module top) and delete config.py entirely. If a centralised config
+      module is desired later, populate it when consumers actually import from it.
+
+  - severity: P1
+    file: thermia-back/app/main.py
+    line: 17
+    simplification_pattern: dead-code
+    message: >-
+      config.py already exports CORS_ORIGINS = os.environ.get("CORS_ORIGINS",
+      "http://localhost:4200"), but main.py duplicates that exact logic on
+      line 17 with its own os.environ.get("CORS_ORIGINS", "http://localhost:4200")
+      call. The config module constant is never used. Any future change to the
+      default value in config.py would silently not apply here.
+    recommendation: >-
+      If config.py constants are kept, replace line 17 with
+      `from app.config import CORS_ORIGINS` and split the string there.
+      If config.py is simplified to just load_dotenv() (see P1 above), keep
+      the os.environ call in main.py but remove it from config.py to have a
+      single definition.
+
+  - severity: P2
+    file: thermia-front/src/app/app.routes.ts
+    line: 3
+    simplification_pattern: future-proofing
+    message: >-
+      app.routes.ts exports `routes: Routes = []` (an empty array). This is
+      wired into provideRouter(routes) in app.config.ts. The application is a
+      single-view SPA with no navigation — the router is never used. This is
+      an Angular CLI scaffold leftover that registers the router module in the
+      DI tree for no benefit.
+    recommendation: >-
+      Remove app.routes.ts. In app.config.ts, remove the `import { routes }
+      from './app.routes'` line and the `provideRouter(routes)` entry from the
+      providers array. Add routing back only when a second route is actually
+      needed.
+
+  - severity: P2
+    file: thermia-back/app/main.py
+    line: 99
+    simplification_pattern: pass-through-wrapper
+    message: >-
+      Lines 100-105 defer all retrieval imports inside the endpoint body with
+      the comment "keeps startup fast". In a single-process Uvicorn app the
+      Python interpreter loads each module exactly once regardless of where the
+      import statement appears. All six modules (embedder, searcher, fusion,
+      context_builder, llm, connection) are imported on the very first request,
+      making that first call slow. Subsequent requests pay zero import cost
+      either way. The deferred import provides no measurable startup benefit
+      and obscures the actual dependencies of the endpoint.
+    recommendation: >-
+      Move all six imports to the top of main.py alongside the existing
+      imports. The startup behaviour is identical; the dependencies become
+      visible at a glance.
+
+  - severity: P2
+    file: thermia-back/app/retrieval/__init__.py
+    line: 1
+    simplification_pattern: dead-code
+    message: >-
+      app/retrieval/__init__.py contains only a docstring listing the five
+      submodules. No consumer imports from the package directly — main.py
+      imports each submodule individually by full dotted path. The docstring
+      duplicates information that is already visible from the directory listing
+      and adds no API surface.
+    recommendation: >-
+      Delete the docstring and leave the file empty, or delete the file
+      entirely (Python 3 does not require __init__.py for packages). This
+      is consistent with app/__init__.py and app/db/__init__.py which are
+      already empty.
+
+  - severity: P3
+    file: thermia-back/app/main.py
+    line: 35
+    simplification_pattern: dead-code
+    message: >-
+      _is_legal_text() uses a two-line body: `lowered = text.lower()` and
+      `return any(kw in lowered for kw in _LEGAL_KEYWORDS)`. The intermediate
+      variable `lowered` exists only to avoid calling .lower() twice, but the
+      generator short-circuits on the first match so `.lower()` is called
+      exactly once in the common case anyway. The function is called in exactly
+      one place (line 93).
+    recommendation: >-
+      Collapse to a one-liner: `return any(kw in text.lower() for kw in
+      _LEGAL_KEYWORDS)`. If micro-optimisation of the two-call case matters,
+      add a comment; otherwise the single expression is clearer.
+
+findings_summary:
+  P0_count: 1
+  P1_count: 2
+  P2_count: 3
+  P3_count: 1
+audit_entries:
+  - "[Simplifier] scanned 12 Python files + 5 TypeScript/HTML files, 7 findings total"
+  - "[Simplifier] P0: ingest.py:409 — shadowed Session name collision (dead-code)"
+  - "[Simplifier] P1: config.py:12 — 12 exported constants, 0 are imported anywhere (dead-code)"
+  - "[Simplifier] P1: main.py:17 — CORS_ORIGINS duplicated vs config.py (dead-code)"
+  - "[Simplifier] P2: app.routes.ts:3 — empty routes array + provideRouter scaffold leftover (future-proofing)"
+  - "[Simplifier] P2: main.py:99 — lazy imports provide no benefit in single-process Uvicorn (pass-through-wrapper)"
+  - "[Simplifier] P2: retrieval/__init__.py:1 — docstring-only init, no API surface (dead-code)"
+  - "[Simplifier] P3: main.py:35 — _is_legal_text two-liner reducible to one expression (dead-code)"
+  - "[CodeGraph] all config.py exported symbols (THERMIA_ENV, CORS_ORIGINS, DATABASE_URL, COHERE_API_KEY, API_KEY, GROQ_API_KEY, SSH_HOST, SSH_USER, SSH_PASSWORD, SSH_REMOTE_BIND_PORT, DB_USER, DB_PASSWORD, DB_NAME) show caller_count=0 — confirmed dead exported symbols → P1"
+  - "[CodeGraph] routes (app.routes.ts) shows caller_count=0 — confirmed dead export → P2"
+skill_compliance:
+  - skill: code-simplification
+    status: PASS
+    evidence: "Dead-code scan, pass-through-wrapper detection, future-proofing check, and abstraction review complete across all 17 in-scope files. 7 findings emitted covering all 4 simplifier pattern categories."
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills loaded via Skill tool invocation at session start; CodeGraph lightweight tools (codegraph_callers, codegraph_search) used for dead-code confirmation without spawning a full explore agent."
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "CodeGraph callers queries used for THERMIA_ENV, CORS_ORIGINS, API_KEY, DATABASE_URL, COHERE_API_KEY, GROQ_API_KEY, build_context, routes — caller_count=0 for all config.py exports confirmed via graph. Live calls used (no pre-built cache file referenced in input handoff)."
+emitted_knowledge: []
+conflicts_detected: []
+locks_to_release: []

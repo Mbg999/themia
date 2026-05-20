@@ -1,0 +1,62 @@
+status: complete
+unit_name: metadata-helpers
+sub_stage: approved
+artifacts:
+  - path: thermia-back/app/ingestion/__init__.py
+    kind: source
+  - path: thermia-back/app/ingestion/metadata_helpers.py
+    kind: source
+  - path: thermia-back/tests/ingestion/__init__.py
+    kind: test
+  - path: thermia-back/tests/ingestion/test_metadata_helpers.py
+    kind: test
+  - path: thermia-back/requirements.txt
+    kind: config
+audit_entries:
+  - "[metadata-helpers] MH-T1: Created app/ingestion/__init__.py and tests/ingestion/__init__.py"
+  - "[metadata-helpers] MH-T2: parse_frontmatter — detects ---block, yaml.safe_load, WARNING on parse error, returns original text on failure"
+  - "[metadata-helpers] MH-T3: compute_content_hash — lowercase+whitespace normalize+SHA256, deterministic 64-char hex"
+  - "[metadata-helpers] MH-T4: extract_legal_rank — frontmatter priority then title regex (most-specific-first: ley_organica > real_decreto_ley > real_decreto > ley > decreto > orden > resolucion)"
+  - "[metadata-helpers] MH-T5: normalize_status — EN/ES mapping with WARNING on unknown values"
+  - "[metadata-helpers] MH-T6: derive_eli — eli field > source URL extraction > url URL extraction > None (never '')"
+  - "[metadata-helpers] MH-T7: 41 tests in 5 classes (target was >=25); all passing; no DB/Cohere/network deps"
+  - "[metadata-helpers] Added PyYAML>=6.0 to requirements.txt"
+  - "[metadata-helpers] AST drift check on ingest.py: no drift detected (module not modified)"
+  - "[metadata-helpers] parse_frontmatter body retention: closing --- newline kept in body per spec example"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Read requirements.txt, ingest.py, and unit spec before writing. Checked for existing PyYAML entry before adding."
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "Implemented 5 functions one at a time with tests; caught and fixed parse_frontmatter body alignment between tests before finalizing."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "41 tests across 5 classes, all passing. Exceeded >=25 requirement. All spec acceptance criteria exercised explicitly."
+  - skill: source-driven-development
+    status: PASS
+    evidence: "All function signatures match unit spec exactly. derive_eli returns None not '' per spec requirement."
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "Pure pytest style; no external deps; each test class tests one function; edge cases covered (None input, broken YAML, non-dict YAML, no-frontmatter input)."
+  - skill: spec-driven-development
+    status: PASS
+    evidence: "All 9 acceptance criteria from unit spec verified. Module imports without DB/Cohere side-effects confirmed empirically."
+tests_added: 41
+tests_passing: 41
+commits_made: 0
+emitted_knowledge:
+  - kind: pattern
+    title: parse_frontmatter body retention — closing marker newline stays in body
+    body: "Per spec: parse_frontmatter('---\ntitle: X\n---\n# H1') → ({...}, '\n# H1'). The newline after the closing --- stays in the body. Use a regex lookahead or split-on-marker approach that does not consume the trailing newline. Applied in Thermia metadata-helpers."
+    tags: ["thermia", "python", "frontmatter", "parsing"]
+    confidence: 0.95
+  - kind: lesson
+    title: extract_legal_rank most-specific-first ordering matters
+    body: "Spanish legal rank regex patterns must be checked most-specific-first: 'ley orgánica' before 'ley', 'real decreto-ley' before 'real decreto'. Otherwise 'Ley Orgánica 3/2007' matches 'ley' and returns 'ley' instead of 'ley_organica'. Applied in Thermia metadata-helpers MH-T4."
+    tags: ["thermia", "python", "legal", "regex"]
+    confidence: 0.95
+conflicts_detected: []
+locks_to_release:
+  - thermia-back/app/ingestion/**
+  - thermia-back/tests/ingestion/**

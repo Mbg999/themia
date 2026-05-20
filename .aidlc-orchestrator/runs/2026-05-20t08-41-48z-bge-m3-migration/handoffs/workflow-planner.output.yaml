@@ -1,0 +1,39 @@
+status: needs_human
+artifacts:
+  - path: aidlc-docs/inception/plans/2026-05-20t08-41-48z-bge-m3-migration-execution-plan.md
+    kind: plan
+units:
+  - name: key-pool-cleanup
+    description: Remove all Cohere-specific code from KeyPool
+    depends_on: []
+  - name: embedder-migration
+    description: Rewrite embedder.py with Ollama client, update deps and embedder tests
+    depends_on: [key-pool-cleanup]
+  - name: ingestion-migration
+    description: Rewrite ingest.py with Ollama batch embedding, update ingestion tests
+    depends_on: [key-pool-cleanup]
+  - name: test-execution
+    description: Run full test suite and manual endpoint verification
+    depends_on: [embedder-migration, ingestion-migration]
+task_count: 14
+unit_count: 4
+depth: standard
+mermaid_validated: true
+plan_risks:
+  - id: R1
+    description: ollama.embed() response shape may differ from Cohere
+    impact: test failure
+    mitigation: verify shape in first unit test
+  - id: R2
+    description: Embedding space mismatch (bge-m3 != Cohere)
+    impact: search quality regression for old docs
+    mitigation: accepted per user Q7 decision
+  - id: R3
+    description: Ollama server unavailable during tests
+    impact: flaky CI
+    mitigation: mock ollama at client level
+  - id: R4
+    description: KeyPool Cohere removal could break Groq path
+    impact: production regression
+    mitigation: keep Groq code intact, verify with existing tests
+approval_gate: workflow-planner

@@ -1,0 +1,209 @@
+status: complete
+reviewer: security
+findings:
+- severity: P1
+  file: thermia-back/app/retrieval/embedder.py
+  line: 61
+  cwe: CWE-362
+  owasp: A04:2021
+  message: 'Race condition in _get_client(): pool key can rotate between pool.current()
+    and cohere.Client(active_key) construction, causing the rebuilt client to use
+    a stale (possibly exhausted) key.'
+  recommendation: Atomically snapshot the active key under KeyPool's internal lock
+    and pass it directly to the client constructor; alternatively compare pool.current()
+    after building the client and rebuild if it changed.
+- severity: P1
+  file: thermia-back/app/retrieval/embedder.py
+  line: 123
+  cwe: CWE-617
+  owasp: A05:2021
+  message: assert statement used to enforce runtime invariant (assert last_exc is
+    not None). In Python optimised mode (-O / PYTHONOPTIMIZE) assert statements are
+    compiled out, converting this into an UnboundLocalError crash that bypasses the
+    intended control flow.
+  recommendation: 'Replace with an explicit runtime guard: ''if last_exc is None:
+    raise RuntimeError("unexpected: no exception after retry budget")''. Never use
+    assert for enforcing production invariants.'
+- severity: P1
+  file: thermia-back/app/retrieval/key_pool.py
+  line: 104
+  cwe: CWE-20
+  owasp: A03:2021
+  message: _parse_keys_env() strips a single-layer of surrounding single-quotes from
+    the raw env value before JSON parsing. Malformed values such as "'[\"k1\"]' extra"
+    are silently truncated to '["k1"]' extra and then fail JSON decoding with a cryptic
+    error instead of a clear validation message. More critically, an attacker who
+    can control the env var value (e.g., via .env file injection in a CI pipeline)
+    can embed arbitrary JSON, since no key-format validation (prefix check, minimum
+    length, character allowlist) is performed on the parsed key strings.
+  recommendation: After JSON parsing, validate each key string against a minimal format
+    rule (non-empty, minimum length >= 8, printable ASCII / alphanumeric + hyphens
+    only). Log the number of keys loaded but never any key material.
+- severity: P1
+  file: thermia-back/app/main.py
+  line: 61
+  cwe: CWE-284
+  owasp: A01:2021
+  message: Authentication is entirely bypassed when THERMIA_ENV=local. If THERMIA_ENV
+    is unset or accidentally set to 'local' in a non-local environment (e.g., a staging
+    container whose .env was copied from a developer machine), every POST /analyze
+    call executes without any bearer-token check. There is no defence against this
+    misconfiguration.
+  recommendation: Remove the environment-gated bypass. For local development, set
+    API_KEY to a well-known dev token in .env.example and document it. Alternatively,
+    check against a non-empty API_KEY value and fail startup if the key is absent,
+    regardless of THERMIA_ENV.
+- severity: P1
+  file: thermia-back/app/main.py
+  line: 63
+  cwe: CWE-312
+  owasp: A02:2021
+  message: API_KEY is read at request time from os.environ on every call. If API_KEY
+    is absent (empty string), the comparison 'authorization[len("Bearer "):] != api_key'
+    succeeds for any request that sends 'Bearer ' (empty bearer), silently granting
+    access. The empty default ('') makes this a no-auth-by-default condition when
+    API_KEY is not configured.
+  recommendation: 'At application startup, assert that API_KEY is non-empty (len >=
+    16). Raise a startup error if it is missing or empty. Use constant-time comparison:
+    ''import hmac; hmac.compare_digest(token, api_key)'' to prevent timing-oracle
+    attacks.'
+- severity: P2
+  file: thermia-back/app/retrieval/llm.py
+  line: 83
+  cwe: CWE-20
+  owasp: A03:2021
+  message: 'Prompt injection partial mitigation: a delimiter comment (''---'') and
+    an instruction to ignore embedded document instructions are included in the HumanMessage.
+    However, the context string (built from database-retrieved legal text) is concatenated
+    without sanitisation into the same message. Crafted content stored in the database
+    (e.g., injected during ingest from a malicious .md file in the corpus) can override
+    the delimiter and inject instructions to the LLM.'
+  recommendation: 'Treat LLM output as untrusted: validate the parsed JSON strictly
+    against the expected schema (string resumen, arrays of strings) before returning
+    it. Add output-length limits. Consider using Groq''s structured-output / JSON
+    mode to constrain the response format at the API level.'
+- severity: P2
+  file: thermia-back/app/retrieval/key_pool.py
+  line: 353
+  cwe: CWE-327
+  owasp: A02:2021
+  message: 'SHA-256 is used to produce a short 8-hex-char log identifier for API keys
+    (_hash_key). Truncating to 8 hex characters (32 bits) yields a trivially brute-forceable
+    identifier: an attacker with log access can enumerate all known Cohere/Groq key
+    formats and match hashes in seconds. This identifier provides false confidence
+    about key identity confidentiality.'
+  recommendation: Use a keyed HMAC (e.g., HMAC-SHA256 with a server-side log-salt
+    stored outside the pool) truncated to 8 chars, or simply log the key index only.
+    The primary goal is distinguishing keys in logs, not proving key identity.
+- severity: P2
+  file: thermia-back/scripts/ingest.py
+  line: 53
+  cwe: CWE-427
+  owasp: A08:2021
+  message: The repository is cloned from an external GitHub URL (_REPO_URL = 'https://github.com/legalize-dev/legalize-es')
+    and then checked out to a pinned commit hash. The clone itself uses HTTPS without
+    any certificate pinning or checksum verification on the clone step. A DNS-spoofing
+    or MitM attacker between the ingest host and GitHub can serve a different repository
+    prior to the checkout step; gitpython's Repo.clone_from does not validate the
+    remote certificate chain in all configurations.
+  recommendation: Verify that the gitpython/libgit2 TLS chain-of-trust is enforced
+    (GIT_SSL_NO_VERIFY must not be set). After checkout, compute and compare a SHA-256
+    hash of all ingested .md files against a known-good manifest to detect tampering.
+    Log a clear error if any file hash mismatches.
+- severity: P2
+  file: thermia-back/app/retrieval/key_pool.py
+  line: 152
+  cwe: CWE-400
+  owasp: A05:2021
+  message: _get_cooldown_seconds() reads an arbitrary integer from environment variable
+    <PROVIDER>_KEY_COOLDOWN_SECONDS with no maximum bound. An operator misconfiguration
+    (or env-var injection) can set this to MAX_INT, making all cool-downs permanent
+    and effectively disabling key rotation permanently after the first failure.
+  recommendation: Clamp the cooldown value to a sensible maximum (e.g., 30 days =
+    2592000 seconds). Log a warning if the configured value exceeds the maximum and
+    clamp silently.
+- severity: P3
+  file: thermia-back/.env.example
+  line: 9
+  cwe: CWE-312
+  owasp: A02:2021
+  message: .env.example documents SSH_PASSWORD and DB_PASSWORD as plain-text environment
+    variables with no reference to secrets management. Developers who copy this file
+    and store it as .env commit it into version control or leave it on disk. There
+    is no .gitignore entry documented in the example itself.
+  recommendation: Add a prominent comment at the top of .env.example referencing the
+    project .gitignore rule for .env. Consider documenting an alternative using a
+    secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault) for production SSH
+    and DB credentials rather than flat env vars.
+- severity: P3
+  file: thermia-back/app/retrieval/embedder.py
+  line: 33
+  cwe: CWE-400
+  owasp: A05:2021
+  message: '_RETRY_DELAYS = (10, 30, 60) produces a worst-case in-key retry wall time
+    of 100 seconds per key before rotating. With N keys this is 100*N seconds of total
+    blocking time on a synchronous caller thread, with no overall deadline. Under
+    adversarial rate-limit flooding this creates a denial-of-service amplification
+    risk: a single request can hold a thread blocked for up to ~5 minutes with 3 keys.'
+  recommendation: Add a per-request total timeout that is enforced across all retries
+    and rotations. Expose this as COHERE_REQUEST_TIMEOUT_SECONDS. Raise a timeout
+    error and return HTTP 503 to the client rather than blocking indefinitely.
+findings_summary:
+  P0_count: 0
+  P1_count: 5
+  P2_count: 4
+  P3_count: 2
+audit_entries:
+- 'reviewer-security: threat-modelled 6 surfaces (key pool env parsing, client singleton,
+  auth gate, LLM prompt, ingest clone, cooldown config)'
+- 'reviewer-security: OWASP Top 10 scan complete across all 6 scope files'
+- 'reviewer-security: dependency scan — paramiko<3 constraint flagged for CVE review
+  (see P2 note); no hardcoded secrets found in source; no SQL string concatenation
+  found'
+- 'reviewer-security: CodeGraph live queries — classify_failure, _parse_keys_env,
+  _check_auth returned no callers (index miss); KeyPool blast_radius=13 (class-level,
+  no security severity bump triggered)'
+- 'reviewer-security: 0 P0, 5 P1, 4 P2, 2 P3 findings emitted'
+skill_compliance:
+- skill: security-and-hardening
+  status: PASS
+  evidence: OWASP Top 10 scan complete; threat model covered auth, secrets, injection,
+    race conditions, resource exhaustion, and supply chain surfaces
+- skill: using-agent-skills
+  status: PASS
+  evidence: Skills loaded; CodeGraph live queries executed for blast-radius enrichment
+- skill: fastapi-python
+  status: PASS
+  evidence: FastAPI auth, CORS, rate-limit, and file-upload patterns reviewed
+emitted_knowledge:
+- kind: antipattern
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-284
+  - fastapi
+  - python
+  body: 'FastAPI auth bypass via environment-gated skip: when authentication is conditioned
+    on an environment variable (e.g., THERMIA_ENV=local), any misconfiguration or
+    accidental env propagation to non-local environments silently disables all access
+    control. The attack vector is environmental misconfiguration — no active exploit
+    needed. Root cause is conflating deployment environment detection with security
+    policy.
+
+    '
+  title: FastAPI auth bypass via env-gated authentication skip
+- kind: antipattern
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-312
+  - fastapi
+  - python
+  body: 'Empty-string default for bearer token comparison: reading a secret with os.environ.get("API_KEY",
+    "") and comparing directly allows any request that sends an empty bearer token
+    to authenticate successfully when the variable is unset. Root cause is absent
+    startup validation of required secrets. Pair with: missing constant-time comparison
+    enabling timing-oracle attacks against string equality.
+
+    '
+  title: Empty-string default enables empty-bearer token authentication

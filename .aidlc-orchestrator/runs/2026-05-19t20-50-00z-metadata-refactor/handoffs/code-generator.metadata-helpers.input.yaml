@@ -1,0 +1,38 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+stage_id: code-generator
+unit_name: metadata-helpers
+user_request: "Metadata Refactor for Thermia Legal RAG — create app/ingestion/metadata_helpers.py
+  with 5 pure functions: parse_frontmatter (YAML strip+parse), compute_content_hash (SHA256),
+  extract_legal_rank (frontmatter priority then title pattern), normalize_status (EN→ES map),
+  derive_eli (conservative URL extraction). Full unit test coverage ≥25 tests in
+  tests/ingestion/test_metadata_helpers.py. No I/O, no DB, no Cohere — pure functions only."
+unit_spec_path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-metadata-helpers.md
+predecessor_artifacts:
+  - aidlc-docs/inception/plans/2026-05-19t20-50-00z-metadata-refactor-execution-plan.md
+  - aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-metadata-helpers.md
+  - aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirements.md
+skills_required:
+  - using-agent-skills
+  - incremental-implementation
+  - test-driven-development
+  - source-driven-development
+  - python-testing-patterns
+  - spec-driven-development
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/incremental-implementation/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+  - .agents/skills/source-driven-development/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/spec-driven-development/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+context_pointers:
+  - "thermia-back/scripts/ingest.py — existing ingestion pipeline (to understand what metadata-helpers will wire into)"
+  - "thermia-back/requirements.txt — check if PyYAML>=6.0 already present"
+  - "aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-metadata-helpers.md — full unit spec: 5 functions, 7 tasks, ≥25 tests, all acceptance criteria"
+locks_required:
+  - thermia-back/app/ingestion/**
+  - thermia-back/tests/ingestion/**
+fast_path: false
+tier: MEDIUM
+model_override: opus

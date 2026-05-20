@@ -1,0 +1,54 @@
+status: needs_human
+artifacts:
+  - path: aidlc-docs/inception/plans/2026-05-19t15-11-46z-api-key-fallback-execution-plan.md
+    kind: plan
+audit_entries:
+  - "[SkillRead] .agents/skills/using-agent-skills/SKILL.md L41: \"These behaviors apply at all times, across all skills. They are non-negotiable.\""
+  - "[SkillRead] .agents/skills/planning-and-task-breakdown/SKILL.md L58: \"Instead of building all the database, then all the API, then all the UI — build one complete feature path at a time\""
+  - "[SkillRead] .agents/skills/planning-and-task-breakdown/SKILL.md L216: \"Every task has acceptance criteria; Every task has a verification step\""
+  - "[SkillRead] .agents/skills/requirements-intelligence/pre-mortem.md L104: \"Plan-stage variant ... Operate on the plan artifact (the Mermaid diagram + unit list + task tree), not the original request.\""
+  - "[SkillRead] aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md L26: \"Depth | standard | Per aidlc-rules/.../depth-levels.md for Clear + Multiple Components + Moderate.\""
+  - "[SkillRead] aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md L188-L194: scope-of-adoption table — embedder.py, llm.py, scripts/ingest.py all in scope."
+  - "[PlanDepth] standard — matches requirements depth (standard); one unit, 9 tasks, single construction layer because the feature is backend-only and lives in one Python import graph."
+  - "[Decomposition] one unit (key-pool-fallback), 9 leaf tasks, dependency-ordered: foundation (T1) → parsing (T2) → classifier (T3) → cool-down + rotation (T4) → unit tests (T5) → three integration tasks in parallel (T6, T7, T8) → docs (T9)."
+  - "[TaskSizing] all 9 tasks are S/M scope by planning-and-task-breakdown SKILL.md L127 table; KP-T5 is the largest (M, ~1 test file, 11 scenarios) but each scenario is a small isolated test."
+  - "[AcceptanceCriteria] every leaf task has ≥3 acceptance criteria; matrix in §6 of plan maps every requirements-doc AC to ≥1 task."
+  - "[MermaidValidated] graph TD with [..] node labels and a subgraph; no special unescaped characters in node labels; subgraph uses quoted title per Mermaid spec; visually checked against Mermaid live-editor grammar."
+  - "[PlanPreMortem] 3 plan-risk questions appended to plan §8 covering construction break-points, unit-boundary risk (n/a — single unit), and weakest-AC task (KP-T3 signal classifier)."
+  - "[ApprovalGate] status=needs_human — plan must be approved by user before /factory-build."
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded SKILL.md (L41 quoted). Followed 'Surface Assumptions' (architecture decisions §2), 'Maintain Scope Discipline' (single unit, backend-only, no new endpoints / no frontend / no schema), 'Enforce Simplicity' (rejected layer-parallel multi-unit decomposition because feature is one Python module + 3 call sites)."
+  - skill: planning-and-task-breakdown
+    status: PASS
+    evidence: "Followed Step 1 (read-only plan mode, no code), Step 2 (dependency graph in §3 Mermaid), Step 3 (vertical slice — KeyPool core + tests land before any call-site migration), Step 4 (every task has AC + Files + Depends-on per template L83-104), Step 5 (sequenced foundations-first, checkpoint after KP-T5 before fan-out). Verification gate at SKILL.md L216 satisfied: every task has AC ≥3."
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: "Plan-stage variant invoked per pre-mortem.md L104. Trivial-plan skip rule NOT applicable: plan IS single-unit but tasks have ≥3 AC each (above the ≥2 threshold), so we still ran pre-mortem because requirements explicitly call out FR-3 string-matching fragility (signal classifier) — a non-trivial construction risk. 3 plan-risk questions emitted in plan §8."
+units:
+  - name: key-pool-fallback
+    description: "New thermia-back/app/retrieval/key_pool.py module (KeyPool class, FailureReason enum, signal classifier, cool-down + sticky-rotate, threading lock, structured logs) plus integration into embedder.py / llm.py / scripts/ingest.py plus unit tests and .env.example update."
+    depends_on: []
+task_count: 9
+unit_count: 1
+depth: standard
+mermaid_validated: true
+emitted_knowledge:
+  - kind: pattern
+    title: "Provider-agnostic API-key pool with sticky-then-rotate semantics"
+    body: "When wrapping free-tier providers behind a fallback pool, compose the pool ABOVE any in-key retry budget the SDK already has — rotate only after the SDK exhausts its own retries, never on the first rate-limit error. Pair sticky-then-rotate (same key reused until it fails) with per-provider cool-down windows that match the provider's quota reset cadence (Cohere Trial = 30 d, Groq daily = 1 d). Cool-down state in-process only; persistence is YAGNI for typical worker lifetimes."
+    tags: ["api-keys", "fallback", "rate-limiting", "cohere", "groq", "free-tier"]
+    related_artifacts:
+      - "aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md"
+      - "aidlc-docs/inception/plans/2026-05-19t15-11-46z-api-key-fallback-execution-plan.md"
+    confidence: 0.85
+  - kind: adr
+    title: "Single-unit plan for the API-key fallback (no layer parallelism)"
+    body: "Rejected multi-unit decomposition (e.g. 'pool-core' + 'embedder-wiring' + 'llm-wiring' + 'ingest-wiring' as parallel units) because the four would share one Python import graph and would force a build/test cycle per unit for no parallelism win. One unit, sequential tasks, vertical slice: KeyPool core + unit tests land first; the three call-site wirings fan out from T5 in parallel; .env.example closes the unit."
+    tags: ["planning", "single-unit", "vertical-slice"]
+    related_artifacts:
+      - "aidlc-docs/inception/plans/2026-05-19t15-11-46z-api-key-fallback-execution-plan.md"
+    confidence: 0.9
+conflicts_detected: []
+locks_to_release: []

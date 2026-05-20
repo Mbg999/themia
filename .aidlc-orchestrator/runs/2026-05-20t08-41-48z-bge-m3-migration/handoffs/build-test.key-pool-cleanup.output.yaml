@@ -1,0 +1,93 @@
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+unit: key-pool-cleanup
+stage_id: build-test-agent
+sub_stage: build-test
+
+status: needs_human
+unit_name: key-pool-cleanup
+build_status: success
+
+tests_total: 61
+tests_passing: 57
+tests_failing: 4
+coverage_pct: null
+
+artifacts:
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup-build-instructions.md
+    kind: doc
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup-build-and-test-summary.md
+    kind: doc
+
+audit_entries:
+  - "[Env] platform: Darwin  shell: zsh  context: standard"
+  - "[Env] python3 detected: 3.9.6 at /usr/bin/python3"
+  - "[Env] pytest detected: 9.0.3 at /Users/miguel.belmonte/homebrew/bin/pytest"
+  - "[Env] detection complete: 3 existing, 0 manager-handled, 0 system-installed"
+  - "[CodeGraph] no affected tests detected - WASM SQLite fallback cannot open DB; running full suite"
+  - "[Validator] none detected - skipping validation"
+  - "[Test] ran 61 tests: 57 passed, 4 failed (all TestLLMKeyPool)"
+  - "[Grep] key_pool.py: 0 cohere refs (PASS)"
+  - "[Grep] test_key_pool.py: 38 cohere refs - all in expected classes (TestEmbedderKeyPool, TestIngestKeyPool, test_no_cohere_*)"
+  - "[Failure] TestLLMKeyPool.test_llm_uses_active_groq_key - KeyError: _is_valid_retrieval gates before Groq mock invoked"
+  - "[Failure] TestLLMKeyPool.test_groq_daily_quota_rotates_and_retries - early return INSUFICIENCIA instead of 'ok'"
+  - "[Failure] TestLLMKeyPool.test_all_groq_keys_exhausted_propagates - AllKeysExhaustedError not raised (early return gate)"
+  - "[Failure] TestLLMKeyPool.test_non_rotating_llm_failure_reraises - Exception not raised (early return gate)"
+  - "[Finding] _is_valid_retrieval() gate in llm.py short-circuits before Groq mock; TestLLMKeyPool tests need context with legal keywords"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded at start; piped through skill paths resolved from handoff. Verified lockfile-aware loading - no manifest found, so no tech_stack filter applied. All 5 required skills loaded."
+  - skill: environment-detection
+    status: PASS
+    evidence: "Fingerprinted platform (Darwin), detected python3 3.9.6, pytest 9.0.3, pip3 26.0.1. No CI/container. All detections logged with [Env] prefix before any install/run commands."
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "CodeGraph DB exists at .codegraph/codegraph.db. Ran codegraph affected - failed with WASM SQLite fallback error (Node.js version mismatch). Gracefully fell back to full suite. Logged with [CodeGraph] prefix."
+  - skill: validator-retry
+    status: "N/A"
+    evidence: "No static validators detected (no pyright, no mypy, no pyrightconfig.json, no mypy.ini). Skipped validation per skill protocol."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Executed full test suite (61 tests). 57 passing, 4 failing. Failures documented with root-cause analysis. No tests skipped."
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: "On test failure, loaded skill and triaged. Reproduced all 4 failures, localized root cause to _is_valid_retrieval gate in llm.py. Reduced to: trivial context strings bypass validation gate. Findings documented."
+
+emitted_knowledge:
+  - kind: lesson
+    title: "Test may bypass new validation gates if they use synthetic inputs"
+    body: >
+      What: _is_valid_retrieval() was added to llm.py as part of the bge-m3
+      migration, gating analyze_with_llm on context containing legal keywords.
+      The existing TestLLMKeyPool tests pass synthetic context like "context text"
+      or "ctx" that don't satisfy the gate, causing 4 false-positive failures.
+
+      Why: The validation gate was introduced alongside the Cohere to Groq migration
+      in the key-pool-cleanup layer, but the tests were not updated to use
+      realistic context strings containing legal keywords (ley, articulo, etc.).
+
+      Where: thermia-back/app/retrieval/llm.py:66-87 (_is_valid_retrieval),
+      thermia-back/tests/retrieval/test_key_pool.py:485-582 (TestLLMKeyPool)
+
+      Learned: When adding a validation gate that runs before the main code path,
+      existing tests that use synthetic/minimal inputs WILL bypass the real code
+      and silently pass/fail for the wrong reason. Either:
+      (a) update test inputs to pass the new gate, or
+      (b) test the gate separately and mock it in behavioral tests.
+      The tests that SHOULD have caught this: test_no_cohere_provider_in_agnostic_tests
+      and the other red-test helpers passed, but they verify Cohere provenance, not
+      the validation gate's effect on Groq tests.
+    tags:
+      - test-regression
+      - validation-gate
+      - key-pool-cleanup
+      - bge-m3-migration
+    related_artifacts:
+      - aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup-build-and-test-summary.md
+    confidence: 0.9
+
+conflicts_detected: []
+locks_to_release:
+  - file-lock:thermia-back/app/retrieval/key_pool.py
+  - file-lock:thermia-back/tests/retrieval/test_key_pool.py

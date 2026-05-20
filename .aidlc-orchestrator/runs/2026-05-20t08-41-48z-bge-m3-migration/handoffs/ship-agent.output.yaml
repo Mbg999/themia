@@ -1,0 +1,146 @@
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+stage_id: ship-agent
+status: complete
+
+version_proposal:
+  from: "0.2.0"
+  to: "0.3.0"
+  kind: minor
+  rationale: >
+    Replaces a third-party cloud API provider (Cohere embed-multilingual-v3.0) with a
+    self-hosted Ollama service (BGE-M3). This changes a runtime dependency and the
+    embedding provider contract (model name, API surface, credential model). The 1024-dim
+    vector interface is preserved, so no pgvector schema migration is required — but
+    existing data must be re-ingested (embedding spaces are incompatible). New security
+    controls (_validate_host, timeout) and a new env var surface (OLLAMA_HOST,
+    OLLAMA_MODEL replacing COHERE_API_KEYS) constitute a meaningful functional boundary.
+    Not a breaking API change for callers of the FastAPI service, but significant enough
+    to be minor rather than patch.
+
+adr_count: 2
+
+release_sections_covered:
+  - Added
+  - Changed
+  - Fixed
+  - Deprecated
+  - Security
+
+artifacts:
+  - path: RELEASE_NOTES.md
+    action: appended 0.3.0 entry
+  - path: CHANGELOG.md
+    action: inserted [0.3.0] entry and updated footer links
+  - path: aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0001-ollama-bge-m3-as-embedding-backend.md
+    action: created
+  - path: aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0002-ssrf-protection-ollama-host-validation.md
+    action: created
+  - path: aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-migration-plan.md
+    action: created
+  - path: .github/workflows/ci.yml
+    action: no change required — existing workflow covers all test modules including
+            retrieval/ and ingestion/ via pytest with THERMIA_MODE=test. The Ollama
+            client is mocked in tests; no new secrets or service blocks needed.
+            Cosmetic comment ("No Cohere") should be updated to "No Ollama" when the
+            file is next edited; tracked in migration plan section 6.
+
+cicd_assessment:
+  status: covered
+  notes: >
+    .github/workflows/ci.yml (drafted in run 2026-05-19t20-50-00z-metadata-refactor)
+    runs `python -m pytest --tb=short --strict-markers -q` over the entire thermia-back
+    test suite. The 189 tests in retrieval/ (test_embedder.py, test_key_pool.py) and
+    test_ingestion.py are all covered by this invocation. All external calls including
+    ollama.Client are mocked; no new env vars, service containers, or secrets are
+    required for CI to pass. No CI/CD changes proposed.
+
+audit_entries:
+  - "2026-05-20 ship-agent: RELEASE_NOTES.md 0.3.0 entry written — sections: Added,
+    Changed, Fixed, Deprecated, Security."
+  - "2026-05-20 ship-agent: CHANGELOG.md [0.3.0] entry inserted per Keep-a-Changelog
+    1.1.0 format. Footer links updated."
+  - "2026-05-20 ship-agent: ADR 0001 written —
+    aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0001-ollama-bge-m3-as-embedding-backend.md"
+  - "2026-05-20 ship-agent: ADR 0002 written —
+    aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0002-ssrf-protection-ollama-host-validation.md"
+  - "2026-05-20 ship-agent: Migration plan written —
+    aidlc-docs/operations/2026-05-20t08-41-48z-bge-m3-migration-migration-plan.md"
+  - "2026-05-20 ship-agent: CI/CD assessed — .github/workflows/ci.yml covers all new
+    test units; no changes required."
+  - "2026-05-20 ship-agent: Version bump proposed: 0.2.0 → 0.3.0 (minor). Rationale:
+    embedding provider replaced, SSRF guards added, credential model changed."
+  - "2026-05-20 ship-agent: has_legacy=true — Cohere deprecation timeline documented in
+    migration plan. Hard cutoff 2026-08-20."
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: compliant
+    notes: Skills loaded and process steps followed throughout this run.
+  - skill: shipping-and-launch
+    status: compliant
+    notes: RELEASE_NOTES.md appended with all required sections (Added, Changed, Fixed,
+           Deprecated, Security). Version proposal provided with rationale.
+  - skill: git-workflow-and-versioning
+    status: compliant
+    notes: Semver minor bump proposed (0.2.0→0.3.0) with written rationale. No tags
+           pushed; local artifacts only per protocol.
+  - skill: ci-cd-and-automation
+    status: compliant
+    notes: Existing ci.yml assessed and confirmed to cover all new test units. No silent
+           overwrite; no unnecessary changes proposed. Cosmetic comment update noted in
+           migration plan.
+  - skill: documentation-and-adrs
+    status: compliant
+    notes: 2 ADRs written in Michael Nygard format covering the two architecturally
+           significant decisions of this run (provider selection, SSRF guard design).
+           Both reference concrete code locations, risks, and trade-offs.
+  - skill: deprecation-and-migration
+    status: compliant
+    notes: has_legacy=true. Migration plan produced covering env var changes,
+           mandatory re-ingestion procedure, rollback window, and Cohere deprecation
+           timeline with hard 2026-08-20 deadline.
+
+emitted_knowledge:
+  - kind: adr
+    confidence: 0.9
+    tags:
+      - adr
+      - embeddings
+      - ollama
+      - architecture
+      - provider-migration
+    body: |
+      Status: Accepted
+      Context: Thermia used Cohere embed-multilingual-v3.0 since MVP. Cohere API costs
+        were too high. A self-hosted Ollama node at https://ollama.cvbooster.es already
+        runs bge-m3 (1024-dim), matching the existing pgvector schema dimension.
+      Decision: Replace Cohere with Ollama BGE-M3 singleton in embedder.py and ingest.py.
+        KeyPool stripped of Cohere logic. OLLAMA_HOST/OLLAMA_MODEL env vars replace
+        COHERE_API_KEYS. cohere package removed, ollama package added.
+      Consequences: Eliminates Cohere API costs. No schema migration. Re-ingestion of
+        existing pgvector data is mandatory (incompatible embedding spaces). Ollama node
+        availability is now on the critical path for serving and ingestion.
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0001-ollama-bge-m3-as-embedding-backend.md
+
+  - kind: adr
+    confidence: 0.9
+    tags:
+      - adr
+      - security
+      - ssrf
+      - cwe-918
+      - ollama
+    body: |
+      Status: Accepted
+      Context: OLLAMA_HOST is a caller-supplied env var passed to ollama.Client. Without
+        validation, a misconfigured or attacker-controlled host value turns the embedder
+        into an SSRF proxy (CWE-918). The ingestion CLI shares the same risk.
+      Decision: _validate_host() enforces https:// for non-localhost hosts. Called in
+        FastAPI lifespan (fail-fast startup) and in EmbedderClient.__init__. Same
+        function applied in ingest.py. Exception logging sanitised — URL not logged.
+      Consequences: Operators using plain http:// to non-localhost Ollama nodes must add
+        TLS or use SSH port-forwarding. IPv6 loopback (::1) not yet in the allowlist.
+        DNS rebinding out of scope for current threat model.
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-20t08-41-48z-bge-m3-migration-0002-ssrf-protection-ollama-host-validation.md

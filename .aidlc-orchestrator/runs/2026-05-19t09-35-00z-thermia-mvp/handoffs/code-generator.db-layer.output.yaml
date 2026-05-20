@@ -1,0 +1,124 @@
+status: needs_human
+unit_name: db-layer
+sub_stage: generated
+tests_added: 9
+tests_passing: 9
+commits_made: 0
+
+artifacts:
+  - path: aidlc-docs/construction/plans/2026-05-19t09-35-00z-thermia-mvp-db-layer-code-generation-plan.md
+    kind: plan
+  - path: thermia-back/requirements.txt
+    kind: source
+  - path: thermia-back/.env.example
+    kind: config
+  - path: thermia-back/app/__init__.py
+    kind: source
+  - path: thermia-back/app/main.py
+    kind: source
+  - path: thermia-back/app/config.py
+    kind: source
+  - path: thermia-back/app/db/__init__.py
+    kind: source
+  - path: thermia-back/app/db/models.py
+    kind: source
+  - path: thermia-back/app/db/connection.py
+    kind: source
+  - path: thermia-back/alembic.ini
+    kind: config
+  - path: thermia-back/alembic/env.py
+    kind: source
+  - path: thermia-back/alembic/script.py.mako
+    kind: config
+  - path: thermia-back/alembic/versions/0001_initial.py
+    kind: source
+  - path: thermia-back/tests/__init__.py
+    kind: test
+  - path: thermia-back/tests/test_db.py
+    kind: test
+  - path: thermia-back/scripts/.gitkeep
+    kind: config
+
+audit_entries:
+  - "[Env] python3 3.14.5 detected at /Users/miguel.belmonte/homebrew/bin/python3 — using existing installation"
+  - "[Env] pip3 26.1.1 detected at /Users/miguel.belmonte/homebrew/bin/pip3 — using existing installation"
+  - "[Env] thermia-back/ does NOT exist — created from scratch"
+  - "[Env] fastapi, sqlalchemy, pgvector, sshtunnel, alembic, psycopg2-binary, python-dotenv, pytest not installed — installed via pip into thermia-back/.venv"
+  - "[DB-T1 Red] test_health_endpoint collected + 8 other tests — all FAILED (ModuleNotFoundError: no module app.main)"
+  - "[DB-T1 Green] Created directories: app/, app/db/, scripts/, tests/, alembic/versions/; __init__.py files; requirements.txt; app/main.py (FastAPI + GET /health); app/config.py (dotenv load + env var exports); .env.example"
+  - "[DB-T1 Green] python3 -c 'from app.main import app' -> import OK"
+  - "[DB-T1 Green] test_health_endpoint PASSED"
+  - "[DB-T2 Green] Created app/db/models.py: Base + Document class; id=UUID(gen_random_uuid), content=Text, embedding=Vector(1024), tsvector=TSVECTOR, metadata_=JSONB mapped to column 'metadata'"
+  - "[DB-T2 Green] test_document_model_columns PASSED; test_embedding_dimension PASSED"
+  - "[DB-T3 Green] Created alembic.ini (script_location=alembic, placeholder URL overridden in env.py); alembic/env.py (imports Base, sets target_metadata, reads DATABASE_URL); alembic/script.py.mako; alembic/versions/0001_initial.py (CREATE EXTENSION vector, CREATE TABLE documents, ivfflat + GIN indexes)"
+  - "[DB-T3 Green] alembic upgrade head --sql offline SQL contains: CREATE TABLE documents, vector(1024), ivfflat index, GIN index — verified"
+  - "[DB-T4 Green] Created app/db/connection.py: get_engine() reads THERMIA_ENV; local branch creates SSHTunnelForwarder, calls tunnel.start() before reading local_bind_port, builds engine URL to 127.0.0.1:<local_bind_port>; production branch calls create_engine(DATABASE_URL)"
+  - "[DB-T5 Red] 5 connection factory tests FAILED on first run: two issues found: (1) sshtunnel/paramiko DSSKey attr removed in newer paramiko — real constructor called because reload() inside patch() context re-imported names after patch was established; (2) create_engine not called in production tests for same reason"
+  - "[DB-T5 Fix] Replaced reload()-based patching with patch.object(conn_mod, 'SSHTunnelForwarder', ...) and patch.object(conn_mod, 'create_engine', ...) — patches module's own name bindings directly, no reload needed"
+  - "[DB-T5 Green] All 9 tests PASSED: test_health_endpoint, test_document_model_columns, test_embedding_dimension, test_local_creates_ssh_tunnel, test_local_tunnel_is_started, test_local_engine_points_to_tunnel_local_port, test_production_uses_database_url, test_production_no_tunnel_created, test_default_env_is_production"
+  - "[Validator] python -m py_compile on all 7 source files — clean"
+  - "[Validator] pytest tests/test_db.py -v — 9 passed, 0 failed"
+  - "[Refactor] alembic.ini sqlalchemy.url changed from %(DATABASE_URL)s interpolation to static placeholder — avoids ConfigParser %(...)s failure when env var not set as ini section variable; runtime override in env.py via config.set_main_option still active"
+  - "[Self-Review] Correctness: tunnel.start() called before local_bind_port read (critical path); metadata_ maps to column 'metadata'; Vector(1024) exact; both factory branches tested. Security: no hardcoded credentials; all config from os.environ; .env.example has no real values. Maintainability: single-responsibility files; config.py is sole dotenv loader; connection.py is sole DB entry point. Test quality: patch.object avoids reload() fragility; monkeypatch.setenv is pytest-idiomatic; all 3 branches covered. Performance/NFR: no I/O at import time; NullPool in Alembic online mode prevents connection leaks."
+  - "[Plan] All task checkboxes marked [x] in plan file"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills load attempted at session start; codegraph_search (lightweight) used for duplicate check per CLAUDE.md; patch.object approach discovered and applied without external guidance"
+  - skill: environment-detection
+    status: PASS
+    evidence: "Checked python3 (3.14.5) and pip3 (26.1.1) before any install; confirmed thermia-back/ absent; all [Env] entries logged before install command ran; existing Python used (no brew install)"
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "DB-T1 slice 1.1 (directories) done before 1.2 (FastAPI stub); each task green before moving to next; DB-T3 offline SQL verified independently of DB-T4/DB-T5"
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Red: test_db.py written before any source file; 9 tests all FAILED (import errors); Green: source written, tests turned green task-by-task; Refactor: alembic.ini placeholder fix; patch.object fix applied after Red failure observed"
+  - skill: source-driven-development
+    status: PASS
+    evidence: "Read unit spec, approved plan, DESIGN.md; interfaces (get_engine, Document) match unit spec Public Interfaces table exactly"
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "codegraph_search for 'get_engine' and 'Document' — 0 results in plan sub-stage; no existing symbols modified (Layer 0 greenfield)"
+  - skill: validator-retry
+    status: PASS
+    evidence: "After DB-T5 Red failure on 5 tests, diagnosed root cause (reload()+patch() interaction + paramiko DSSKey removal), applied fix, re-ran — all green. py_compile run on all source files — clean."
+  - skill: api-and-interface-design
+    status: N/A
+    evidence: "db-layer does not expose HTTP API endpoints beyond GET /health stub; no API design decisions required"
+  - skill: frontend-ui-engineering
+    status: N/A
+    evidence: "db-layer is backend/data-layer only"
+
+emitted_knowledge:
+  - kind: antipattern
+    title: "reload() inside patch() context re-binds module names, defeating the mock"
+    confidence: 0.85
+    body: |
+      What: Using reload() inside a patch() context manager to re-bind module-level names.
+      Why: When you call reload(mod) inside `with patch('mod.SomeClass', mock):`, the reload
+      re-executes the module body, which re-imports SomeClass from its source package. This
+      re-binding happens INSIDE the patch context but AFTER the patch installed its mock, so
+      the module's SomeClass attribute is now the real class again — the mock is unreachable.
+      The test then calls a real constructor (e.g. SSHTunnelForwarder) which may fail due to
+      system state (missing paramiko.DSSKey in newer paramiko versions).
+      Where: Any test that patches module-level names and then calls reload() on the same module.
+      Learned: Use patch.object(mod, 'Name', mock) AFTER the module is already imported. This
+      patches the module's namespace directly without a reload, and the patch survives for the
+      duration of the with-block. No reload needed when env vars are read at function-call time
+      (not at import time).
+
+  - kind: pattern
+    title: "patch.object(mod, 'name') for deterministic module-level mock injection"
+    confidence: 0.80
+    body: |
+      What: patch.object(mod, 'name') for deterministic module-level mock injection.
+      Why: When a module imports a name at the top level (e.g., `from sshtunnel import
+      SSHTunnelForwarder`), patching via `patch('app.db.connection.SSHTunnelForwarder', mock)`
+      or `patch.object(conn_mod, 'SSHTunnelForwarder', mock)` replaces the attribute on the
+      already-loaded module object. This is deterministic because no re-import occurs.
+      Where: Any Python unit test that needs to mock a dependency the module imported at top level.
+      Learned: Import the module once at test setup or at the top of the test function, then use
+      patch.object(mod, 'attr_name', ...) inside the with-block. Combine with monkeypatch.setenv
+      for env-var-driven branching logic. Do NOT reload() inside patch() contexts.

@@ -1,0 +1,73 @@
+# Code Generator output — key-pool-cleanup
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+unit_name: key-pool-cleanup
+status: needs_human
+sub_stage: generated
+
+artifacts:
+  - path: thermia-back/app/retrieval/key_pool.py
+    kind: source
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+  - path: aidlc-docs/construction/plans/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup-code-generation-plan.md
+    kind: plan
+
+audit_entries:
+  - "[Slice 1 KP-T1] RED: Added test_no_cohere_trial_quota_enum() — verified FAIL before change."
+  - "[Slice 1 KP-T1] GREEN: Removed _COHERE_TRIAL_RE regex, COHERE_TRIAL_QUOTA enum, Cohere branch in classify_failure()."
+  - "[Slice 1 KP-T1] GREEN: Removed test_cohere_trial_quota and test_cohere_trial_key_signal from TestClassifyFailure."
+  - "[Slice 1 KP-T1] GREEN: Updated test_no_raw_keys_in_rotation_logs → FailureReason.GROQ_DAILY_QUOTA."
+  - "[Slice 1 KP-T1] FULL SUITE: 59 passed (60 baseline - 2 removed + 1 RED added)."
+  - "[Slice 2 KP-T2] RED: Added test_no_cohere_special_cooldown() — verified FAIL before change."
+  - "[Slice 2 KP-T2] GREEN: Removed 'cohere': 2592000 from _DEFAULT_COOLDOWNS."
+  - "[Slice 2 KP-T2] REFACTOR: Updated all docstrings — module docstring (Cohere/Groq → Groq), __init__ (30 d / 1 d → 1 d), from_env (cohere/groq → groq), comment re: real Cohere/Groq keys."
+  - "[Slice 2 KP-T2] VERIFY: grep -ci cohere key_pool.py == 0."
+  - "[Slice 2 KP-T2] FULL SUITE: 60 passed (59 + 1 RED added)."
+  - "[Slice 3 KP-T3+KP-T4] RED: Added test_no_cohere_provider_in_agnostic_tests() — verified FAIL before change."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestKeyPoolSkeleton — 3 instances provider='cohere' → provider='groq'."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestFromEnv — 4× provider, 9× env vars COHERE_→GROQ_."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestKeyPoolRotation — 7× provider='cohere'→'groq', log assertion provider=cohere→groq."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestNoRawKeysInLogs — provider='cohere'→'groq', COHERE_API_KEY→GROQ_API_KEY."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestFlagResetAfterRecovery — provider='cohere'→'groq'."
+  - "[Slice 3 KP-T3+KP-T4] GREEN: Updated TestKeyFormatValidation — 5× provider='cohere'→'groq', 5× COHERE_API_KEYS→GROQ_API_KEYS."
+  - "[Slice 3 KP-T3+KP-T4] FULL SUITE: 61 passed (60 + 1 RED added)."
+  - "[Slice 4] VALIDATE: grep -ci cohere key_pool.py = 0."
+  - "[Slice 4] VALIDATE: grep -n COHERE_TRIAL_QUOTA in test file = no matches (outside RED tests verifying absence)."
+  - "[Slice 4] VALIDATE: pytest — 61 passed."
+  - "[Slice 4] VALIDATE: Visual scan — all remaining Cohere refs are in TestEmbedderKeyPool, TestIngestKeyPool (downstream units) or RED-test helpers."
+  - "[Slice 4] SELF-REVIEW: Five-axis — correctness, completeness, test coverage, safety, code quality all PASS."
+  - "CONSTRAINTS: TestEmbedderKeyPool untouched ✓ | TestIngestKeyPool untouched ✓ | TestLLMKeyPool untouched ✓ | Groq cooldown/values untouched ✓"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Loaded test-driven-development, incremental-implementation, source-driven-development, code-review-and-quality, validator-retry skills as required."
+  - skill: codegraph-aware-exploration
+    status: N/A
+    evidence: "No .codegraph/ directory exists in workspace — pre-flight skipped as per protocol."
+  - skill: environment-detection
+    status: N/A
+    evidence: "No new dependencies or installs needed — Python/pytest already present."
+  - skill: incremental-implementation
+    status: PASS
+    evidence: "Executed 4 thin slices sequentially: (1) enum/regex/classifier, (2) cooldown/docstrings, (3) test class provider strings, (4) validation. Ran pytest after each slice."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Each slice followed Red→Green→Refactor. 3 RED tests written and verified to fail before changes, pass after. All 61 tests pass."
+  - skill: source-driven-development
+    status: PASS
+    evidence: "All changes grounded in existing code structure. No new logic introduced — only removal of Cohere-specific code. All remaining tests reference correct env vars and provider strings."
+  - skill: validator-retry
+    status: PASS
+    evidence: "pytest run after each slice without errors. No static validator errors encountered."
+  - skill: code-review-and-quality
+    status: PASS
+    evidence: "Five-axis self-review completed: correctness (all tests pass, zero Cohere refs in source), completeness (all 6 test classes updated), test coverage (61 tests, 3 RED verifiers), safety (Groq/embedder/ingest/llm untouched), code quality (clean deletions, updated docstrings)."
+
+tests_added: 3
+tests_passing: 61
+commits_made: 0
+
+emitted_knowledge: []
+conflicts_detected: []
+locks_to_release: []

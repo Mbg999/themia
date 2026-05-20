@@ -1,0 +1,66 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+stage_id: ship-agent
+user_request: "Metadata Refactor for Thermia Legal RAG — refactor ingestion pipeline
+  metadata architecture to support production-grade Spanish legal RAG with two-layer
+  metadata (retrieval + source), YAML/frontmatter extraction, content hashing, legal
+  rank/status extraction, and PostgreSQL optimization."
+project_profile:
+  ui: true
+  api: true
+  has_legacy: true
+predecessor_artifacts:
+  # db-schema-refactor
+  - thermia-back/app/db/models.py
+  - thermia-back/alembic/versions/0003_metadata_refactor.py
+  - thermia-back/tests/test_db.py
+  # metadata-helpers
+  - thermia-back/app/ingestion/metadata_helpers.py
+  - thermia-back/tests/ingestion/test_metadata_helpers.py
+  - thermia-back/requirements.txt
+  # ingestion-wiring
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/test_ingestion.py
+  # sources-display + enrichment
+  - thermia-back/app/main.py
+  - thermia-back/app/retrieval/searcher.py
+  - thermia-back/app/retrieval/context_builder.py
+  - thermia-front/src/app/analysis.service.ts
+  - thermia-front/src/app/app.ts
+  - thermia-front/src/app/app.html
+  - thermia-front/src/app/app.scss
+  - thermia-front/src/app/analysis.service.spec.ts
+  # review report (merged)
+  - aidlc-docs/operations/2026-05-19t20-50-00z-metadata-refactor-review-report.md
+skills_required:
+  - using-agent-skills
+  - shipping-and-launch
+  - git-workflow-and-versioning
+  - ci-cd-and-automation
+  - documentation-and-adrs
+  - deprecation-and-migration
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/shipping-and-launch/SKILL.md
+  - .agents/skills/git-workflow-and-versioning/SKILL.md
+  - .agents/skills/ci-cd-and-automation/SKILL.md
+  - .agents/skills/documentation-and-adrs/SKILL.md
+  - .agents/skills/deprecation-and-migration/SKILL.md
+context_pointers:
+  - "project_profile.has_legacy=true — produce migration-plan.md covering the
+    Alembic 0003 schema migration (4 new columns + 4 indexes) and the API
+    contract change (fuentes now returns 9 fields instead of 3)"
+  - "version bump guidance: this run adds new structured metadata fields to the
+    API response (fuentes shape expanded), new only_active filter semantics,
+    and security fixes (prompt injection, YAML DoS, ELI URL scheme) — treat
+    as a minor version bump"
+  - "CI/CD: thermia-back has pytest.ini but no .github/workflows/ — propose a
+    minimal GitHub Actions workflow covering pytest + alembic check"
+  - "ADR candidates: two-layer metadata architecture (retrieval metadata_ vs
+    source_metadata_ JSONB), only_active filter design (IN list vs boolean
+    column), XML delimiter prompt injection mitigation, FastAPI lifespan for
+    SSH tunnel lifecycle, 64 KB YAML frontmatter size gate"
+  - "CHANGELOG: follow Keep-a-Changelog format; this is a new project so
+    initial 0.1.0 → 0.2.0 bump is appropriate"
+gates: []
+locks_required: []
+model_override: sonnet

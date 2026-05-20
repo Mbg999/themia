@@ -1,0 +1,24 @@
+id: drift-code-generator:ingestion-migration-20260520T113657+0000
+detected_at: '2026-05-20T11:36:57+00:00'
+kind: interface_drift
+holder: code-generator:ingestion-migration
+drifts:
+- file: thermia-back/scripts/ingest.py
+  symbol: generate_embeddings
+  kind: changed
+  lang: python
+  old:
+    kind: function
+    args:
+    - cohere_client
+    - texts
+    returns: list[list[float]]
+  new:
+    kind: function
+    args:
+    - texts
+    returns: list[list[float]]
+active_other_holders:
+- code-generator:embedder-migration
+resolution: null
+resolved_by: null

@@ -1,0 +1,31 @@
+schema: reviewer.input.v1
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+reviewer: reviewer-security
+focus: security vulnerabilities, OWASP Top 10, secrets handling, network security
+tags: [python, ollama, http, api-keys, env-vars, migration]
+
+files_to_review:
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/.env.example
+  - thermia-back/requirements.txt
+
+change_summary: >
+  Migrated from Cohere (API key auth) to Ollama (no auth, local/self-hosted endpoint).
+  OLLAMA_HOST env var controls endpoint. No API keys required for Ollama.
+  embedder.py: HTTP endpoint configurable via OLLAMA_HOST, no secrets needed.
+  ingest.py: removed KeyPool/COHERE_API_KEYS handling. .env.example updated.
+
+context_pointers:
+  - "OLLAMA_HOST defaults to http://localhost:11434 — production uses https://ollama.cvbooster.es"
+  - "Ollama endpoint has no auth — ensure it is not publicly exposed without firewall"
+  - "COHERE_API_KEYS env var removed — no API keys needed for Ollama"
+  - "ingest.py imports ollama inside generate_embeddings — deferred import pattern"
+  - "retry logic: all exceptions retry (no auth-error fast-fail for Ollama)"
+
+skills_required:
+  - security-and-hardening
+
+skill_paths_resolved:
+  - .agents/skills/security-and-hardening/SKILL.md

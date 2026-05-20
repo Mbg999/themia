@@ -1,0 +1,294 @@
+status: complete
+
+version_proposal:
+  from: "0.1.0"
+  to: "0.2.0"
+  kind: minor
+  rationale: >
+    This run adds backward-incompatible API surface expansion (fuentes shape grows from
+    3 to 9 fields), new public metadata columns in the database schema, a new
+    only_active filter with expanded semantics, and four security fixes. Under SemVer,
+    new functionality in a backward-compatible fashion is a minor bump; however, the
+    fuentes shape change is a breaking change for consumers that pattern-match on exactly
+    three fields. The project is pre-1.0, so a minor bump (0.1.0 -> 0.2.0) is used
+    per convention (pre-1.0 minor bumps signal feature-level changes). A major bump
+    is not warranted because the only known consumer (thermia-front) has been updated
+    in this same run.
+
+adr_count: 6
+
+release_sections_covered:
+  - Added
+  - Changed
+  - Fixed
+  - Deprecated
+  - Security
+
+artifacts:
+  - path: RELEASE_NOTES.md
+    kind: doc
+    hash: 2d94c37c6633ab59c59c187d99fd2e86581966acd8d25c888893476f4cfe806e
+  - path: CHANGELOG.md
+    kind: doc
+    hash: 3c928e7be5a91221c96a678bf8457a693a35110f8f68b7ae5b50e46761b1c4fb
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0001-two-layer-metadata-architecture.md
+    kind: doc
+    hash: 46dd46354604cff8c890653536be7e937edfad99fb497236ba80ac3de6a25270
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0002-only-active-filter-in-list-semantics.md
+    kind: doc
+    hash: c3d5838b534f6a662c8771033ede8226dc01eae66940b222f0b4e87e0383f52f
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0003-xml-delimiter-prompt-injection-mitigation.md
+    kind: doc
+    hash: 71a41aae5bf6b9268435574f965a4ccdb28d8479a1d9d63cb4b372c12ebf2069
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0004-fastapi-lifespan-ssh-tunnel.md
+    kind: doc
+    hash: 32cc9a6df51a4c0a188cf677f29856c594ef0949473e61f2c1cccbe6ff57102f
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0005-yaml-frontmatter-size-gate.md
+    kind: doc
+    hash: 7e07783352b7140ce232c123357e28b078a8db8be96ddd07703576199618400f
+  - path: aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0006-eli-url-scheme-allowlist.md
+    kind: doc
+    hash: a6222527b9af65c24cb1386045cf9fa27160e73a9e0e10b88af5721c78713ec4
+  - path: .github/workflows/ci.yml
+    kind: config
+    hash: 1c1145c302b90d6e1e7caf0ca37cf1cd6c8666a400ce112c67632930509f1188
+  - path: aidlc-docs/operations/2026-05-19t20-50-00z-metadata-refactor-migration-plan.md
+    kind: doc
+    hash: 914001bdca00340f0e6a7ad14175c1a66e9409be913eae88a9bb40cebc681165
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: >
+      All six required skills were identified and applied: using-agent-skills
+      (meta-protocol), shipping-and-launch (release notes + version proposal),
+      git-workflow-and-versioning (version bump rationale, local-only artifacts,
+      no remote push), ci-cd-and-automation (ci.yml draft, no silent overwrite of
+      existing CI), documentation-and-adrs (6 ADRs in Michael Nygard format),
+      deprecation-and-migration (migration-plan.md with deprecation timeline).
+  - skill: shipping-and-launch
+    status: PASS
+    evidence: >
+      RELEASE_NOTES.md created with all six Keep-a-Changelog sections (Added, Changed,
+      Fixed, Deprecated, Security; Removed not applicable — no features removed).
+      Version proposal 0.1.0 -> 0.2.0 minor with rationale provided. Artifacts listed
+      with SHA256 hashes.
+  - skill: git-workflow-and-versioning
+    status: PASS
+    evidence: >
+      Version bump proposed as minor (0.1.0 -> 0.2.0) with explicit rationale tied to
+      diff scope (new API surface, security fixes, schema migration). No tags pushed,
+      no remote branches created — all artifacts are local files only. User must push
+      and tag.
+  - skill: ci-cd-and-automation
+    status: PASS
+    evidence: >
+      .github/workflows/ci.yml proposed as a draft (DRAFT comment at top). No existing
+      CI was present (.github/ directory did not exist before this run). Workflow covers
+      pytest (all test modules: ingestion/, retrieval/, test_db.py, test_ingestion.py,
+      test_main_auth.py, test_retrieval.py) and alembic check on PostgreSQL service.
+      YAML syntax is valid (indentation verified). No working CI was overwritten.
+  - skill: documentation-and-adrs
+    status: PASS
+    evidence: >
+      Six ADRs produced in Michael Nygard format (Status, Context, Decision,
+      Consequences) covering all six architecturally significant decisions identified
+      in the input handoff: two-layer metadata (0001), only_active IN-list (0002),
+      XML delimiter prompt injection (0003), FastAPI lifespan SSH tunnel (0004),
+      YAML size gate (0005), ELI URL scheme allowlist (0006). All ADRs written to
+      aidlc-docs/operations/adrs/ with run-id prefix and sequential NNNN numbering.
+  - skill: deprecation-and-migration
+    status: PASS
+    evidence: >
+      Migration plan produced at aidlc-docs/operations/2026-05-19t20-50-00z-metadata-
+      refactor-migration-plan.md. Covers: Alembic 0003 schema migration procedure,
+      idempotency guarantees (IF NOT EXISTS), CONCURRENTLY index creation, downgrade
+      procedure, API contract change (3-field -> 9-field fuentes), deprecation timeline
+      (deadline 2026-08-20, removal in 0.3.0), consumer migration checklist, corpus
+      re-ingestion instructions, and rollback plan.
+
+audit_entries:
+  - "2026-05-20T00:00:00Z ship-agent: RELEASE_NOTES.md created (0.2.0, sections: Added/Changed/Fixed/Deprecated/Security)"
+  - "2026-05-20T00:00:00Z ship-agent: CHANGELOG.md created (Keep-a-Changelog, 0.1.0 initial entry + 0.2.0)"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0001 written — two-layer metadata architecture (retrieval vs source JSONB)"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0002 written — only_active IN-list semantics vs boolean column"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0003 written — XML delimiter prompt injection mitigation (CWE-77)"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0004 written — FastAPI lifespan for SSH tunnel lifecycle"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0005 written — 64 KB YAML frontmatter size gate (CWE-400)"
+  - "2026-05-20T00:00:00Z ship-agent: ADR 0006 written — ELI URL scheme allowlist (CWE-601)"
+  - "2026-05-20T00:00:00Z ship-agent: .github/workflows/ci.yml proposed (draft, covers pytest + alembic check)"
+  - "2026-05-20T00:00:00Z ship-agent: migration-plan.md produced (has_legacy=true; deprecation deadline 2026-08-20)"
+  - "2026-05-20T00:00:00Z ship-agent: version proposal 0.1.0 -> 0.2.0 minor bump with rationale"
+  - "2026-05-20T00:00:00Z ship-agent: 187 tests passing confirmed from review-report input; no test regressions introduced by ship artifacts"
+
+conflicts_detected: []
+locks_to_release: []
+
+emitted_knowledge:
+  - kind: adr
+    title: "Two-Layer Metadata Architecture: Retrieval (curated JSONB) vs Source (raw frontmatter)"
+    confidence: 0.9
+    tags: [adr, database, metadata, pgvector, rag, legal]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0001-two-layer-metadata-architecture.md
+    body: |
+      Status: Accepted
+
+      Context:
+      RAG systems that ingest structured documents (with YAML frontmatter) face a tension
+      between retrieval efficiency (curated, indexable keys) and provenance preservation
+      (raw original metadata). A single JSONB column cannot satisfy both.
+
+      Decision:
+      Two JSONB columns on the documents table: metadata_ (curated retrieval layer with
+      fixed normalised keys: law_id, article, section, hierarchy_path, eli, status,
+      legal_rank, jurisdiction, content_hash) and source_metadata_ (raw preserved
+      frontmatter verbatim). The retrieval layer is the only one used by search and
+      context-building code. The source layer is append-only and used only for audit
+      and provenance queries.
+
+      Consequences:
+      Positive: efficient B-tree/GIN indexing on curated keys; provenance never lost;
+      schema evolution is localised to the curated layer.
+      Negative: two columns increase storage (negligible at this scale); ingestion must
+      populate both atomically; new curated keys require a code change to
+      build_metadata_payload.
+
+  - kind: adr
+    title: "only_active Filter: IN-List on status text column, not boolean column"
+    confidence: 0.9
+    tags: [adr, database, filter, legal, rag, schema-design]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0002-only-active-filter-in-list-semantics.md
+    body: |
+      Status: Accepted
+
+      Context:
+      Legal documents have nuanced vitality states (vigente, parcialmente vigente,
+      derogada, unknown). A boolean is_active column loses nuance and requires a schema
+      migration per new status value. An IN-list filter on a normalised text status
+      column allows nuanced semantics and schema-free status vocabulary evolution.
+
+      Decision:
+      Use Document.status.IN(['vigente', 'parcialmente vigente', '']) for the only_active
+      filter. The allowlist is defined in code alongside normalize_status. A B-tree index
+      on status ensures filter efficiency.
+
+      Consequences:
+      Positive: partially-in-force laws appear in results (legally correct); new status
+      values require only a code change; empty-string passthrough prevents silent
+      exclusion of pre-normalisation documents.
+      Negative: allowlist lives in application code — must be updated when normalize_status
+      adds a new canonical value.
+
+  - kind: adr
+    title: "XML Delimiter Prompt Injection Mitigation in LLM Context Builder (CWE-77)"
+    confidence: 0.9
+    tags: [adr, security, llm, prompt-injection, rag, cwe-77]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0003-xml-delimiter-prompt-injection-mitigation.md
+    body: |
+      Status: Accepted
+
+      Context:
+      RAG systems that concatenate retrieved document chunks verbatim into LLM prompts
+      are vulnerable to prompt injection from adversarial content in the corpus (CWE-77,
+      OWASP LLM01). Blocklists are fragile. LLM-based moderation at ingestion adds
+      latency and cost. Structural XML delimiters with explicit system instructions are
+      a low-cost, defence-in-depth mitigation.
+
+      Decision:
+      Wrap each document chunk in <doc id="N">...</doc> XML delimiters in
+      context_builder.py. Include explicit system instruction that delimited content is
+      data, not instructions.
+
+      Consequences:
+      Positive: raises bar for naive injection attacks with zero latency overhead;
+      improves source attribution (document numbers in LLM answer).
+      Negative: does not fully prevent sophisticated attacks; depends on LLM
+      instruction-following; ~10-12 tokens overhead per chunk.
+      Deferred: LLM-based moderation at ingestion tracked as future work.
+
+  - kind: adr
+    title: "FastAPI Lifespan for SSH Tunnel and DB Engine Lifecycle"
+    confidence: 0.9
+    tags: [adr, fastapi, ssh-tunnel, lifecycle, asyncio, correctness]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0004-fastapi-lifespan-ssh-tunnel.md
+    body: |
+      Status: Accepted
+
+      Context:
+      Per-request SSH tunnel teardown (in a finally block inside the request handler)
+      destroys the tunnel after each request, making all subsequent requests fail. The
+      fix is to move tunnel lifecycle to FastAPI lifespan (startup/shutdown). This is
+      the recommended FastAPI pattern for managing stateful resources.
+
+      Decision:
+      Move get_engine() call and tunnel teardown to a @asynccontextmanager lifespan
+      function. Engine and tunnel stored in request.app.state. Return (engine, tunnel_or_None)
+      pair from get_engine() instead of attaching .tunnel attribute to the engine object.
+      Replace asyncio.get_event_loop().run_in_executor() with asyncio.to_thread() for
+      Python 3.10+ compatibility.
+
+      Consequences:
+      Positive: tunnel created once and reused; graceful shutdown guaranteed by ASGI
+      protocol; no hasattr guards needed; Python 3.10+ compatible.
+      Negative: startup failure (bad SSH credentials) prevents application start rather
+      than degrading gracefully — this is the correct behaviour for a hard dependency.
+
+  - kind: adr
+    title: "64 KB YAML Frontmatter Size Gate to Prevent Billion-Laughs DoS (CWE-400)"
+    confidence: 0.9
+    tags: [adr, security, yaml, dos, ingestion, cwe-400]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0005-yaml-frontmatter-size-gate.md
+    body: |
+      Status: Accepted
+
+      Context:
+      yaml.safe_load prevents code execution but not YAML alias-based billion-laughs DoS
+      (CWE-400). A malicious frontmatter block with deeply nested anchors causes
+      exponential memory/CPU expansion. The corpus is currently trusted, but a future
+      commit update or untrusted-upload extension removes that guarantee.
+
+      Decision:
+      Enforce a 64 KB maximum byte length on the raw YAML frontmatter block before
+      calling yaml.safe_load. Defined as _MAX_FRONTMATTER_BYTES = 65_536 in
+      metadata_helpers.py. Exceeding documents are skipped with a warning log entry.
+      Threshold chosen with 80x safety margin over largest observed legitimate frontmatter.
+
+      Consequences:
+      Positive: eliminates billion-laughs attack surface below threshold; O(1) check;
+      portable (no UNIX signals or subprocess needed); simple to audit.
+      Negative: does not protect against sub-64KB bombs (limited expansion ratio);
+      threshold is a magic number (documented in code).
+
+  - kind: adr
+    title: "ELI URL Scheme Allowlist in derive_eli and API Serialiser (CWE-601)"
+    confidence: 0.9
+    tags: [adr, security, url-validation, eli, cwe-601, open-redirect]
+    related_artifacts:
+      - aidlc-docs/operations/adrs/2026-05-19t20-50-00z-metadata-refactor-0006-eli-url-scheme-allowlist.md
+    body: |
+      Status: Accepted
+
+      Context:
+      ELI values from YAML frontmatter are stored and returned as hrefs in the Angular
+      frontend. Without scheme validation, a corpus document can inject a javascript:
+      or data: URI (CWE-601). Angular's [href] sanitisation is version-dependent and
+      removed by SSR. The correct defence is server-side.
+
+      Decision:
+      Add allowlist scheme check at two enforcement points: (1) derive_eli in
+      metadata_helpers.py — only return values starting with https://, http://, or
+      eli/ (relative BOE path); return None otherwise. (2) API serialiser in main.py
+      fuentes list comprehension — validate each eli value against the same allowlist
+      before including in response; replace invalid with empty string.
+
+      Consequences:
+      Positive: eliminates javascript:/data: URI injection at both storage and
+      transmission boundaries; defence-in-depth (two independent enforcement points);
+      no impact on legitimate BOE ELI values.
+      Negative: new ELI URI schemes require allowlist update (constant _ELI_ALLOWED_PREFIXES
+      in metadata_helpers.py); relative eli/ paths require frontend handling.

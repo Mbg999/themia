@@ -1,0 +1,50 @@
+status: needs_human
+artifacts:
+  - path: aidlc-docs/inception/plans/2026-05-19t20-50-00z-metadata-refactor-execution-plan.md
+    kind: plan
+units:
+  - name: db-schema-refactor
+    description: "SQLAlchemy Document model update (4 new columns) + Alembic migration 0003 (4 columns, 4 indexes, upgrade/downgrade)"
+    depends_on: []
+  - name: metadata-helpers
+    description: "New app/ingestion/metadata_helpers.py module with 5 pure helper functions (parse_frontmatter, compute_content_hash, extract_legal_rank, normalize_status, derive_eli) + comprehensive unit tests"
+    depends_on: []
+  - name: sources-display
+    description: "Expose top_docs source metadata as fuentes[] in /analyze response (main.py) + Angular Fuente interface + Fuentes Consultadas result card (app.html/app.scss). Already implemented — included for review tracking."
+    depends_on: []
+  - name: ingestion-wiring
+    description: "Wire frontmatter parsing, two-layer metadata split, and active hash-skip into scripts/ingest.py; update upsert_documents() for new columns and source_metadata; update test_ingestion.py"
+    depends_on:
+      - db-schema-refactor
+      - metadata-helpers
+task_count: 19
+unit_count: 4
+depth: standard
+mermaid_validated: true
+audit_entries:
+  - "[Planner] story-writer skipped: in manifest.skip_stages (ComplexityGov MEDIUM, no user-facing flows)"
+  - "[Planner] 3 units across 2 layers: db-schema-refactor (L0), metadata-helpers (L0), ingestion-wiring (L1)"
+  - "[Planner] L0 units are independent and can build in parallel"
+  - "[Planner] 16 tasks total: DB-T1..3, MH-T1..7, IW-T1..6"
+  - "[Planner] Mermaid diagram: graph TD with subgraphs for L0/L1, validated via syntax check"
+  - "[PreMortem] Risk 1: hash-skip embedding guard (IW-T3) — embedding=None must not overwrite stored vector; AC explicit"
+  - "[PreMortem] Risk 2: build_retrieval_metadata boundary — keep in ingest.py (not helpers) to avoid _ENC circular import"
+  - "[PreMortem] Risk 3: parse_legal_structure frontmatter integration — IW-T2 AC uses concrete BOE example"
+  - "[Skill] using-agent-skills PASS — predecessor artifacts read (requirements.md 284 lines); findings documented before planning"
+  - "[Skill] planning-and-task-breakdown PASS — 16 leaf tasks each with ≥1 AC; dependency graph explicit; 3-level hierarchy (unit→task→slice)"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Read requirements.md (284 lines), ingest.py (490 lines), models.py before planning. All tasks grounded in actual file state."
+  - skill: planning-and-task-breakdown
+    status: PASS
+    evidence: "16 tasks across 3 units. Each task has acceptance criteria (≥1 concrete assertion). Dependency graph explicit. Pre-mortem run: 3 risks documented with mitigations."
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: "Pre-mortem run on plan: 3 plan-risk questions answered — (1) hash-skip guard IW-T3 weakest, (2) metadata boundary at chunk_article, (3) parse_legal_structure AC uses concrete BOE example. All ≥2 ACs per leaf task."
+emitted_knowledge:
+  - kind: pattern
+    title: Layer-parallel unit decomposition for Python backend refactors
+    body: "Pattern: split pure-function helpers (no I/O) into L0 alongside DB-only changes. Wire them together in L1. This allows parallel construction of helpers and schema while keeping the integration unit last. Applied in Thermia metadata-refactor: db-schema-refactor (L0) + metadata-helpers (L0) → ingestion-wiring (L1)."
+    tags: ["thermia", "aidlc", "planning", "python"]
+    confidence: 0.85

@@ -1,0 +1,31 @@
+schema: reviewer.input.v1
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+reviewer: reviewer-simplifier
+focus: over-engineering, dead code, premature abstraction, unnecessary complexity
+tags: [python, ollama, migration, simplification, cleanup]
+
+files_to_review:
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/tests/retrieval/test_embedder.py
+  - thermia-back/tests/test_ingestion.py
+
+change_summary: >
+  Cohere→Ollama migration. Old code had KeyPool rotation (multi-key fallback),
+  exponential backoff (10/30/60s), and Cohere-specific trial quota detection.
+  New code: simple singleton client, fixed 2-retry/5s delay, no key rotation.
+  Check for leftover complexity from the old system that wasn't fully removed.
+
+context_pointers:
+  - "embedder.py: _ollama_client_host tracks current host for rebuild — may be over-engineered"
+  - "ingest.py: _EMBED_INTER_BATCH_SLEEP still env-overrideable — check if still needed"
+  - "generate_embeddings imports ollama inside the function — consider module-level"
+  - "key_pool.py: provider-agnostic now — check if any Cohere remnants in comments/docstrings"
+  - "test_key_pool.py: test_no_cohere_provider_in_agnostic_tests still present — verify still valid"
+
+skills_required:
+  - code-simplification
+
+skill_paths_resolved:
+  - .agents/skills/code-simplification/SKILL.md

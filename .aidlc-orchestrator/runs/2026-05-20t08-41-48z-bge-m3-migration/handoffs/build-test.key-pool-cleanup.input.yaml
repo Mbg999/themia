@@ -1,0 +1,28 @@
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+unit: key-pool-cleanup
+layer: 0
+phase: construction
+sub_stage: build-test
+
+files_modified:
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+
+test_command: pytest thermia-back/tests/retrieval/test_key_pool.py -v
+
+acceptance_criteria:
+  - "All tests in test_key_pool.py pass (baseline 61)"
+  - "grep -ci 'cohere' thermia-back/app/retrieval/key_pool.py returns 0"
+  - "No regressions in groq-related tests (TestLLMKeyPool)"
+  - "No regressions in embedder or ingestion tests (still have Cohere refs — expected)"
+
+context_pointers:
+  - "This is a cleanup layer — Cohere references removed from source, tests updated to groq"
+  - "TestEmbedderKeyPool and TestIngestKeyPool still have Cohere refs — preserved for downstream"
+  - "TestLLMKeyPool is Groq-only — must still pass"
+
+skill_paths_resolved:
+  - .agents/skills/validator-retry/SKILL.md
+  - .agents/skills/debugging-and-error-recovery/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/using-agent-skills/SKILL.md

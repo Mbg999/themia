@@ -1,0 +1,60 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+stage_id: reviewer-security
+reviewer: security
+user_request: "Metadata Refactor for Thermia Legal RAG — refactor ingestion pipeline
+  metadata architecture to support production-grade Spanish legal RAG with two-layer
+  metadata (retrieval + source), YAML/frontmatter extraction, content hashing, legal
+  rank/status extraction, and PostgreSQL optimization."
+predecessor_artifacts:
+  - thermia-back/app/db/models.py
+  - thermia-back/alembic/versions/0003_metadata_refactor.py
+  - thermia-back/tests/test_db.py
+  - thermia-back/app/ingestion/metadata_helpers.py
+  - thermia-back/tests/ingestion/test_metadata_helpers.py
+  - thermia-back/requirements.txt
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/test_ingestion.py
+  - thermia-back/app/main.py
+  - thermia-back/app/retrieval/searcher.py
+  - thermia-back/app/retrieval/context_builder.py
+  - thermia-front/src/app/analysis.service.ts
+  - thermia-front/src/app/app.ts
+  - thermia-front/src/app/app.html
+  - thermia-front/src/app/app.scss
+  - thermia-front/src/app/analysis.service.spec.ts
+scope_paths:
+  - thermia-back/app/**
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/versions/0003_metadata_refactor.py
+  - thermia-front/src/app/**
+skills_required:
+  - security-and-hardening
+  - fastapi-python
+  - sqlalchemy
+  - python-testing-patterns
+skill_paths_resolved:
+  - .agents/skills/security-and-hardening/SKILL.md
+  - .agents/skills/fastapi-python/SKILL.md
+  - .agents/skills/sqlalchemy/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+model_override: opus
+context_pointers:
+  - "thermia-back/app/ingestion/metadata_helpers.py — parse_frontmatter calls
+    yaml.safe_load on untrusted file content from the filesystem; check for YAML
+    bomb / billion-laughs risk and whether safe_load is truly safe here"
+  - "thermia-back/scripts/ingest.py — reads Markdown files from disk; passes content
+    through Cohere API; check path traversal, large-file DoS, API key handling"
+  - "thermia-back/app/retrieval/searcher.py — only_active filter via SQLAlchemy ORM
+    parameterized WHERE clause; check for SQL injection surface"
+  - "thermia-back/app/retrieval/context_builder.py — formats doc content into LLM
+    prompt; check for prompt injection via stored document content"
+  - "thermia-back/app/main.py — fuentes response includes eli field (URL from metadata_
+    JSONB); check for open redirect or XSS surface in Angular href binding"
+  - "thermia-front/src/app/app.html — [href]='fuente.eli' bound directly from server
+    response; Angular sanitizes URLs but javascript: protocol could bypass"
+  - "PRIOR (security): FastAPI auth bypass via env-gated skip was found and fixed in
+    prior run (THERMIA_ENV=local) — verify the fix holds in main.py"
+  - "OWASP Top 10 focus: A03 Injection (YAML, SQL, prompt), A01 Broken Access Control
+    (auth still enforced), A05 Misconfiguration (JSONB default handling)"
+gates: []
+locks_required: []

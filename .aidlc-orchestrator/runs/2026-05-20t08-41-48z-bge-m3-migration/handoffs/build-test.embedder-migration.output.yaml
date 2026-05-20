@@ -1,0 +1,72 @@
+run_id: 2026-05-20t08-41-48z-bge-m3-migration
+unit: embedder-migration
+stage_id: build-test-agent
+sub_stage: build-test
+
+status: needs_human
+unit_name: embedder-migration
+build_status: success
+
+tests_total: 62
+tests_passing: 60
+tests_failing: 2
+
+artifacts:
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-embedder-migration-build-instructions.md
+    kind: doc
+  - path: aidlc-docs/construction/build-and-test/2026-05-20t08-41-48z-bge-m3-migration-embedder-migration-build-and-test-summary.md
+    kind: doc
+
+audit_entries:
+  - "[Env] platform: Darwin 25.3.0  shell: zsh  context: standard"
+  - "[Env] python3 detected: 3.14.5 at /Users/miguel.belmonte/homebrew/opt/python@3.14/bin/python3.14"
+  - "[Env] venv detected: thermia-back/.venv — using existing installation"
+  - "[Env] pytest detected: 9.0.3 in venv"
+  - "[Env] ollama (python client) detected: 0.6.2 in venv — compatible with >=0.6.2 requirement"
+  - "[Env] cohere: physically present in venv (6.1.0) but absent from requirements.txt — not imported by embedder.py"
+  - "[Skills] using-agent-skills: not available as a loadable skill file; proceeding with built-in protocol"
+  - "[Skills] environment-detection: not available as a loadable skill file; applied protocol inline"
+  - "[Skills] test-driven-development: applied inline"
+  - "[Skills] debugging-and-error-recovery: applied inline for pre-existing failures"
+  - "[Skills] validator-retry: no static validators detected (no pyright/mypy config); skipped"
+  - "[CodeGraph] no codegraph DB accessible for affected-test detection — running full suite"
+  - "[Validator] no static validators detected — skipping (no pyright, no mypy)"
+  - "[AC-3] grep -c cohere embedder.py = 0 — PASS"
+  - "[AC-5] import ollama at line 20 of embedder.py — PASS"
+  - "[AC-7] os.environ.get(OLLAMA_HOST, _DEFAULT_HOST) at line 40 — PASS"
+  - "[AC-9] ollama>=0.6.2 in requirements.txt line 13 — PASS"
+  - "[Test] embedder-only: 6/6 passed (TestHostConfiguration x2, TestEmbeddingSuccess x1, TestRetryBehaviour x3)"
+  - "[Test] full retrieval suite: 62 tests total, 60 passed, 2 failed"
+  - "[Failure] TestLLMKeyPool::test_llm_uses_active_groq_key — pre-existing mock issue in llm.py:177 (model_validate_json receives MagicMock not string)"
+  - "[Failure] TestLLMKeyPool::test_groq_daily_quota_rotates_and_retries — same pre-existing mock issue"
+  - "[Finding] Both failures are documented pre-existing (predates embedder-migration). Root cause: test mocks set mock_response.model_dump.return_value but llm.py reads response.content which remains a MagicMock"
+  - "[AC-1] embedder unit tests: 6/6 PASS. Pre-existing failures excluded from AC-1 scope per task specification"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skill not loadable as a file; protocol followed inline. Lockfile-aware loading applied: checked tech_stack before loading — no manifest tech_stack entry; all universal skills loaded."
+  - skill: environment-detection
+    status: PASS
+    evidence: "Detected Python 3.14.5 at homebrew path, venv at thermia-back/.venv, pytest 9.0.3, ollama 0.6.2. All [Env] entries logged before any install command. No install commands were needed."
+  - skill: codegraph-aware-exploration
+    status: N/A
+    evidence: "No .codegraph/codegraph.db accessible in this shell context; gracefully fell back to full test suite. Logged with [CodeGraph] prefix."
+  - skill: validator-retry
+    status: N/A
+    evidence: "No static validator config found (no pyright, mypy, pyrightconfig.json, mypy.ini). Skipped per protocol — emitted [Validator] log entry."
+  - skill: test-driven-development
+    status: PASS
+    evidence: "Ran pytest tests/retrieval/test_embedder.py (6 tests, all pass) and pytest tests/retrieval/ (62 tests, 60 pass, 2 known pre-existing fails). Did not skip any test execution."
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: "Triaged 2 failing tests. Root cause confirmed as pre-existing mock issue in llm.py:177 — not caused by embedder-migration changes. Findings documented in audit_entries and build-and-test-summary.md."
+
+emitted_knowledge: []
+
+conflicts_detected: []
+locks_to_release:
+  - file-lock:thermia-back/app/retrieval/embedder.py
+  - file-lock:thermia-back/tests/retrieval/test_embedder.py
+  - file-lock:thermia-back/requirements.txt
+  - file-lock:thermia-back/.env.example

@@ -1,0 +1,44 @@
+run_id: 2026-05-19t20-50-00z-metadata-refactor
+stage_id: code-generator
+unit_name: ingestion-wiring
+fast_path: false
+user_request: "Metadata Refactor for Thermia Legal RAG — wire the new metadata architecture
+  into scripts/ingest.py: call parse_frontmatter inside parse_legal_structure, build
+  two-layer metadata per chunk (_RETRIEVAL_FIELDS split), implement active hash-skip
+  (SELECT content_hash before embed, skip Cohere on match), update upsert_documents
+  to write source_metadata_, status, legal_rank, jurisdiction columns, guard against
+  NULL embedding overwrite when hash-skip fires."
+unit_spec_path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-ingestion-wiring.md
+predecessor_artifacts:
+  - aidlc-docs/inception/plans/2026-05-19t20-50-00z-metadata-refactor-execution-plan.md
+  - aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-ingestion-wiring.md
+  - aidlc-docs/inception/requirements/2026-05-19t20-50-00z-metadata-refactor-requirements.md
+  - thermia-back/app/ingestion/metadata_helpers.py
+  - thermia-back/app/db/models.py
+skills_required:
+  - using-agent-skills
+  - incremental-implementation
+  - test-driven-development
+  - source-driven-development
+  - python-testing-patterns
+  - sqlalchemy
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/incremental-implementation/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+  - .agents/skills/source-driven-development/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/sqlalchemy/SKILL.md
+  - .agents/skills/spec-driven-development/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+context_pointers:
+  - "thermia-back/scripts/ingest.py — existing ingestion pipeline to extend"
+  - "thermia-back/app/ingestion/metadata_helpers.py — just built: parse_frontmatter, compute_content_hash, extract_legal_rank, normalize_status, derive_eli"
+  - "thermia-back/app/db/models.py — just updated with status, legal_rank, jurisdiction, source_metadata_ columns"
+  - "thermia-back/tests/test_ingestion.py — existing tests to extend"
+  - "CRITICAL CONSTRAINT: when hash-skip fires, chunk['embedding']=None. upsert_documents MUST NOT write embedding=None to pgvector column — fetch existing or conditionally set only when not None"
+locks_required:
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/test_ingestion.py
+tier: MEDIUM
+model_override: opus

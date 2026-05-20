@@ -1,0 +1,33 @@
+id: drift-code-generator:embedder-migration-20260520T113639+0000
+detected_at: '2026-05-20T11:36:39+00:00'
+kind: interface_drift
+holder: code-generator:embedder-migration
+drifts:
+- file: thermia-back/app/retrieval/embedder.py
+  symbol: get_cohere_pool
+  kind: removed
+  lang: python
+  old:
+    kind: function
+    args: []
+    returns: KeyPool
+- file: thermia-back/app/retrieval/embedder.py
+  symbol: _get_client
+  kind: removed
+  lang: python
+  old:
+    kind: function
+    args: []
+    returns: cohere.Client
+- file: thermia-back/app/retrieval/embedder.py
+  symbol: _get_ollama_client
+  kind: added
+  lang: python
+  new:
+    kind: function
+    args: []
+    returns: ollama.Client
+active_other_holders:
+- code-generator:ingestion-migration
+resolution: null
+resolved_by: null

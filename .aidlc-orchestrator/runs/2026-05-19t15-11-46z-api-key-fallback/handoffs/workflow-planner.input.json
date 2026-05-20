@@ -1,0 +1,22 @@
+{
+  "run_id": "2026-05-19t15-11-46z-api-key-fallback",
+  "stage_id": "workflow-planner",
+  "user_request": "We are using API keys from free-tier Cohere and Groq accounts. I need you to create a fallback system so that if one account starts failing due to usage limits, the application automatically switches to a different API key. Use a dynamic list of API keys stored in the .env file. It should support adding as many API keys as needed, with no hard limit, but there must always be at least one key available.",
+  "predecessor_artifacts": [
+    "aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md"
+  ],
+  "skills_required": ["using-agent-skills", "planning-and-task-breakdown"],
+  "skill_paths_resolved": [
+    ".agents/skills/using-agent-skills/SKILL.md",
+    ".agents/skills/planning-and-task-breakdown/SKILL.md"
+  ],
+  "budget": {
+    "tokens_max": 60000,
+    "wall_clock_max_min": 20,
+    "retries_max": 1
+  },
+  "gates": ["require_human_approval"],
+  "context_pointers": [],
+  "locks_required": [],
+  "model_override": "opus"
+}

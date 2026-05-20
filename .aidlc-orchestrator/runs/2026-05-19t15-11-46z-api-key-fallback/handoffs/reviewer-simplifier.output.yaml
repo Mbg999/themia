@@ -1,0 +1,47 @@
+status: complete
+reviewer: simplifier
+findings:
+  - severity: P2
+    file: thermia-back/app/retrieval/embedder.py
+    line: 127
+    simplification_pattern: pass-through-wrapper
+    message: "Post-rotation embed call duplicates the in-loop call body verbatim (lines 127-134 mirror lines 104-111)"
+    recommendation: "Refactor get_query_embedding to use a single retry loop that covers both the in-key retries and the post-rotation attempt, eliminating the duplicated cohere_client.embed(...) call block after mark_failed."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 315
+    simplification_pattern: dead-code
+    message: "generate_embeddings hand-rolls '429' / 'rate limit' detection instead of importing classify_failure from key_pool, duplicating logic already centralised there"
+    recommendation: "Import classify_failure from app.retrieval.key_pool and replace the inline string check with classify_failure(exc) is not None to reuse the single authoritative implementation."
+
+  - severity: P3
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 628
+    simplification_pattern: over-validation
+    message: "test_ingest_main_uses_get_cohere_pool uses a 20-line AST parse + walk to assert that the string 'COHERE_API_KEY' does not appear in main() — a plain string-contains check on the function source would be equivalent"
+    recommendation: "Replace the ast.parse / ast.walk block with a simple substring assertion: assert 'COHERE_API_KEY' not in ingest_source[ingest_source.index('def main'):]. This removes ~15 lines of over-engineered static analysis for a string containment test."
+
+  - severity: P3
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 611
+    simplification_pattern: dead-code
+    message: "test_generate_embeddings_uses_pool_singleton calls sys.path.insert() again (line 611) even though the module-level sys.path.insert at line 15 already adds the same path"
+    recommendation: "Remove the redundant sys.path.insert call inside the test method; the module-level insert is sufficient."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 0
+  P2_count: 2
+  P3_count: 2
+audit_entries:
+  - "reviewer-simplifier: scanned 6 files (key_pool.py, embedder.py, llm.py, ingest.py, test_key_pool.py, .env.example), 4 findings (0 P0, 0 P1, 2 P2, 2 P3)"
+  - "reviewer-simplifier: no dead exported symbols detected (no codegraph cache; manual call-site inspection performed)"
+  - "reviewer-simplifier: llm.py and key_pool.py are clean — no premature abstractions, single-impl interfaces, or over-validation found"
+skill_compliance:
+  - skill: code-simplification
+    status: PASS
+    evidence: "Dead-code duplication scan and abstraction review complete across all 6 scope files; 4 findings emitted"
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills loaded and applied; codegraph-aware-exploration applied via manual inspection (no cache file present)"

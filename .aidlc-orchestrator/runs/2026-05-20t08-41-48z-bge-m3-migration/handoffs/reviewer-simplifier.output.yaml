@@ -1,0 +1,90 @@
+status: complete
+reviewer: simplifier
+findings:
+  - severity: P2
+    file: thermia-back/app/retrieval/embedder.py
+    line: 29
+    simplification_pattern: future-proofing
+    message: "_ollama_client_host is a second module-level variable kept solely to detect env-var changes between calls. In production the host never changes; the only real consumer of this logic is the test fixture that manually resets both variables. The rebuild-always approach (drop the host cache, always read env and build a new client if the stored client is None) is simpler and has identical behaviour in every non-test scenario."
+    recommendation: "Remove _ollama_client_host and simplify _get_ollama_client to: if _ollama_client is None: _ollama_client = ollama.Client(host=os.environ.get('OLLAMA_HOST', _DEFAULT_HOST)); return _ollama_client. Tests should reset only _ollama_client. This removes one global, one branch, and the docstring explanation of the change-detection protocol."
+
+  - severity: P2
+    file: thermia-back/app/retrieval/embedder.py
+    line: 27
+    simplification_pattern: future-proofing
+    message: "The module docstring and inline comment both describe the host-tracking mechanism as a design decision. Once _ollama_client_host is removed this documentation becomes misleading. Even in the current state the docstring devotes two sentences to a concern (test host rotation) that is a test-harness detail, not a meaningful system property."
+    recommendation: "After removing _ollama_client_host, trim the module docstring to: host source, model, retry strategy. Remove the 'Thread-safety: _ollama_client is only written inside _get_ollama_client(), which rebuilds atomically based on the current OLLAMA_HOST value' sentence — it describes the removed mechanism."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 66
+    simplification_pattern: future-proofing
+    message: "_EMBED_INTER_BATCH_SLEEP is env-overrideable via EMBED_INTER_BATCH_SLEEP. The comment says it is 'configurable'. In the Cohere era this knob existed to tune rate-limit avoidance. With a local Ollama endpoint there are no rate limits, and the 1-second default is already conservative. An env-override for a sleep value that exists for operational tuning of a local process adds config surface area without meaningful benefit."
+    recommendation: "Replace the os.environ.get call with a plain literal: _EMBED_INTER_BATCH_SLEEP = 1.0. Remove the env-override and the comment. If the value ever needs changing it can be edited directly in the script."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 317
+    simplification_pattern: future-proofing
+    message: "'import ollama' is deferred inside generate_embeddings() body. The module docstring explains this is to allow unit-tests to import pure functions without triggering DB/Ollama imports. However, ollama is already imported at module level in embedder.py (a sibling module), and ingest.py's test file already patches 'ollama.embed' at the top level — the deferral is not needed for isolation. Module-level imports are simpler, discoverable, and fail fast on missing dependencies."
+    recommendation: "Move 'import ollama' to the top-level imports section alongside the other imports (argparse, logging, os, etc.). Remove the deferred import comment that describes the rationale for deferral. The test patches 'ollama.embed' module-level and will continue to work."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 343
+    simplification_pattern: dead-code
+    message: "Class TestCohereEmbedding is a stale name from the old Cohere era. Its own docstring says 'class name kept for git history continuity; tests now verify Ollama'. Git history continuity is not a reason to keep a misleading name in the active test file — it adds confusion for anyone reading the file."
+    recommendation: "Rename to TestOllamaEmbedding. The git log preserves history; the source file should reflect current reality."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 412
+    simplification_pattern: dead-code
+    message: "Class TestKeyRotation is a stale name. Its docstring also says 'class name kept for git history continuity; tests now verify Ollama retry'. This class has nothing to do with key rotation; it tests transient-error retry behaviour."
+    recommendation: "Rename to TestOllamaRetryBehaviour."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 296
+    simplification_pattern: dead-code
+    message: "TestBuildEmbeddingText has 4 tests (test_prefix_format, test_double_newline_separator, test_law_id_in_prefix, test_article_in_prefix). test_prefix_format already asserts the full prefix string '[LEY-1 - Artículo 5 - Ley de Arrendamientos]' is present, which subsumes test_law_id_in_prefix and test_article_in_prefix. The latter two test substrings that are already verified by the more specific assertion."
+    recommendation: "Remove test_law_id_in_prefix (line 318) and test_article_in_prefix (line 328). test_prefix_format already provides full coverage of prefix content."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 637
+    simplification_pattern: future-proofing
+    message: "TestMainNoCohereReferences (two AST static-analysis tests) and the parallel TestIngestKeyPool.test_ingest_main_no_cohere_references in test_key_pool.py both walk the ingest.py AST to verify Cohere is absent. These are migration guard tests: once the migration is complete and the absence of Cohere is the permanent state, they become permanently-green tautologies that test the file's own text rather than its behaviour. Additionally, test_main_calls_generate_embeddings_without_client in TestMainNoCohereReferences duplicates the signature check already in TestIngestKeyPool.test_generate_embeddings_called_without_pool."
+    recommendation: "Remove the entire TestMainNoCohereReferences class from test_ingestion.py (the equivalent coverage already exists in test_key_pool.py's TestIngestKeyPool). Consider removing the AST-based Cohere-absence checks from test_key_pool.py as well once the migration is considered stable — a runtime test (e.g. verify generate_embeddings accepts only 'texts') is more maintainable than an AST text scan."
+
+  - severity: P3
+    file: thermia-back/tests/retrieval/test_embedder.py
+    line: 23
+    simplification_pattern: future-proofing
+    message: "The reset_embedder_singletons fixture resets _ollama_client_host in both setup and teardown. If _ollama_client_host is removed (per the P2 finding above), this fixture only needs to reset _ollama_client. The fixture also resets in teardown (yield + reset), which is redundant given the autouse setup already resets before every test."
+    recommendation: "After removing _ollama_client_host: simplify fixture to reset only mod._ollama_client = None before yield, drop the post-yield reset (pytest isolation handles it). This removes two attribute assignments and the _ollama_client_host reference."
+
+  - severity: P3
+    file: thermia-back/app/retrieval/key_pool.py
+    line: 1
+    simplification_pattern: dead-code
+    message: "The module docstring (lines 1-10) says 'ingest.py is synchronous' and 'FastAPI's Groq calls run in worker threads'. The BGE-M3 migration removed all Cohere/ingest key-pool usage from ingest.py — ingest.py now calls Ollama directly with no key pool. The docstring's threading rationale for ingest.py no longer applies."
+    recommendation: "Update the module docstring first bullet to: 'threading.Lock: FastAPI's Groq calls run in worker threads; threading.Lock covers all callers.' Remove the reference to ingest.py being synchronous since key_pool is no longer used by ingest.py."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 0
+  P2_count: 9
+  P3_count: 1
+audit_entries:
+  - "reviewer-simplifier: scanned 5 files (embedder.py, ingest.py, key_pool.py, test_embedder.py, test_ingestion.py), 10 findings total (0 P0, 0 P1, 9 P2, 1 P3)"
+  - "reviewer-simplifier: codegraph_cache_path absent — live symbol inspection used"
+  - "reviewer-simplifier: key_pool.py still actively used by llm.py/get_groq_pool() — not dead code; stale docstring only"
+  - "reviewer-simplifier: no leftover Cohere imports or runtime references found in any reviewed file"
+skill_compliance:
+  - skill: code-simplification
+    status: PASS
+    evidence: "dead-code scan, premature-abstraction check, stale-name detection, and test-bloat review completed across all 5 files"
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "skills loaded and applied per protocol"

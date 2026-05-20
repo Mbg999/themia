@@ -1,0 +1,107 @@
+status: complete
+reviewer: performance
+findings:
+  - severity: P0
+    file: thermia-back/app/retrieval/searcher.py
+    line: 39
+    big_o: "O(1) lists searched out of O(lists) available — effective recall ~1%"
+    expected_impact: "pgvector ivfflat default probes=1 searches only 1 of 100 index lists; ANN recall collapses to ~1% at any document count, making vector search nearly non-functional"
+    message: "No SET LOCAL ivfflat.probes is executed before the vector search query. pgvector's default probes=1 means only 1 of the 100 index lists is scanned per query, yielding ~1% recall regardless of document volume."
+    recommendation: "Execute 'SET LOCAL ivfflat.probes = 10' (or a tuned value; rule of thumb: sqrt(lists)) inside the same session transaction before the ORDER BY <=> query. In searcher.py vector_search, add session.execute(text('SET LOCAL ivfflat.probes = 10')) immediately after opening the Session."
+
+  - severity: P0
+    file: thermia-back/alembic/versions/0001_initial.py
+    line: 39
+    big_o: "N/A"
+    expected_impact: "ivfflat index created without WITH (lists=N). Default lists=100 is appropriate only for ~1M vectors; for smaller corpora (e.g. 10k–50k chunks) lists=50 or less reduces probe overhead. More critically, lists=100 with probes=1 (the default) yields extremely poor recall."
+    message: "CREATE INDEX uses USING ivfflat (embedding vector_cosine_ops) with no WITH (lists=...) clause. The lists value should be chosen as sqrt(document_count) at index creation time, and the migration contains no documentation of the expected corpus size."
+    recommendation: "Add WITH (lists=50) or WITH (lists=100) to the CREATE INDEX statement and document the expected document count the value was tuned for. Combine with the probes fix in searcher.py."
+
+  - severity: P1
+    file: thermia-back/app/db/connection.py
+    line: 27
+    big_o: "O(1) per request but with full engine + pool creation cost"
+    expected_impact: "get_engine() is called inside every /analyze request (main.py line 110). create_engine() tears down and rebuilds the connection pool on each call, paying TCP handshake + SSL negotiation cost per request instead of reusing pooled connections. Under 10 concurrent requests this adds ~50–200ms latency each."
+    message: "get_engine() calls create_engine() unconditionally on every invocation with no caching or module-level singleton. SQLAlchemy connection pools are designed to be long-lived; recreating them per request defeats pooling entirely."
+    recommendation: "Cache the Engine as a module-level singleton (e.g. using functools.lru_cache or a module-level _engine variable). For production (THERMIA_ENV != local), call create_engine() once at startup and reuse it. For local/SSH-tunnel mode, the tunnel lifecycle requires special handling but the engine should still be created once per tunnel lifetime."
+
+  - severity: P1
+    file: thermia-back/app/main.py
+    line: 113
+    big_o: "O(1) sequential — two serial DB round-trips where parallel is possible"
+    expected_impact: "vector_search and bm25_search are called sequentially (lines 113–114). Each opens its own Session and issues a blocking DB query. Combined latency is latency(vector) + latency(bm25) instead of max(latency(vector), latency(bm25)). At p95 of ~50ms per query, this doubles DB latency contribution to ~100ms per /analyze call."
+    message: "vector_search and bm25_search are independent queries with no data dependency between them, yet they are executed sequentially. Both open separate Session objects against the same engine."
+    recommendation: "Run both searches concurrently using asyncio.gather with run_in_executor, or convert searcher.py to async with an async SQLAlchemy engine (asyncpg). Example: vector_results, bm25_results = await asyncio.gather(loop.run_in_executor(None, vector_search, engine, embedding, 10), loop.run_in_executor(None, bm25_search, engine, query_text, 10))"
+
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 26
+    big_o: "O(1) API call but O(client_init) overhead on every request"
+    expected_impact: "cohere.Client(api_key) is instantiated on every call to get_query_embedding. Client construction opens an HTTP connection pool. At 10 req/s this wastes ~5–20ms per request on client setup and leaks connection objects. Additionally there is zero embedding cache, so identical queries (e.g. repeated uploads of the same document) each pay the full Cohere API round-trip of ~300–800ms."
+    message: "A new cohere.Client instance is created on every get_query_embedding call. The client is not cached at module level. There is no memoisation or TTL cache for query embeddings."
+    recommendation: "Instantiate cohere.Client once at module level (reading COHERE_API_KEY at import time or via a lazy singleton). Add an LRU cache keyed on the query text (functools.lru_cache or cachetools.TTLCache with a short TTL) to avoid redundant Cohere API calls for repeated identical queries."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/llm.py
+    line: 52
+    big_o: "N/A — blocking I/O with no timeout bound"
+    expected_impact: "ChatGroq is instantiated with no request_timeout parameter. llm.invoke(messages) is a synchronous blocking call. Groq API p99 latency for llama-3.1-8b-instant with ~3000-token context is typically 5–15s but can spike to 60s+ under load. A hung call blocks a FastAPI worker thread indefinitely, exhausting the thread pool under sustained load (Starlette default: 40 threads)."
+    message: "ChatGroq(model='llama-3.1-8b-instant', ...) is created without a timeout. The synchronous llm.invoke() call has no deadline. If Groq is slow or unresponsive, the /analyze handler never returns, blocking the worker thread until the OS-level TCP timeout (minutes)."
+    recommendation: "Pass request_timeout=30 (seconds) to ChatGroq constructor: ChatGroq(model='llama-3.1-8b-instant', api_key=api_key, temperature=0.0, request_timeout=30). Wrap the invoke call in a try/except for TimeoutError and return HTTP 503. Also consider moving the synchronous call to a thread pool via asyncio.run_in_executor to avoid blocking the async event loop."
+
+  - severity: P2
+    file: thermia-back/app/main.py
+    line: 87
+    big_o: "O(file_size) memory — 3x file size in RAM simultaneously"
+    expected_impact: "pdf_bytes (raw upload), io.BytesIO(pdf_bytes) (second copy), and pdfplumber's internal page object cache each hold the PDF content. A 10 MB PDF consumes ~30 MB of worker RAM. With no file-size guard, a malicious or accidental 200 MB upload would consume ~600 MB. FastAPI has no default upload size limit."
+    message: "await file.read() loads the entire PDF into a bytes object. io.BytesIO(pdf_bytes) creates a second in-memory copy. pdfplumber internally buffers page data. No content-length check or MAX_FILE_SIZE guard is applied before reading."
+    recommendation: "Add a file size check immediately after file.read(): if len(pdf_bytes) > 10 * 1024 * 1024: raise HTTPException(413, 'PDF exceeds 10 MB limit'). Alternatively, use a streaming read with a size cap to avoid loading oversized files at all. Set FastAPI's max_upload_size in production ASGI config."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 311
+    big_o: "O(n/batch_size) sleep calls — 200s fixed overhead for 10k chunks"
+    expected_impact: "With _EMBED_BATCH_SIZE=50 and a 1s inter-batch pause, 10,000 chunks require 200 batches and 199 sleep calls = minimum 199s of pure sleep (ignoring actual API time ~400ms/batch). Total ingestion time: ~533s (~9 min). On a paid Cohere tier (10k calls/min) this is 200x more sleep than needed."
+    message: "The 1s inter-batch pause (line 311) is designed for the Cohere trial tier (100 calls/min = 1 call/600ms). On a paid tier this is extremely conservative. The pause is also applied unconditionally with time.sleep(), blocking the process."
+    recommendation: "Make the inter-batch delay configurable via an environment variable (e.g. EMBED_INTER_BATCH_SLEEP, default 1.0 for trial, 0.05 for paid). For paid tiers, reduce to 50ms or remove entirely. Consider using asyncio or a producer-consumer queue for parallel embedding batches."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 341
+    big_o: "O(n) session.merge() calls — one round-trip per chunk"
+    expected_impact: "upsert_documents loops over chunks calling session.merge(doc) individually. For a file with 200 chunks this is 200 separate ORM merge operations within one transaction, each generating a SELECT + INSERT/UPDATE statement pair. At 50k total chunks this is 100k+ SQL statements per full ingest run."
+    message: "session.merge() is called in a per-chunk loop with no bulk operation. ORM merge issues a SELECT per object to determine insert vs update, followed by the write. This is O(n) round-trips inside a single commit transaction."
+    recommendation: "Use PostgreSQL INSERT ... ON CONFLICT DO UPDATE (upsert) via sqlalchemy.dialects.postgresql.insert() with on_conflict_do_update(). This allows bulk upsert in a single statement per batch: session.execute(pg_insert(Document).values([...]).on_conflict_do_update(index_elements=['id'], set_=...)). Reduces 200 merge calls to 1 bulk upsert per batch."
+
+findings_summary:
+  P0_count: 2
+  P1_count: 4
+  P2_count: 3
+  P3_count: 0
+
+audit_entries:
+  - "[Performance] P0: ivfflat index queried without SET LOCAL ivfflat.probes — pgvector default probes=1 searches only 1 of 100 lists, recall ~1% (searcher.py:39)"
+  - "[Performance] P0: ivfflat CREATE INDEX missing WITH (lists=N) clause — no documented corpus-size target in migration (0001_initial.py:39)"
+  - "[Performance] P1: get_engine() creates a new SQLAlchemy Engine (and pool) on every /analyze request — TCP handshake overhead per request (connection.py:27)"
+  - "[Performance] P1: vector_search and bm25_search executed sequentially — two serial DB round-trips per /analyze; could be parallelised (main.py:113)"
+  - "[Performance] P1: cohere.Client instantiated on every get_query_embedding call, no embedding cache — ~300-800ms Cohere round-trip on every request (embedder.py:26)"
+  - "[Performance] P1: ChatGroq has no request_timeout — synchronous llm.invoke() can block worker thread indefinitely under Groq API latency spike (llm.py:52)"
+  - "[Performance] P2: No PDF file-size guard before await file.read() — 3x file-size RAM spike, no protection against large uploads (main.py:87)"
+  - "[Performance] P2: 1s inter-batch sleep in generate_embeddings is trial-tier conservative — 199s sleep overhead for 10k chunks on paid Cohere tier (ingest.py:311)"
+  - "[Performance] P2: upsert_documents uses per-chunk session.merge() loop — O(n) SQL round-trips instead of single bulk upsert (ingest.py:341)"
+  - "[Performance] reviewed 8 hot paths across searcher.py, embedder.py, llm.py, fusion.py, main.py, connection.py, ingest.py, analysis.service.ts / app.ts"
+
+skill_compliance:
+  - skill: performance-optimization
+    status: PASS
+    evidence: "All 8 hot paths analysed: ivfflat probes, connection pooling, sequential DB queries, embedding client init + caching, LLM timeout, PDF memory, ingest batch sleep, bulk upsert. Each finding includes Big-O estimate or quantified latency/memory impact and a concrete recommendation."
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills loaded at session start. CodeGraph cache path absent from input handoff; hot-path tracing performed via Read + Bash grep on app source files. No live codegraph_callers/impact calls made for absent cache."
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "codegraph_cache_path not set in reviewer-performance.input.yaml. Fell back to direct file reads and targeted grep for symbol lookup (probes, pool_size, timeout, MAX_FILE_SIZE). All source files read directly."
+
+emitted_knowledge: []
+conflicts_detected: []
+locks_to_release: []

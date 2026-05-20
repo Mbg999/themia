@@ -1,0 +1,25 @@
+{"ts": "2026-05-19T20:46:46+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "tokens_estimate": 2000, "stage": "workspace-scout"}
+{"ts": "2026-05-19T20:48:30+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "status": "complete", "tokens": 1200, "wall_min": 2.0, "stage": "workspace-scout"}
+{"ts": "2026-05-19T20:48:40+00:00", "evt": "stage_complete", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "stage": "workspace-scout", "next_stage": "requirements-analyst", "reason": null}
+{"ts": "2026-05-19T20:54:23+00:00", "evt": "stage_skipped", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "reason": "user-skipped", "stage": "reverse-engineer"}
+{"ts": "2026-05-19T20:54:32+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "tokens_estimate": 8000, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T21:07:02+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "status": "complete", "tokens": 6800, "wall_min": 4.5, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T21:07:02+00:00", "evt": "stage_complete", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "stage": "requirements-analyst", "next_stage": "workflow-planner", "reason": null}
+{"ts": "2026-05-19T21:09:13+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "tokens_estimate": 12000, "stage": "workflow-planner"}
+{"ts": "2026-05-19T21:20:39+00:00", "evt": "user_decision", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "decision": "approved", "stage": "workflow-planner"}
+{"ts": "2026-05-19T21:20:52+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "tokens_estimate": 5000, "stage": "unit-decomposer"}
+{"ts": "2026-05-19T21:20:52+00:00", "evt": "stage_complete", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "stage": "workflow-planner", "next_stage": "unit-decomposer", "reason": null}
+{"ts": "2026-05-19T21:26:00+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "stage": "unit-decomposer"}
+{"ts": "2026-05-19T21:26:03+00:00", "evt": "stage_complete", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "stage": "unit-decomposer", "next_stage": null, "reason": null}
+{"ts": "2026-05-19T21:26:47+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "summary": "4 units decomposed (3 L0 parallel + 1 L1), 19 tasks total, sources-display pre-completed", "stage": "unit-decomposer"}
+{"ts": "2026-05-19T21:28:42+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "summary": "2 waves computed: L0 [db-schema-refactor, metadata-helpers, sources-display] \u2192 L1 [ingestion-wiring]", "stage": "construction"}
+{"ts": "2026-05-19T21:32:27+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "db-schema-refactor", "stage": "code-generator"}
+{"ts": "2026-05-19T21:32:27+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "metadata-helpers", "stage": "code-generator"}
+{"ts": "2026-05-20T06:20:46+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "db-schema-refactor", "stage": "build-test-agent"}
+{"ts": "2026-05-20T06:20:46+00:00", "evt": "spawn_start", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "metadata-helpers", "stage": "build-test-agent"}
+{"ts": "2026-05-20T06:22:37+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "db-schema-refactor", "stage": "build-test-agent"}
+{"ts": "2026-05-20T06:22:37+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "metadata-helpers", "stage": "build-test-agent"}
+{"ts": "2026-05-20T06:22:37+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "db-schema-refactor", "stage": "code-generator"}
+{"ts": "2026-05-20T06:22:37+00:00", "evt": "spawn_end", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "unit": "metadata-helpers", "stage": "code-generator"}
+{"ts": "2026-05-20T07:32:27+00:00", "evt": "orchestrator_note", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "summary": "code-quality P1=6 P2=7 P3=4; security P1=4 P2=2 P3=2; simplifier P1=1 P2=2 P3=3; total P0=0 P1=11 P2=11 P3=9"}
+{"ts": "2026-05-20T08:35:05+00:00", "evt": "resume_requested", "run_id": "2026-05-19t20-50-00z-metadata-refactor", "next_stage": "code-generator"}

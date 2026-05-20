@@ -1,0 +1,130 @@
+status: complete
+needs_user_input: false
+
+depth: standard
+
+request_classification:
+  clarity: Clear
+  type: New Feature
+  scope: Multiple Components
+  complexity: Moderate
+
+artifacts:
+  - path: aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md
+    kind: spec
+    hash: 37e746a3aece49c66b9a01e66067817b
+  - path: aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirement-verification-questions.md
+    kind: questions
+    hash: 429cc54b141ddff2f871b7c874582398
+
+audit_entries:
+  - "Pass 2 triggered by predecessor_artifacts containing answered questions file via context_pointers[0]; all 9 [Answer]: tags populated (Q1=D, Q2=C, Q3=C+example, Q4=A+per-provider, Q5=B, Q6=D, Q7=B, Q8=B, Q9=A+C+D)."
+  - "User decision Q1=D → §1.2 ordered outcomes: Availability primary, Cost/quota secondary, Operational resilience tertiary."
+  - "User decision Q2=C → FR-2 JSON-array-per-provider env format (COHERE_API_KEYS='[\"k1\",\"k2\"]'); added legacy single-key fallback with WARN-on-migration as a constructor-stage convenience derived from 'no hard limit, but must always be at least one key' clause in the original request."
+  - "User decision Q3=C with Cohere Trial-key example → FR-3 four discrete signals (HTTP 429, Cohere Trial-key body match, Groq daily-token quota, persistent 5xx after in-key retry budget); non-rotating 4xx surface unchanged."
+  - "User decision Q4=A with provider-specific cool-down (Cohere 30 d, Groq 1 d) → FR-4 with two env vars COHERE_KEY_COOLDOWN_SECONDS=2592000, GROQ_KEY_COOLDOWN_SECONDS=86400. Cool-down state is in-process only (not persisted); documented as a deliberate scope boundary in §6."
+  - "User decision Q5=B → FR-6 boot fail-fast + WARN at 1 healthy + ERROR at 0 healthy + raise upstream; option C rejected ⇒ no new /healthz or metrics endpoint, added to §6 Out of Scope."
+  - "User decision Q6=D → FR-5 sticky-then-rotate with declaration-order traversal (not round-robin, not random); declaration-order chosen because Q2 answer C says 'order in JSON array = priority'."
+  - "User decision Q7=B → FR-8 single Cohere client with swap-on-rotation; explicitly notes Groq is unaffected (ChatGroq rebuilt per call today)."
+  - "User decision Q8=B → FR-9 wires runtime (embedder + llm) AND ingestion (scripts/ingest.py); future providers explicitly out of scope per §6 but abstraction is provider-agnostic to enable later additions."
+  - "User decision Q9=A+C+D → AC-1 (unit tests, 11 cases enumerated), AC-2 (.env.example doc), AC-3 (observability assertions); AC-4 (integration test, option B) explicitly NOT required — recorded as out-of-scope with rationale in §5 and §6."
+  - "Conflict reconciliation: Q4 'cool-down for cohere = 1 month' resolved as 30 days = 2592000 s (calendar-month ambiguity); rationale recorded inline at FR-4 ('typical monthly Trial-key reset')."
+  - "Conflict reconciliation: Q3 option C says '5xx after the in-key retry budget' — but llm.py has no in-key retries today. Resolved by FR-3 footnote: 5xx detection on Groq applies after the FIRST attempt (since the in-key budget is effectively 0), while Cohere preserves its existing 3-retry budget. Recorded so construction does not silently inject retries into llm.py."
+  - "Scope discipline: the original request mentions ONLY Cohere and Groq fallback; the spec deliberately stops at the KeyPool abstraction without wiring OpenAI/Anthropic. Resisted natural urge to over-generalise; §6 captures the deferred work explicitly."
+  - "spec-driven-development six core areas applied: Objective=§1; Tech Stack=implicit (brownfield Python/FastAPI per workspace-scout); Commands=N/A (no new build/test commands); Project Structure=FR-1 new module path; Code Style=FR-2 env format + FR-7 log fields; Testing Strategy=§5 AC-1; Boundaries=§6 Out of Scope + FR-6 Always-≥1-key + NFR-2 Never log raw keys."
+  - "requirements-intelligence coverage map closed: every axis tag in the questions file (Purpose, Needs×2, Limits×2, Expectations×2, Context, Acceptance) is now mapped to FR/NFR/AC in §8 Traceability Matrix; no orphan axes."
+  - "Audit-block protocol: bullets are unfixed (no '##' headers, no timestamps); orchestrator wraps them when appending to aidlc-docs/audit.md."
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: >
+      Input validated via factory_validate.py (exit 0). Core Operating
+      Behaviors observed in Pass 2: (1) Assumptions surfaced — Q4
+      "1 month" reconciled to 30 days = 2592000 s with rationale recorded;
+      Q3 "5xx after in-key retry budget" reconciled against the fact that
+      llm.py has no retry budget today, with a footnote so construction
+      does not add one silently. (2) Scope discipline — resisted
+      generalising the KeyPool to OpenAI/Anthropic despite the obvious
+      extension path; §6 explicitly carves that as a future run.
+      (3) Verification — concrete artefact produced (requirements.md, 408
+      lines, md5 37e746a3aece49c66b9a01e66067817b), all 9 user answers
+      mapped to FR/NFR/AC via §8 traceability table.
+      Rationalization "the request is clear, I can skip the traceability
+      matrix" rejected — the matrix is the only structural guarantee that
+      no user answer was silently dropped.
+  - skill: idea-refine
+    status: PASS
+    evidence: >
+      Divergent explorations from Pass 1 (≥3 approaches each for env
+      format, rotation strategy, dead-key persistence) have all been
+      converged into single chosen options per user answers and recorded
+      in §8. Convergent step in Pass 2: where user answers introduced
+      sub-ambiguity (Q4 "1 month", Q3 "5xx after in-key budget for Groq"),
+      a single chosen interpretation was selected and the rejected
+      alternatives documented inline at FR-3 / FR-4 with rationale.
+      "Not Doing" applied explicitly to §6 — integration test, /healthz,
+      cross-process cool-down persistence, future providers, and frontend
+      changes all listed as out of scope so they cannot creep in during
+      planning.
+  - skill: spec-driven-development
+    status: PASS
+    evidence: >
+      Requirements.md covers the six core areas of the SKILL template:
+      §1 Objective + classification; §2 Functional Requirements (FR-1..10);
+      §3 Non-Functional Requirements (NFR-1..6); §4 User Scenarios (S-1..6);
+      §5 Acceptance Criteria (AC-1..3 mandatory, AC-4 explicit-out); §6
+      Out of Scope (boundaries — Always/Ask-first/Never reframed as
+      Always=≥1 key + NFR-2 never log raw keys + Ask-first delegated
+      decisions in §7); §7 Open Questions (none blocking); §8 Traceability
+      Matrix. "Reframe instructions as success criteria" applied: the
+      vague phrase 'automatically switches' from the original request is
+      now broken into AC-1 (rotation on each signal), AC-3 (observability
+      proof), and FR-5 (rotation strategy). File path:
+      aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md
+      Sections: 8 top-level; 23 numbered requirements (10 FR + 6 NFR + 6
+      scenarios + 4 acceptance buckets including AC-4-as-explicit-out);
+      408 lines.
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: >
+      Final coverage map closed in §8 Traceability Matrix. Every axis tag
+      from the questions file is now referenced by at least one FR/NFR/AC:
+      Purpose→§1.2; Needs→FR-2, FR-3; Limits→FR-4, FR-6; Expectations→FR-5,
+      FR-8; Context→FR-9; Acceptance→AC-1..3. Each user answer was
+      incorporated with a named question ID in the traceability table
+      (Q1→§1.2, Q2→FR-2, Q3→FR-3, Q4→FR-4, Q5→FR-6, Q6→FR-5, Q7→FR-8,
+      Q8→FR-9, Q9→AC-1..3). No axis went unresolved; no question went
+      unused. Pass-2 [SignalScore] unchanged from Pass 1 (clarity=Clear,
+      risk=medium, novelty=medium, stakes=internal, ambiguity_count=0
+      after answers). [QuestionBudget] final 9/9 answered (100%). No red
+      flags fired.
+
+cost:
+  tokens_in: 0
+  tokens_out: 0
+  wall_clock_min: 7
+  retries_used: 0
+
+conflicts_detected: []
+locks_to_release: []
+emitted_knowledge:
+  - kind: pattern
+    title: "Multi-key provider fallback via per-provider KeyPool with sticky-then-rotate"
+    body: >
+      When integrating multiple free-tier API accounts for the same provider,
+      use a per-provider KeyPool abstraction with sticky-then-rotate
+      semantics rather than round-robin: it keeps debugging predictable
+      (one key handles a stream of requests, so log correlation works),
+      while still draining quota fairly because once a key fails its
+      cool-down keeps it out of the rotation. Pair with provider-specific
+      cool-down windows (Cohere 30 d / Groq 1 d) to match each provider's
+      actual quota reset cadence. Wire detection signals as a small enum
+      of reason codes (429, provider-specific quota body match, persistent
+      5xx) rather than parsing raw exceptions at every call site — this
+      keeps the call sites thin and makes the pool unit-testable in
+      isolation.
+    tags: ["api-keys", "fallback", "resilience", "cohere", "groq", "free-tier"]
+    related_artifacts:
+      - "aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirements.md"
+    confidence: 0.85

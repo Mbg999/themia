@@ -1,0 +1,387 @@
+thermia-back/app/retrieval/key_pool.py:
+  symbols:
+    FailureReason:
+      kind: class
+      methods: {}
+    AllKeysExhaustedError:
+      kind: class
+      methods: {}
+    classify_failure:
+      kind: function
+      args:
+      - exc_or_text
+      returns: FailureReason | None
+    _validate_key_format:
+      kind: function
+      args:
+      - keys
+      - source_var
+      returns: None
+    _parse_keys_env:
+      kind: function
+      args:
+      - provider
+      - environ
+      returns: list[str]
+    _get_cooldown_seconds:
+      kind: function
+      args:
+      - provider
+      returns: int
+    KeyPool:
+      kind: class
+      methods:
+        __init__:
+          args:
+          - self
+          - keys
+          - provider
+          - cooldown_seconds
+          returns: None
+        from_env:
+          args:
+          - cls
+          - provider
+          - environ
+          - cooldown_seconds
+          returns: '''KeyPool'''
+        current:
+          args:
+          - self
+          returns: str
+        mark_failed:
+          args:
+          - self
+          - reason
+          returns: None
+        healthy_count:
+          args:
+          - self
+          returns: int
+        _current_unlocked:
+          args:
+          - self
+          returns: str
+        _is_healthy:
+          args:
+          - self
+          - index
+          returns: bool
+        _next_healthy_index:
+          args:
+          - self
+          - skip
+          returns: int | None
+        _count_healthy_unlocked:
+          args:
+          - self
+          returns: int
+        _hash_key:
+          args:
+          - key
+          returns: str
+        __repr__:
+          args:
+          - self
+          returns: str
+  lang: python
+  captured_at: '2026-05-20T10:26:25+00:00'
+thermia-back/tests/retrieval/test_key_pool.py:
+  symbols:
+    TestKeyPoolSkeleton:
+      kind: class
+      methods:
+        test_imports:
+          args:
+          - self
+          returns: null
+        test_constructor_with_explicit_keys:
+          args:
+          - self
+          returns: null
+        test_public_methods_exist:
+          args:
+          - self
+          returns: null
+        test_from_env_is_classmethod:
+          args:
+          - self
+          returns: null
+        test_repr_does_not_leak_keys:
+          args:
+          - self
+          returns: null
+    TestFromEnv:
+      kind: class
+      methods:
+        test_json_array_two_keys:
+          args:
+          - self
+          returns: null
+        test_json_array_first_key_is_active:
+          args:
+          - self
+          returns: null
+        test_single_quoted_json_and_whitespace:
+          args:
+          - self
+          returns: null
+        test_legacy_var_treated_as_one_element:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_array_var_preferred_over_legacy:
+          args:
+          - self
+          returns: null
+        test_no_vars_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_empty_array_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_malformed_json_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_groq_provider_uses_correct_env_var:
+          args:
+          - self
+          returns: null
+    TestClassifyFailure:
+      kind: class
+      methods:
+        _cf:
+          args:
+          - self
+          - text
+          returns: null
+        test_429_in_string:
+          args:
+          - self
+          returns: null
+        test_rate_limit_case_insensitive:
+          args:
+          - self
+          returns: null
+        test_rate_limit_lower:
+          args:
+          - self
+          returns: null
+        test_exception_with_429:
+          args:
+          - self
+          returns: null
+        test_cohere_trial_quota:
+          args:
+          - self
+          returns: null
+        test_cohere_trial_key_signal:
+          args:
+          - self
+          returns: null
+        test_groq_daily_token:
+          args:
+          - self
+          returns: null
+        test_groq_daily_quota:
+          args:
+          - self
+          returns: null
+        test_500_internal_server_error:
+          args:
+          - self
+          returns: null
+        test_503_service_unavailable:
+          args:
+          - self
+          returns: null
+        test_400_bad_request_returns_none:
+          args:
+          - self
+          returns: null
+        test_401_unauthorized_returns_none:
+          args:
+          - self
+          returns: null
+        test_403_forbidden_returns_none:
+          args:
+          - self
+          returns: null
+    TestKeyPoolRotation:
+      kind: class
+      methods:
+        _pool2:
+          args:
+          - self
+          returns: null
+        test_healthy_count_is_two:
+          args:
+          - self
+          returns: null
+        test_current_returns_first_key:
+          args:
+          - self
+          returns: null
+        test_mark_failed_advances_cursor:
+          args:
+          - self
+          returns: null
+        test_current_is_sticky:
+          args:
+          - self
+          returns: null
+        test_mark_failed_last_key_wraps_if_first_recovered:
+          args:
+          - self
+          returns: null
+        test_all_keys_failed_raises_exhausted:
+          args:
+          - self
+          returns: null
+        test_current_raises_when_exhausted:
+          args:
+          - self
+          returns: null
+        test_rotated_log_emitted_on_mark_failed:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_degraded_warn_emitted_once:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_exhausted_error_emitted_once:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_cooldown_expiry_reenters_pool:
+          args:
+          - self
+          returns: null
+        test_50_concurrent_threads_single_rotation:
+          args:
+          - self
+          returns: null
+    TestNoRawKeysInLogs:
+      kind: class
+      methods:
+        test_no_raw_keys_in_rotation_logs:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_from_env_legacy_warn_no_raw_key:
+          args:
+          - self
+          - caplog
+          returns: null
+    TestEmbedderKeyPool:
+      kind: class
+      methods:
+        setup_method:
+          args:
+          - self
+          returns: null
+        test_embedding_uses_active_key:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_rotation_on_rate_limit_after_budget:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_non_rotating_400_raises_without_mark_failed:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+    TestLLMKeyPool:
+      kind: class
+      methods:
+        setup_method:
+          args:
+          - self
+          returns: null
+        test_llm_uses_active_groq_key:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_groq_daily_quota_rotates_and_retries:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_all_groq_keys_exhausted_propagates:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_non_rotating_llm_failure_reraises:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+    TestIngestKeyPool:
+      kind: class
+      methods:
+        test_generate_embeddings_uses_pool_singleton:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_ingest_main_uses_get_cohere_pool:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+    TestClassifyFailureFalsePositives:
+      kind: class
+      methods:
+        test_5xx_no_false_positive_in_large_numbers:
+          args:
+          - self
+          - text
+          returns: null
+    TestFlagResetAfterRecovery:
+      kind: class
+      methods:
+        test_flags_reset_after_cooldown_expiry_and_fire_again:
+          args:
+          - self
+          - caplog
+          returns: null
+    TestKeyFormatValidation:
+      kind: class
+      methods:
+        test_empty_string_key_raises:
+          args:
+          - self
+          returns: null
+        test_short_key_raises:
+          args:
+          - self
+          returns: null
+        test_key_with_invalid_chars_raises:
+          args:
+          - self
+          returns: null
+        test_valid_key_accepted:
+          args:
+          - self
+          returns: null
+        test_valid_key_with_hyphens_accepted:
+          args:
+          - self
+          returns: null
+  lang: python
+  captured_at: '2026-05-20T10:26:25+00:00'

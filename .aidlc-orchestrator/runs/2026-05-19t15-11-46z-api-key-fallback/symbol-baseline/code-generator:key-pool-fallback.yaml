@@ -1,0 +1,472 @@
+thermia-back/app/retrieval/key_pool.py:
+  symbols:
+    FailureReason:
+      kind: class
+      methods: {}
+    AllKeysExhaustedError:
+      kind: class
+      methods: {}
+    classify_failure:
+      kind: function
+      args:
+      - exc_or_text
+      returns: FailureReason | None
+    _parse_keys_env:
+      kind: function
+      args:
+      - provider
+      - environ
+      returns: list[str]
+    _get_cooldown_seconds:
+      kind: function
+      args:
+      - provider
+      returns: int
+    KeyPool:
+      kind: class
+      methods:
+        __init__:
+          args:
+          - self
+          - keys
+          - provider
+          - cooldown_seconds
+          returns: None
+        from_env:
+          args:
+          - cls
+          - provider
+          - environ
+          - cooldown_seconds
+          returns: '''KeyPool'''
+        current:
+          args:
+          - self
+          returns: str
+        mark_failed:
+          args:
+          - self
+          - reason
+          returns: None
+        healthy_count:
+          args:
+          - self
+          returns: int
+        _current_unlocked:
+          args:
+          - self
+          returns: str
+        _is_healthy:
+          args:
+          - self
+          - index
+          returns: bool
+        _next_healthy_index:
+          args:
+          - self
+          - skip
+          returns: int | None
+        _count_healthy_unlocked:
+          args:
+          - self
+          returns: int
+        _hash_key:
+          args:
+          - key
+          returns: str
+        __repr__:
+          args:
+          - self
+          returns: str
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'
+thermia-back/app/retrieval/embedder.py:
+  symbols:
+    get_cohere_pool:
+      kind: function
+      args: []
+      returns: KeyPool
+    _get_client:
+      kind: function
+      args: []
+      returns: cohere.Client
+    get_query_embedding:
+      kind: function
+      args:
+      - text
+      returns: list[float]
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'
+thermia-back/app/retrieval/llm.py:
+  symbols:
+    get_groq_pool:
+      kind: function
+      args: []
+      returns: KeyPool
+    _build_llm:
+      kind: function
+      args:
+      - api_key
+      returns: ChatGroq
+    _invoke_and_parse:
+      kind: function
+      args:
+      - llm
+      - context
+      - query
+      returns: dict
+    analyze_with_llm:
+      kind: function
+      args:
+      - context
+      - query
+      returns: dict
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'
+thermia-back/scripts/ingest.py:
+  symbols:
+    _count_tokens:
+      kind: function
+      args:
+      - text
+      returns: int
+    build_embedding_text:
+      kind: function
+      args: []
+      returns: str
+    chunk_article:
+      kind: function
+      args:
+      - text
+      returns: list[dict[str, Any]]
+    parse_legal_structure:
+      kind: function
+      args:
+      - md_text
+      returns: list[dict[str, Any]]
+    _derive_law_id:
+      kind: function
+      args:
+      - source_file
+      - law_title
+      returns: str
+    _extract_year:
+      kind: function
+      args:
+      - source_file
+      - law_title
+      returns: str
+    generate_embeddings:
+      kind: function
+      args:
+      - cohere_client
+      - texts
+      returns: list[list[float]]
+    upsert_documents:
+      kind: function
+      args:
+      - session_maker
+      - chunks
+      returns: None
+    _clone_or_pull:
+      kind: function
+      args:
+      - repo_dir
+      returns: None
+    _scan_md_files:
+      kind: function
+      args:
+      - repo_dir
+      returns: list[Path]
+    main:
+      kind: function
+      args:
+      - argv
+      returns: None
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'
+thermia-back/tests/retrieval/test_key_pool.py:
+  symbols:
+    TestKeyPoolSkeleton:
+      kind: class
+      methods:
+        test_imports:
+          args:
+          - self
+          returns: null
+        test_constructor_with_explicit_keys:
+          args:
+          - self
+          returns: null
+        test_public_methods_exist:
+          args:
+          - self
+          returns: null
+        test_from_env_is_classmethod:
+          args:
+          - self
+          returns: null
+        test_repr_does_not_leak_keys:
+          args:
+          - self
+          returns: null
+    TestFromEnv:
+      kind: class
+      methods:
+        test_json_array_two_keys:
+          args:
+          - self
+          returns: null
+        test_json_array_first_key_is_active:
+          args:
+          - self
+          returns: null
+        test_single_quoted_json_and_whitespace:
+          args:
+          - self
+          returns: null
+        test_legacy_var_treated_as_one_element:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_array_var_preferred_over_legacy:
+          args:
+          - self
+          returns: null
+        test_no_vars_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_empty_array_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_malformed_json_raises_value_error:
+          args:
+          - self
+          returns: null
+        test_groq_provider_uses_correct_env_var:
+          args:
+          - self
+          returns: null
+    TestClassifyFailure:
+      kind: class
+      methods:
+        _cf:
+          args:
+          - self
+          - text
+          returns: null
+        test_429_in_string:
+          args:
+          - self
+          returns: null
+        test_rate_limit_case_insensitive:
+          args:
+          - self
+          returns: null
+        test_rate_limit_lower:
+          args:
+          - self
+          returns: null
+        test_exception_with_429:
+          args:
+          - self
+          returns: null
+        test_cohere_trial_quota:
+          args:
+          - self
+          returns: null
+        test_cohere_trial_key_signal:
+          args:
+          - self
+          returns: null
+        test_groq_daily_token:
+          args:
+          - self
+          returns: null
+        test_groq_daily_quota:
+          args:
+          - self
+          returns: null
+        test_500_internal_server_error:
+          args:
+          - self
+          returns: null
+        test_503_service_unavailable:
+          args:
+          - self
+          returns: null
+        test_400_bad_request_returns_none:
+          args:
+          - self
+          returns: null
+        test_401_unauthorized_returns_none:
+          args:
+          - self
+          returns: null
+        test_403_forbidden_returns_none:
+          args:
+          - self
+          returns: null
+    TestKeyPoolRotation:
+      kind: class
+      methods:
+        _pool2:
+          args:
+          - self
+          returns: null
+        test_healthy_count_is_two:
+          args:
+          - self
+          returns: null
+        test_current_returns_first_key:
+          args:
+          - self
+          returns: null
+        test_mark_failed_advances_cursor:
+          args:
+          - self
+          returns: null
+        test_current_is_sticky:
+          args:
+          - self
+          returns: null
+        test_mark_failed_last_key_wraps_if_first_recovered:
+          args:
+          - self
+          returns: null
+        test_all_keys_failed_raises_exhausted:
+          args:
+          - self
+          returns: null
+        test_current_raises_when_exhausted:
+          args:
+          - self
+          returns: null
+        test_rotated_log_emitted_on_mark_failed:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_degraded_warn_emitted_once:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_exhausted_error_emitted_once:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_cooldown_expiry_reenters_pool:
+          args:
+          - self
+          returns: null
+        test_50_concurrent_threads_single_rotation:
+          args:
+          - self
+          returns: null
+    TestNoRawKeysInLogs:
+      kind: class
+      methods:
+        test_no_raw_keys_in_rotation_logs:
+          args:
+          - self
+          - caplog
+          returns: null
+        test_from_env_legacy_warn_no_raw_key:
+          args:
+          - self
+          - caplog
+          returns: null
+    TestEmbedderKeyPool:
+      kind: class
+      methods:
+        setup_method:
+          args:
+          - self
+          returns: null
+        test_embedding_uses_active_key:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_rotation_on_rate_limit_after_budget:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_non_rotating_400_raises_without_mark_failed:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+    TestLLMKeyPool:
+      kind: class
+      methods:
+        setup_method:
+          args:
+          - self
+          returns: null
+        test_llm_uses_active_groq_key:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_groq_daily_quota_rotates_and_retries:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_all_groq_keys_exhausted_propagates:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_non_rotating_llm_failure_reraises:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+    TestIngestKeyPool:
+      kind: class
+      methods:
+        test_generate_embeddings_uses_pool_singleton:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+        test_ingest_main_uses_get_cohere_pool:
+          args:
+          - self
+          - monkeypatch
+          returns: null
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'
+thermia-back/app/main.py:
+  symbols:
+    _is_legal_text:
+      kind: function
+      args:
+      - text
+      returns: bool
+    _check_auth:
+      kind: function
+      args:
+      - authorization
+      returns: None
+    health:
+      kind: function
+      args: []
+      returns: dict
+    analyze:
+      kind: function
+      args:
+      - request
+      - file
+      - authorization
+      returns: JSONResponse
+  lang: python
+  captured_at: '2026-05-19T20:25:05+00:00'

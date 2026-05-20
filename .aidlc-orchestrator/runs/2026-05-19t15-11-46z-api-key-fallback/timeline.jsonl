@@ -1,0 +1,24 @@
+{"ts": "2026-05-19T15:12:24+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 10000, "stage": "workspace-scout"}
+{"ts": "2026-05-19T15:15:08+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 31846, "wall_min": 2.0, "stage": "workspace-scout"}
+{"ts": "2026-05-19T15:17:39+00:00", "evt": "stage_skipped", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "reason": "user decision: project built by this factory, inception artifacts present, feature is narrow backend change", "stage": "reverse-engineer"}
+{"ts": "2026-05-19T15:17:42+00:00", "evt": "stage_complete", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "stage": "workspace-scout", "next_stage": "requirements-analyst", "reason": null}
+{"ts": "2026-05-19T15:18:00+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 20000, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T15:38:51+00:00", "evt": "user_answers_received", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "source": "user", "stage": "requirements-analyst"}
+{"ts": "2026-05-19T15:39:08+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 25000, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T15:43:24+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 62080, "wall_min": 4.0, "stage": "requirements-analyst"}
+{"ts": "2026-05-19T15:43:24+00:00", "evt": "stage_complete", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "stage": "requirements-analyst", "next_stage": "workflow-planner", "reason": null}
+{"ts": "2026-05-19T15:43:47+00:00", "evt": "stage_skipped", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "reason": "complexity routing: MEDIUM tier, scope=Multiple Components but no user-facing workflow changes", "stage": "story-writer"}
+{"ts": "2026-05-19T15:49:24+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 30000, "stage": "workflow-planner"}
+{"ts": "2026-05-19T15:53:06+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 64231, "wall_min": 3.5, "stage": "workflow-planner"}
+{"ts": "2026-05-19T15:53:06+00:00", "evt": "stage_complete", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "stage": "workflow-planner", "next_stage": "code-generator", "reason": null}
+{"ts": "2026-05-19T15:55:31+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 80000, "stage": "code-generator"}
+{"ts": "2026-05-19T20:05:06+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 143465, "wall_min": 12.0, "stage": "code-generator"}
+{"ts": "2026-05-19T20:05:23+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 25000, "stage": "build-test-agent"}
+{"ts": "2026-05-19T20:09:43+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 51644, "wall_min": 1.6, "stage": "build-test-agent"}
+{"ts": "2026-05-19T20:09:46+00:00", "evt": "stage_complete", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "stage": "build-test-agent", "next_stage": "review", "reason": null}
+{"ts": "2026-05-19T20:16:55+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 30000, "stage": "reviewer-code"}
+{"ts": "2026-05-19T20:16:55+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 30000, "stage": "reviewer-security"}
+{"ts": "2026-05-19T20:16:55+00:00", "evt": "spawn_start", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "tokens_estimate": 20000, "stage": "reviewer-simplifier"}
+{"ts": "2026-05-19T20:19:32+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 57366, "wall_min": 2.2, "stage": "reviewer-code"}
+{"ts": "2026-05-19T20:19:32+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 50603, "wall_min": 2.1, "stage": "reviewer-security"}
+{"ts": "2026-05-19T20:19:33+00:00", "evt": "spawn_end", "run_id": "2026-05-19t15-11-46z-api-key-fallback", "status": "complete", "tokens": 44344, "wall_min": 1.2, "stage": "reviewer-simplifier"}

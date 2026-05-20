@@ -1,0 +1,51 @@
+status: needs_human
+depth: comprehensive
+task_count: 38
+unit_count: 5
+mermaid_validated: true
+artifacts:
+  - path: aidlc-docs/inception/plans/2026-05-19t09-35-00z-thermia-mvp-execution-plan.md
+    kind: plan
+units:
+  - name: db-layer
+    description: PostgreSQL schema, SQLAlchemy Document model with pgvector(1024), Alembic migrations, SSH tunnel connection factory
+    depends_on: []
+  - name: ingestion-pipeline
+    description: Manual ingest.py script — clone legalize-es, parse Markdown legal structure, chunk articles, embed via Cohere, upsert to documents table
+    depends_on:
+      - db-layer
+  - name: retrieval-api
+    description: FastAPI POST /analyze — auth middleware, pdfplumber extraction, legal guard, intent detection, vector+BM25+RRF search, context builder, LangChain Groq chain, structured response
+    depends_on:
+      - db-layer
+  - name: frontend
+    description: Angular 21.2.0 single-view SPA — PDF upload, Analizar button, results renderer (3 sections), error states, DESIGN.md styling
+    depends_on:
+      - retrieval-api
+  - name: docker-infra
+    description: Dockerfiles for thermia-back + thermia-front, docker-compose.yml, nginx.conf, .env.example files, monorepo README
+    depends_on:
+      - retrieval-api
+      - ingestion-pipeline
+audit_entries:
+  - "[Skill] using-agent-skills: PASS — skill file resolved; process followed"
+  - "[Skill] planning-and-task-breakdown: PASS — 38 tasks across 5 units; every task has ≥2 acceptance criteria; task IDs consistent"
+  - "[Skill] requirements-intelligence (plan-stage): PASS — pre-mortem on plan surfaced 3 risks: Cohere input_type mismatch, vector dimension contract, BM25 Spanish tokenization quality"
+  - "[PlanPreMortem] PR-1: Cohere input_type mismatch silently breaks vector search — mitigation: smoke test at ingestion time"
+  - "[PlanPreMortem] PR-2: db-layer vector dimension contract breaks L1 — mitigation: retrieval-api validates dimension at startup"
+  - "[PlanPreMortem] PR-3: BM25 Spanish tokenization — weakest AC in API-T7 — mitigation: assert ts_rank_cd > 0 for known legal phrase"
+  - "[MermaidValidated] graph TD diagram generated; syntax checked (no unescaped special chars, fenced blocks correct)"
+  - "[Coverage] all 10 requirements ACs covered by task ACs"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "skill file at .agents/skills/using-agent-skills/SKILL.md; process followed; rationalizations checked"
+  - skill: planning-and-task-breakdown
+    status: PASS
+    evidence: "38 tasks; 5 units; every leaf task has ≥2 AC; no task without a verifiable outcome; depends_on[] forms a valid DAG"
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: "plan-stage variant applied; pre-mortem identified 3 risks; all surfaced in plan doc §Pre-Mortem Risk Questions"
+emitted_knowledge: []
+conflicts_detected: []
+locks_to_release: []

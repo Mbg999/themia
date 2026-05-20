@@ -1,0 +1,17 @@
+thermia-back/app/retrieval/embedder.py:
+  symbols:
+    get_cohere_pool:
+      kind: function
+      args: []
+      returns: KeyPool
+    _get_client:
+      kind: function
+      args: []
+      returns: cohere.Client
+    get_query_embedding:
+      kind: function
+      args:
+      - text
+      returns: list[float]
+  lang: python
+  captured_at: '2026-05-20T11:27:39+00:00'

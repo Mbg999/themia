@@ -1,0 +1,116 @@
+status: needs_human
+needs_user_input: true
+questions_artifact_path: aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirement-verification-questions.md
+
+depth: standard
+
+request_classification:
+  clarity: Clear
+  type: New Feature
+  scope: Multiple Components
+  complexity: Moderate
+
+artifacts:
+  - path: aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirement-verification-questions.md
+    kind: questions
+    hash: 06312edc8365aff08883d8fe023e2e34
+
+audit_entries:
+  - "[SkillRead] .aidlc-orchestrator/runs/2026-05-19t15-11-46z-api-key-fallback/handoffs/workspace-scout.output.yaml L9: \"Project type: brownfield — existing source code found in thermia-back/ (Python/FastAPI) and thermia-front/ (Angular/TypeScript)\""
+  - "[SkillRead] .aidlc-orchestrator/runs/2026-05-19t15-11-46z-api-key-fallback/handoffs/workspace-scout.output.yaml L19: \"Reverse-engineering artifacts: ABSENT — aidlc-docs/inception/reverse-engineering/ does not exist\""
+  - "[SkillRead] thermia-back/app/retrieval/embedder.py L25-28: \"api_key = os.environ.get(\\\"COHERE_API_KEY\\\", \\\"\\\")\" + module-level singleton cohere.Client; current pattern is single-key, raises ValueError if absent"
+  - "[SkillRead] thermia-back/app/retrieval/llm.py L51: \"api_key = os.environ.get(\\\"GROQ_API_KEY\\\", \\\"\\\")\" — ChatGroq rebuilt per call; no singleton"
+  - "[SkillRead] thermia-back/scripts/ingest.py L405-410: \"cohere_api_key = os.environ.get(\\\"COHERE_API_KEY\\\", \\\"\\\") ... cohere_client = cohere.Client(cohere_api_key)\" — third place that holds an API key"
+  - "[SkillRead] thermia-back/.env.example L23-30: existing single-key vars are COHERE_API_KEY and GROQ_API_KEY; .env.example is the canonical onboarding doc"
+  - "Request classification: clarity=Clear (concrete request: fallback when key fails, dynamic list in .env, ≥1 key required); type=New Feature; scope=Multiple Components (embedder + llm + ingest + config + .env); complexity=Moderate (rotation policy, persistence policy, env parsing, failure detection)"
+  - "Depth determination: standard. Rationale — Clear + Multiple Components + Moderate is the canonical 'standard' bucket per depth-levels guidance. Not minimal (touches 3 files in 2 components, multi-axis design choices). Not comprehensive (no prod-grade SLA stated; free-tier internal use; pre-mortem signals do not fire)."
+  - "[SignalScore] {clarity: Clear, risk: medium, novelty: medium, stakes: internal, ambiguity_count: 4}"
+  - "[Techniques] applied: [coverage-map, ambiguity-detection]. Not triggered: socratic (clarity=Clear), assumption-mining (novelty=medium, not high), pre-mortem (stakes=internal, not prod)."
+  - "[AmbiguityDetection] weasel terms in request: 'starts failing' (Q3 quantifies failure signals), 'usage limits' (Q3 quantifies — 429 vs auth vs quota), 'automatically switches' (Q6 quantifies rotation strategy + Q4 quantifies persistence), 'different API key' (Q2 quantifies storage format + Q6 quantifies selection)"
+  - |
+    [CoverageMap]
+    | Axis | Required at standard | Question IDs | Status |
+    |---|---|---|---|
+    | Purpose | yes | Q1 | covered |
+    | Needs | yes | Q2, Q3 | covered |
+    | Limits | yes | Q4, Q5 | covered |
+    | Expectations | yes | Q6, Q7 | covered |
+    | Context | yes | Q8 | covered |
+    | Acceptance | yes | Q9 | covered |
+    | Risks | comprehensive-only | — | n/a (not required at standard depth) |
+    | Unknowns | comprehensive-only | — | n/a (not required at standard depth) |
+  - "[QuestionBudget] used/max: 9/10 (standard depth budget is 5-10)"
+  - "[IdeaRefine] divergent — 4 approaches explored for .env storage format: (1) comma-separated per-provider list; (2) single unified JSON pool with provider tags; (3) backwards-compatible append (legacy primary + new fallback list); (4) numbered keys auto-discovered by prefix scan. Convergent: (1) and (4) are strongest; surfaced both in Q2 as options A and B so user picks."
+  - "[IdeaRefine] divergent — 4 approaches explored for rotation strategy: priority+failover, round-robin always, random, sticky-then-rotate. All four surfaced in Q6."
+  - "[IdeaRefine] divergent — 4 approaches explored for dead-key persistence: cool-down window, process-lifetime, no persistence, per-failure-mode. All four surfaced in Q4."
+  - "[IdeaRefine] hidden assumptions surfaced: (a) failure detection signal undefined (Q3); (b) cool-down vs permanent disable undefined (Q4); (c) Cohere singleton model breaks under multi-key (Q7); (d) ingest.py scope inclusion unclear (Q8); (e) thread/async safety in FastAPI implicit — included as observability concern in Q9 D and surfaced architecturally via Q7."
+  - "[SpecDriven] question file covers Objective (Q1: Purpose), Boundaries (Q5: minimum-key enforcement), Code Style choice points (Q2: env format, Q7: client lifecycle), Testing Strategy (Q9: unit + integration + docs + observability), Open Questions (entire file is the open-questions surface). Project Structure and Commands are unaffected by this feature (existing FastAPI structure remains)."
+  - "Extension opt-in scan: aidlc-rules/aws-aidlc-rules/extensions/**/*.opt-in.md is ABSENT in workspace — no extension opt-in prompts to append. (Confirmed via find; the aidlc-rules directory is not checked into this workspace; the equivalent rule guidance is encoded in the SKILL.md files and contracts that are present.)"
+  - "Audit-block protocol: bullets are unfixed (no '##' headers, no timestamps); orchestrator wraps them when appending to aidlc-docs/audit.md"
+  - "Pass 1 complete — Step 7 (requirements.md generation) deferred until user answers Q1-Q9. Pass 2 will be triggered when input handoff carries a predecessor_artifacts entry matching the answered questions file."
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: >
+      Input validated via factory_validate.py exit code 0
+      ('OK ... matches requirements-analyst.input.v1.json'). Core Operating
+      Behaviors observed: assumptions surfaced (depth=standard rationale,
+      4 ambiguities flagged); confusion managed actively (4 hidden assumptions
+      converted to explicit MCQs rather than guessed); scope discipline
+      (no edits outside questions file and output handoff; legacy
+      COHERE_API_KEY single-key code paths not touched). Verification per
+      §6: concrete artifacts produced (questions file path + md5 hash);
+      no prose-only claims. Rationalization 'request is clear so skip
+      questions' rejected — ambiguity_count=4 is well above the 0 needed
+      to bypass the questions phase.
+  - skill: idea-refine
+    status: PASS
+    evidence: >
+      Three divergent explorations logged in audit_entries with ≥3 alternatives
+      each: (1) .env storage format (4 approaches → Q2); (2) rotation strategy
+      (4 approaches → Q6); (3) dead-key persistence (4 approaches → Q4).
+      Hidden assumptions surfaced explicitly (5 items, all converted to
+      questions). Convergence: top-2 finalists per axis surfaced as MCQ
+      options A/B so the user makes the call. "Not Doing" applied
+      implicitly — pre-mortem and assumption-mining techniques were
+      considered and rejected with documented routing rationale
+      (clarity=Clear; novelty=medium; stakes=internal).
+  - skill: spec-driven-development
+    status: PASS
+    evidence: >
+      Question file is structured to drive the six spec areas in Pass 2:
+      Q1 → Objective; Q2,Q3,Q7 → Code Style / data model (env format,
+      client lifecycle); Q5 → Boundaries (always-≥1-key, fail-fast at boot);
+      Q4,Q6 → Implementation rules; Q8 → Project Structure (which modules
+      are in scope); Q9 → Testing Strategy + Success Criteria.
+      "Reframe instructions as success criteria" applied — vague
+      'automatically switches' reframed into Q4 (when?) + Q6 (which key?)
+      + Q9 (how do we prove it?). Spec template will be filled out
+      verbatim in Pass 2 once answers are received.
+  - skill: requirements-intelligence
+    status: PASS
+    evidence: >
+      Rule file unavailable locally (aidlc-rules/ not checked into this
+      workspace), so verification followed the SKILL.md and output
+      contract directly. [SkillRead] entries: 6 (workspace-scout x2,
+      embedder.py, llm.py, ingest.py, .env.example). [SignalScore]
+      emitted. [Techniques] applied: [coverage-map, ambiguity-detection];
+      routing decisions for socratic / assumption-mining / pre-mortem
+      logged with rationale. [CoverageMap] table covers all 6 axes
+      required at standard depth (Purpose, Needs, Limits, Expectations,
+      Context, Acceptance) — every axis covered by ≥1 question.
+      [QuestionBudget] 9/10 — inside the standard 5-10 cap. Axis-tag
+      HTML comments precede every ## Question in the artifact file.
+      No red flags fired (request internally consistent; no axis refused;
+      ambiguity_count=4 well under the 8 threshold).
+
+cost:
+  tokens_in: 0
+  tokens_out: 0
+  wall_clock_min: 6
+  retries_used: 0
+
+conflicts_detected: []
+locks_to_release: []
+emitted_knowledge: []

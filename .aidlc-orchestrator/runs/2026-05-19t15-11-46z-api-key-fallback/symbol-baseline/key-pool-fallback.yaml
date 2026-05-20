@@ -1,0 +1,85 @@
+thermia-back/app/retrieval/embedder.py:
+  symbols:
+    _get_client:
+      kind: function
+      args: []
+      returns: cohere.Client
+    get_query_embedding:
+      kind: function
+      args:
+      - text
+      returns: list[float]
+  lang: python
+  captured_at: '2026-05-19T15:55:09+00:00'
+thermia-back/app/retrieval/llm.py:
+  symbols:
+    analyze_with_llm:
+      kind: function
+      args:
+      - context
+      - query
+      returns: dict
+  lang: python
+  captured_at: '2026-05-19T15:55:09+00:00'
+thermia-back/scripts/ingest.py:
+  symbols:
+    _count_tokens:
+      kind: function
+      args:
+      - text
+      returns: int
+    build_embedding_text:
+      kind: function
+      args: []
+      returns: str
+    chunk_article:
+      kind: function
+      args:
+      - text
+      returns: list[dict[str, Any]]
+    parse_legal_structure:
+      kind: function
+      args:
+      - md_text
+      returns: list[dict[str, Any]]
+    _derive_law_id:
+      kind: function
+      args:
+      - source_file
+      - law_title
+      returns: str
+    _extract_year:
+      kind: function
+      args:
+      - source_file
+      - law_title
+      returns: str
+    generate_embeddings:
+      kind: function
+      args:
+      - cohere_client
+      - texts
+      returns: list[list[float]]
+    upsert_documents:
+      kind: function
+      args:
+      - session_maker
+      - chunks
+      returns: None
+    _clone_or_pull:
+      kind: function
+      args:
+      - repo_dir
+      returns: None
+    _scan_md_files:
+      kind: function
+      args:
+      - repo_dir
+      returns: list[Path]
+    main:
+      kind: function
+      args:
+      - argv
+      returns: None
+  lang: python
+  captured_at: '2026-05-19T15:55:09+00:00'

@@ -1,0 +1,44 @@
+run_id: 2026-05-19t15-11-46z-api-key-fallback
+stage_id: reviewer-code
+reviewer: code-quality
+user_request: >
+  We are using API keys from free-tier Cohere and Groq accounts. I need you to create
+  a fallback system so that if one account starts failing due to usage limits, the
+  application automatically switches to a different API key. Use a dynamic list of
+  API keys stored in the .env file. It should support adding as many API keys as
+  needed, with no hard limit, but there must always be at least one key available.
+predecessor_artifacts:
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/.env.example
+scope_paths:
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/.env.example
+skills_required:
+  - using-agent-skills
+  - code-review-and-quality
+  - fastapi-python
+  - python-testing-patterns
+  - api-and-interface-design
+  - security-and-hardening
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/code-review-and-quality/SKILL.md
+  - .agents/skills/fastapi-python/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/api-and-interface-design/SKILL.md
+  - .agents/skills/security-and-hardening/SKILL.md
+budget:
+  tokens_max: 60000
+  wall_clock_max_min: 15
+  retries_max: 1
+gates: []
+context_pointers: []
+locks_required: []

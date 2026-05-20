@@ -1,0 +1,56 @@
+status: complete
+artifacts:
+  - path: aidlc-docs/aidlc-state.md
+    kind: state
+workspace_state:
+  project_type: brownfield
+  existing_code: true
+  next_phase: reverse-engineering
+  reverse_engineering_artifacts_present: false
+  programming_languages:
+    - Python
+    - TypeScript
+    - SQL
+  project_structure: monorepo
+  workspace_root: /Users/miguel.belmonte/Desktop/thermia
+  workspace_dirs:
+    - "."
+    - thermia-front
+    - thermia-back
+  tech_stack:
+    - package: fastapi
+      version: "0.115.0"
+      ecosystem: pip
+    - package: sqlalchemy
+      version: "2.0.0"
+      ecosystem: pip
+    - package: pgvector
+      version: "0.3.0"
+      ecosystem: pip
+    - package: langchain
+      version: "0.3.0"
+      ecosystem: pip
+    - package: alembic
+      version: "1.13.0"
+      ecosystem: pip
+    - package: "@angular/core"
+      version: "21.2.0"
+      ecosystem: npm
+  codegraph_state:
+    indexed: true
+    nodes: 1092
+    files: 61
+    backend: native
+audit_entries:
+  - "[WorkspaceScout] project_type: brownfield — existing code in thermia-back/ (FastAPI/SQLAlchemy) and thermia-front/ (Angular 21)"
+  - "[WorkspaceScout] next_phase: reverse-engineering — aidlc-docs/inception/reverse-engineering/ is absent"
+  - "[WorkspaceScout] existing AIDLC runs detected: thermia-mvp, api-key-fallback — this is a new run for a metadata refactor"
+  - "[Workspaces] 3 workspace(s) detected: ., thermia-front/, thermia-back/"
+  - "[Stack] best-effort: fastapi, sqlalchemy, pgvector, langchain, alembic (pip); @angular/core@21.2 (npm)"
+  - "[CodeGraph] active — nodes: 1092, files: 61, backend: native"
+  - "[Skill] using-agent-skills PASS — workspace scanned via find+ls; tech stack extracted from requirements.txt; workspace dirs identified; codegraph status queried"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Ran find for manifest files (3 workspace dirs); ls on thermia-back/app/, thermia-back/scripts/, thermia-back/alembic/versions/; codegraph status --json (1092 nodes, 61 files); validated aidlc-docs/inception/ structure"
+emitted_knowledge: []

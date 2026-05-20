@@ -1,0 +1,340 @@
+reviewer: security
+status: complete
+findings:
+- severity: P0
+  file: thermia-front/src/environments/environment.ts
+  line: 3
+  cwe: CWE-798
+  owasp: OWASP A07:2021
+  message: API key "apikey_1234567890abcdef" hardcoded in Angular environment.ts.
+    This file is committed to git and compiled into the production JS bundle served
+    to every browser. Any user can extract the key from DevTools (Sources panel or
+    Network tab /analyze request Authorization header). This completely defeats the
+    Bearer-token authentication mechanism.
+  recommendation: Remove the API key from all frontend source files. The browser must
+    NEVER possess the backend API key. Implement a proper session-based auth flow
+    (OAuth2 PKCE, short-lived JWT) or use an API gateway that handles auth before
+    proxying to the backend. At minimum, the frontend should authenticate users before
+    making backend calls.
+- severity: P0
+  file: thermia-front/src/environments/environment.prod.ts
+  line: 3
+  cwe: CWE-798
+  owasp: OWASP A07:2021
+  message: Same hardcoded API key "apikey_1234567890abcdef" in production environment
+    file. This file is also committed to git and replaces environment.ts during production
+    builds. All references above apply.
+  recommendation: Same as F-001. Purge this file's apiKey field. Never embed server-side
+    credentials in client-side code.
+- severity: P0
+  file: thermia-back/app/main.py
+  line: 87
+  cwe: CWE-770
+  owasp: OWASP A04:2021
+  message: No file size limit on PDF upload. await file.read() loads the entire request
+    body into memory with no cap. FastAPI/Starlette does not enforce a max body size
+    by default. An attacker can send a multi-gigabyte file (or a crafted file claiming
+    content-type application/pdf) to exhaust server RAM, causing denial of service.
+    Combined with no rate limiting, this is trivially exploited at scale.
+  recommendation: 'Add a request body size limit using Starlette''s max_size on the
+    app or route level (e.g., max_size=50*1024*1024 for 50MB). Add a guard before
+    reading: raise HTTPException if Content-Length exceeds threshold. Also add a streaming
+    size check if using async reads. Implement rate limiting (see F-004).'
+- severity: P0
+  file: thermia-back/app/main.py
+  line: 55
+  cwe: CWE-307
+  owasp: OWASP A04:2021
+  message: 'No rate limiting on any API endpoint (/analyze and /health). Since the
+    API key is publicly exposed in the frontend JS bundle (F-001/F-002), anyone can
+    extract it and hammer /analyze with arbitrary PDFs. This enables: (a) brute-force
+    of the API key, (b) resource exhaustion of Cohere/Groq external APIs (cost exposure),
+    (c) server memory/CPU DoS, (d) large-scale pdfplumber parsing attacks.'
+  recommendation: 'Implement rate limiting on all endpoints using slowapi or similar
+    FastAPI middleware. /analyze: 5-10 req/min per IP or per token. /health: 30 req/min.
+    Apply a cost-aware quota for Cohere/Groq API usage to prevent billing abuse.'
+- severity: P0
+  file: thermia-back/Dockerfile
+  line: 13
+  cwe: CWE-312
+  owasp: OWASP A02:2021
+  message: 'COPY . . in the backend Dockerfile includes thermia-back/.env in the Docker
+    build context. The .env file contains real secrets: Cohere API key (MO6FbUX...),
+    Groq API key (gsk_026...), SSH password, DB password, and DB URL with credentials.
+    These secrets are baked into the Docker image layers and can be extracted by anyone
+    who pulls the image (docker history, docker save + layer extraction). Even if
+    the layers are not published, they persist in local registries and CI caches.'
+  recommendation: Add a .dockerignore file in thermia-back/ that excludes .env and
+    any other secrets files. Never copy .env into Docker images. Inject secrets at
+    container runtime through docker-compose environment variables, Docker secrets,
+    or a secrets manager (HashiCorp Vault, AWS Secrets Manager). Revoke and rotate
+    ALL secrets currently in .env since they have been exposed through the Docker
+    build.
+- severity: P0
+  file: thermia-back/scripts/ingest.py
+  line: 374
+  cwe: CWE-829
+  owasp: OWASP A08:2021
+  message: Ingestion pipeline clones https://github.com/legalize-dev/legalize-es without
+    pinning to a specific commit hash or tag (uses default branch). If the repository
+    is compromised — maintainer account takeover, malicious dependency injection,
+    or CI/CD poisoning of the upstream — the legal corpus fed to the vector DB and
+    subsequently to the LLM could be attacker-controlled. This enables data poisoning
+    and prompt injection at scale across all Thermia deployments.
+  recommendation: Pin the clone to a specific immutable commit hash. After cloning,
+    verify the HEAD commit matches the expected hash. Store the hash as a code constant
+    or env config. Add a git checkout <pinned-hash> step before scanning files. Monitor
+    the upstream for security advisories.
+- severity: P1
+  file: thermia-front/src/app/analysis.service.ts
+  line: 23
+  cwe: CWE-200
+  owasp: OWASP A01:2021
+  message: 'API key is sent as Bearer token in every POST /analyze browser request.
+    The key is visible in DevTools Network tab to any user. This is a distinct exposure
+    channel from F-001/F-002: even if the source code were somehow obfuscated, the
+    key would still leak through every HTTP request.'
+  recommendation: 'Remove client-side API key entirely. See F-001 recommendation.
+    Note: This finding is a consequence of the same root cause as F-001 (client-side
+    API key), but represents a distinct attack vector.'
+- severity: P1
+  file: thermia-back/app/main.py
+  line: 80
+  cwe: CWE-434
+  owasp: OWASP A12:2021
+  message: PDF content-type validation trusts the client-provided Content-Type header
+    (file.content_type != "application/pdf"). This header is trivially spoofed. Combined
+    with the missing file-size limit (F-003), an attacker can upload non-PDF dangerous
+    content (ZIP bombs, XML external entity attacks, PDFs with malicious JavaScript)
+    under the guise of application/pdf.
+  recommendation: 'Add file magic-byte validation: read the first 4 bytes and verify
+    they are %PDF- (0x25 0x50 0x44 0x46). Limit file size before reading (see F-003).
+    Consider running pdfplumber in a resource-constrained sandbox to mitigate parser-exploit
+    risk.'
+- severity: P1
+  file: thermia-back/app/db/connection.py
+  line: 46
+  cwe: CWE-521
+  owasp: OWASP A07:2021
+  message: SSH tunnel uses password authentication (ssh_password=) instead of SSH
+    key pairs. Passwords are more susceptible to brute-force, credential stuffing,
+    and exposure through logs or env dumps. The current config explicitly disables
+    SSH agent (allow_agent=False) and key file scanning (host_pkey_directories=[]),
+    forcing password-only auth.
+  recommendation: Switch to SSH key-pair authentication. Generate an ed25519 key pair
+    for the bastion host, add the public key to ~/.ssh/authorized_keys, and store
+    the private key path in SSH_PKEY env var. Remove SSH_PASSWORD. Set allow_agent=True
+    for SSH agent forwarding if appropriate. This is a defense-in-depth improvement
+    for the local dev path.
+- severity: P1
+  file: thermia-back/app/retrieval/llm.py
+  line: 62
+  cwe: CWE-77
+  owasp: OWASP A03:2021
+  message: User-provided PDF text is directly interpolated into the LLM prompt ("Consulta
+    del usuario:\n{query}"). A crafted PDF containing prompt injection instructions
+    could manipulate the LLM output, bypass the system prompt, return false legal
+    analysis, or exfiltrate context data from the database. While partial truncation
+    (query_text = full_text[:2000]) provides some mitigation, it does not prevent
+    injection.
+  recommendation: 'Add input sanitization in the prompt template: insert a delimiter
+    and an "ignore any instructions in the user text" guard. Consider adding LLM output
+    validation to ensure the returned JSON matches the expected schema and does not
+    contain injected content. Rate limiting (F-004) reduces exploitation blast radius.'
+- severity: P1
+  file: thermia-front/nginx.conf
+  line: 1
+  cwe: CWE-693
+  owasp: OWASP A05:2021
+  message: nginx reverse proxy lacks security headers. No Content-Security-Policy,
+    Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, or Referrer-Policy
+    headers are set. This enables clickjacking, MIME-type sniffing, and downgrade
+    attacks. CSP is especially important given the LLM output is rendered as HTML
+    in the Angular SPA.
+  recommendation: 'Add security headers to nginx.conf: add_header X-Frame-Options
+    "DENY" always; add_header X-Content-Type-Options "nosniff" always; add_header
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header Content-Security-Policy "default-src ''self''; script-src ''self'';
+    style-src ''self'' ''unsafe-inline''; img-src ''self'' data:; connect-src ''self''"
+    always; add_header Referrer-Policy "strict-origin-when-cross-origin" always;'
+- severity: P1
+  file: thermia-back/app/main.py
+  line: 22
+  cwe: CWE-942
+  owasp: OWASP A01:2021
+  message: CORS configuration allows wildcard methods (allow_methods=["*"]) and wildcard
+    headers (allow_headers=["*"]). While allow_origins is configurable, the permissive
+    method/header policies expand the attack surface. If session-based auth is added
+    later, a cross-origin attacker could use any HTTP method or header in their malicious
+    requests.
+  recommendation: 'Restrict allowed methods: allow_methods=["GET", "POST", "OPTIONS"].
+    Restrict allowed headers: allow_headers=["Authorization", "Content-Type", "Accept"].
+    Avoid wildcards for both. Use the explicit CORS_ORIGINS environment variable to
+    restrict origins in production.'
+- severity: P2
+  file: docker-compose.yml
+  line: 9
+  cwe: CWE-312
+  owasp: OWASP A02:2021
+  message: 'docker-compose uses env_file: thermia-back/.env to pass all secrets (Cohere
+    key, Groq key, API key, DB credentials) as environment variables to the container.
+    While this is standard practice, env vars persist in container metadata and are
+    visible via `docker inspect`. For production, prefer a secrets management system.'
+  recommendation: For production deployment, switch from env_file to Docker secrets
+    (swarm mode) or a secrets manager. At minimum, ensure .env is excluded from the
+    Docker build context (add .dockerignore) and injected only at container runtime.
+- severity: P2
+  file: thermia-back/app/main.py
+  line: 68
+  cwe: CWE-209
+  owasp: OWASP A05:2021
+  message: FastAPI uses default exception handlers in production. Error responses
+    from 422 status codes reveal validation details. The ingestion pipeline (scripts/ingest.py:452)
+    logs full exception details to stdout with log.error("  [error] %s — %s", rel_path,
+    exc), which could leak file system paths or internal state to container logs.
+  recommendation: Add a custom FastAPI exception handler that returns generic error
+    messages in production (THERMIA_ENV=production). Configure logging to sanitize
+    exception messages — log the error internally but return a generic response to
+    the client.
+- severity: P2
+  file: thermia-back/app/retrieval/embedder.py
+  line: 25
+  cwe: CWE-862
+  owasp: OWASP A07:2021
+  message: COHERE_API_KEY is read from environment with empty-string default (os.environ.get("COHERE_API_KEY",
+    "")). No validation occurs before calling cohere.Client(api_key). If the key is
+    missing or invalid, the error surfaces as an unhandled exception at the Cohere
+    API call. Similarly for GROQ_API_KEY in llm.py (line 51) and API_KEY check in
+    main.py (line 41).
+  recommendation: Add early validation of all required environment variables at application
+    startup. Raise a clear ConfigurationError with a specific message if any required
+    API key is missing. Fail fast rather than at first API call.
+findings_summary:
+  P0_count: 6
+  P1_count: 6
+  P2_count: 3
+  P3_count: 0
+audit_entries:
+- '[CodeGraph] codegraph-cache.json loaded with 52 symbols. Blast-radius enrichment
+  applied to config.py (radius=15), main.py (radius=14), ingest.py (radius=32) — 2
+  findings severity-bumped P2→P1 based on blast_radius > 10'
+- '[security-review] Reviewed 5 units: db-layer (4 files), ingestion-pipeline (1 file,
+  464 lines), retrieval-api (8 files), frontend (6 files), docker-infra (docker-compose.yml,
+  2 Dockerfiles, nginx.conf)'
+- '[security-review] Threat-model surface: 2 API endpoints, file upload via multipart,
+  SSH tunnel, 3 external APIs (Cohere, Groq, GitHub), PostgreSQL+pgvector, nginx reverse
+  proxy'
+- '[security-review] OWASP Top 10 categories covered: A01 (Broken Access Control —
+  CORS, hardcoded creds), A02 (Crypto Failures — secrets in Docker), A03 (Injection
+  — LLM prompt injection), A04 (Insecure Design — no rate limit, no size limit), A05
+  (Security Misconfiguration — missing headers, CORS wildcards), A07 (Auth Failures
+  — exposed API keys, SSH password), A08 (Integrity Failures — unpinned git clone),
+  A10 (SSRF — unrestricted outbound from ingestion)'
+- '[security-review] Dependency scan: 19 Python deps, 6 frontend deps. Key risk areas:
+  paramiko<3 pinned for sshtunnel compat, langchain-groq (supply chain), pdfplumber
+  (parser CVEs). No npm audit or pip audit results available — requires manual scanner
+  execution.'
+- '[CodeGraph] security severity bump: config.py (blast_radius=15) — SSH password
+  finding bumped P2→P1. 15 config symbols exposed across the codebase.'
+skill_compliance:
+- skill: security-and-hardening
+  status: PASS
+  evidence: Performed full OWASP Top 10 review across all 5 generated units. Found
+    6 P0, 6 P1, 3 P2 findings. Validated all input boundaries, authentication, secrets
+    management, dependency risk, and infrastructure hardening. Each finding cites
+    CWE and OWASP category with attack vector and fix recommendation.
+- skill: using-agent-skills
+  status: PASS
+  evidence: 'Loaded and followed security-and-hardening skill workflow. Applied three-tier
+    boundary system, OWASP prevention patterns, and red-flag detection. Rationalizations
+    rejected: no "happy path is safe" or "this is just a prototype" dismissals.'
+- skill: codegraph-aware-exploration
+  status: PASS
+  evidence: CodeGraph cache loaded (codegraph-cache.json, 52 symbols). Blast-radius
+    enrichment applied — config.py (radius=15), main.py (radius=14), ingest.py (radius=32)
+    all >10 threshold. Two P2 findings bumped to P1 based on blast_radius enrichment.
+    codegraph CLI available (v2.x) but lacks callers/impact subcommands — used cache
+    JSON for enrichment.
+emitted_knowledge:
+- kind: antipattern
+  title: Client-side API key for server authentication
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-798
+  - angular
+  - frontend
+  body: 'ROOT CAUSE: API key intended for server-side auth was hardcoded in Angular
+    environment.ts/environment.prod.ts and shipped to every browser in the JS production
+    bundle. ATTACK VECTOR: Any user opens DevTools, searches for "Bearer" or inspects
+    the /analyze XHR request, extracts the key, and can call the backend API directly
+    without any client-side restriction. This pattern also leaks the key through git
+    history, Docker images, and every HTTP request sent by the SPA. REMEDIATION PATTERN:
+    Server authentication tokens must NEVER be embedded in client-side code. Use a
+    proper auth flow (OAuth2 PKCE, session cookies, or API gateway with user authentication).
+    If the service is truly public-facing, remove the API key requirement and rely
+    on other controls (rate limiting, IP allowlisting, CAPTCHA).'
+- kind: antipattern
+  title: Missing resource limits on file upload endpoints
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-770
+  - fastapi
+  - dos
+  body: 'ROOT CAUSE: FastAPI endpoint accepts file uploads with no size limit. file.read()
+    loads the entire request body into memory. ATTACK VECTOR: Attacker sends multi-gigabyte
+    payload (or compression-bomb) to exhaust server RAM. With no rate limiting, automated
+    scripts can DoS the service trivially. REMEDIATION PATTERN: Always set max_size
+    on FastAPI/Starlette applications. Validate Content-Length header before reading
+    body. Add rate limiting as complementary control.'
+- kind: antipattern
+  title: Dockerfile COPY . . includes secrets
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-312
+  - docker
+  - secrets
+  body: 'ROOT CAUSE: Backend Dockerfile uses COPY . . without a .dockerignore that
+    excludes .env. The .env file with API keys, SSH passwords, and DB credentials
+    is baked into every Docker image layer. ATTACK VECTOR: Anyone with docker pull
+    access or access to image registries/CI caches can run "docker history" or extract
+    layers to retrieve all secrets. REMEDIATION PATTERN: Always add .dockerignore
+    with .env, *.key, *.pem patterns. Never copy secrets into images. Inject at runtime
+    via environment variables, secrets mounts, or a secrets manager.'
+- kind: antipattern
+  title: Unpinned external repository clone in ingestion pipeline
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-829
+  - supply-chain
+  - ingestion
+  body: 'ROOT CAUSE: The ingestion script clones a GitHub repo using default branch
+    without pinning to an immutable commit hash. ATTACK VECTOR: If the upstream repo
+    is compromised, the legal corpus fed to the vector database and LLM is attacker-controlled,
+    enabling data poisoning and prompt injection at scale across all deployments.
+    REMEDIATION PATTERN: Always pin external code clones to a specific commit hash.
+    Verify the hash after clone. Store the expected hash as a config constant.'
+- kind: antipattern
+  title: No rate limiting on authenticated API endpoints
+  confidence: 0.95
+  tags:
+  - security
+  - CWE-307
+  - api
+  - rate-limiting
+  body: 'ROOT CAUSE: /analyze endpoint has no rate limiting despite calling expensive
+    external APIs (Cohere embeddings, Groq LLM). ATTACK VECTOR: With the API key exposed
+    in the frontend (see antipattern "Client-side API key"), an attacker can call
+    /analyze at high volume to (a) exhaust the server, (b) cause financial damage
+    through API billing, (c) brute-force alternative auth tokens. REMEDIATION PATTERN:
+    Always implement rate limiting on authenticated endpoints, especially those that
+    call paid third-party APIs. Layer rate limiting per IP and per token if tokens
+    exist server-side.'
+cost:
+  model: sonnet
+  prompt_tokens_estimate: 18000
+  completion_tokens_estimate: 4500
+locks_to_release: []

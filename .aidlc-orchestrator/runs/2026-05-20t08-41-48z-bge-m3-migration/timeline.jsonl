@@ -1,0 +1,24 @@
+{"ts": "2026-05-20T08:42:30+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 15000, "stage": "workspace-scout"}
+{"ts": "2026-05-20T08:46:46+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "complete", "tokens": 15000, "wall_min": 3.5, "stage": "workspace-scout"}
+{"ts": "2026-05-20T08:46:51+00:00", "evt": "stage_complete", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "stage": "workspace-scout", "next_stage": "project-profile", "reason": null}
+{"ts": "2026-05-20T09:06:05+00:00", "evt": "user_decision", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "decision": "run-reverse-engineer", "reason": "User selected Run reverse-engineer first for bge-m3 migration", "stage": "reverse-engineer"}
+{"ts": "2026-05-20T09:06:26+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 30000, "stage": "reverse-engineer"}
+{"ts": "2026-05-20T09:10:52+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "complete", "tokens": 30000, "wall_min": 5.0, "stage": "reverse-engineer"}
+{"ts": "2026-05-20T09:10:58+00:00", "evt": "stage_complete", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "stage": "reverse-engineer", "next_stage": "requirements-analyst", "reason": null}
+{"ts": "2026-05-20T09:11:46+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 25000, "stage": "requirements-analyst"}
+{"ts": "2026-05-20T09:56:03+00:00", "evt": "user_answers_received", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "summary": "8 answers received for bge-m3 migration questions", "stage": "requirements-analyst"}
+{"ts": "2026-05-20T10:00:39+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "complete", "tokens": 25000, "wall_min": 4.0, "stage": "requirements-analyst"}
+{"ts": "2026-05-20T10:00:46+00:00", "evt": "stage_complete", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "stage": "requirements-analyst", "next_stage": "workflow-planner", "reason": null}
+{"ts": "2026-05-20T10:01:11+00:00", "evt": "orchestrator_note", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "summary": "complexity_tier=MEDIUM, skip_stages=[story-writer], reviewer_pool=[code, security, simplifier]"}
+{"ts": "2026-05-20T10:17:29+00:00", "evt": "stage_skipped", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "reason": "manifest.skip_stages[] contains story-writer set by ComplexityGov (MEDIUM tier; backend migration, no user-facing workflow changes)", "stage": "story-writer"}
+{"ts": "2026-05-20T10:17:41+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 12000, "stage": "workflow-planner"}
+{"ts": "2026-05-20T10:19:04+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "needs_human", "tokens": 9500, "wall_min": 2.5, "stage": "workflow-planner"}
+{"ts": "2026-05-20T10:19:14+00:00", "evt": "orchestrator_note", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "summary": "Inline workflow-planner complete \u2014 4 units, 14 tasks, 3 layers, needs_human"}
+{"ts": "2026-05-20T10:19:20+00:00", "evt": "stage_complete", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "stage": "workflow-planner", "next_stage": "unit-decomposer", "reason": null}
+{"ts": "2026-05-20T10:21:37+00:00", "evt": "user_decision", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "decision": "approve", "stage": "workflow-planner"}
+{"ts": "2026-05-20T10:21:54+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 6000, "stage": "unit-decomposer"}
+{"ts": "2026-05-20T10:22:42+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "complete", "tokens": 6500, "wall_min": 2.0, "stage": "unit-decomposer"}
+{"ts": "2026-05-20T10:22:44+00:00", "evt": "orchestrator_note", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "summary": "4 unit specs generated from approved execution plan \u2014 all deps verified, no cycles"}
+{"ts": "2026-05-20T10:22:44+00:00", "evt": "stage_complete", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "stage": "unit-decomposer", "next_stage": "construction", "reason": null}
+{"ts": "2026-05-20T14:35:46+00:00", "evt": "spawn_start", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "tokens_estimate": 8000, "stage": "ship-agent"}
+{"ts": "2026-05-20T14:41:00+00:00", "evt": "spawn_end", "run_id": "2026-05-20t08-41-48z-bge-m3-migration", "status": "complete", "tokens": 35302, "wall_min": 3.7, "stage": "ship-agent"}

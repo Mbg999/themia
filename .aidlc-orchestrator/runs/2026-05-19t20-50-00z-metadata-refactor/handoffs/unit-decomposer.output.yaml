@@ -1,0 +1,52 @@
+status: complete
+artifacts:
+  - path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-db-schema-refactor.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-metadata-helpers.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-sources-display.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-ingestion-wiring.md
+    kind: spec
+audit_entries:
+  - "[UnitDecomposer] 4 units decomposed across 2 layers"
+  - "[UnitDecomposer] L0 parallel: db-schema-refactor (DB-T1..T3), metadata-helpers (MH-T1..T7), sources-display (SD-T1..T3 — COMPLETE)"
+  - "[UnitDecomposer] L1 serial: ingestion-wiring (IW-T1..T6) depends on db-schema-refactor + metadata-helpers"
+  - "[UnitDecomposer] sources-display marked COMPLETE — all 3 tasks already implemented (main.py fuentes, Fuente interface, Fuentes Consultadas card)"
+  - "[UnitDecomposer] Critical constraint documented in ingestion-wiring: hash-skip embedding guard — embedding=None must not overwrite stored pgvector"
+  - "[UnitDecomposer] 19 total tasks: 3 (DB) + 7 (MH) + 3 (SD, done) + 6 (IW) = 19"
+skill_compliance:
+  - skill: planning-and-task-breakdown
+    status: PASS
+    evidence: "4 unit spec files written with full task breakdown, acceptance criteria, public interfaces, and dependency declarations. Each spec references the planner's task IDs exactly."
+  - skill: spec-driven-development
+    status: PASS
+    evidence: "Each unit has a Definition of Done checklist, Public Interfaces contract, and explicit Internal/External Dependencies. ingestion-wiring Critical Constraint section documents Risk 1 from pre-mortem."
+units_decomposed:
+  - name: db-schema-refactor
+    file: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-db-schema-refactor.md
+    dependencies: []
+  - name: metadata-helpers
+    file: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-metadata-helpers.md
+    dependencies: []
+  - name: sources-display
+    file: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-sources-display.md
+    dependencies: []
+  - name: ingestion-wiring
+    file: aidlc-docs/inception/units/2026-05-19t20-50-00z-metadata-refactor-ingestion-wiring.md
+    dependencies:
+      - db-schema-refactor
+      - metadata-helpers
+emitted_knowledge:
+  - kind: pattern
+    title: Pre-completed unit tracking in AIDLC plans
+    body: "When a unit is implemented ad-hoc during plan approval, include it as a Layer 0 spec with all tasks marked COMPLETE. This preserves audit trail (where it was built, why, what it does) without blocking other units. Applied in Thermia metadata-refactor: sources-display built during plan gate, added as completed L0 unit."
+    tags: ["thermia", "aidlc", "planning", "workflow"]
+    confidence: 0.9
+  - kind: lesson
+    title: Hash-skip guard pattern for pgvector upserts
+    body: "When embedding skip logic sets embedding=None, the ORM upsert MUST NOT write that None to the pgvector column — it overwrites the stored 1024-dimensional vector with NULL. Fix: either fetch existing embedding before merge, or conditionally set doc.embedding only when not None. Pattern documented as Risk 1 in ingestion-wiring unit spec."
+    tags: ["thermia", "pgvector", "sqlalchemy", "ingestion"]
+    confidence: 0.95
+conflicts_detected: []
+locks_to_release: []

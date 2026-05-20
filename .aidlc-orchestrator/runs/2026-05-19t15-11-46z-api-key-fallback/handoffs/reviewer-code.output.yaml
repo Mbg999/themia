@@ -1,0 +1,101 @@
+status: complete
+reviewer: code-quality
+findings:
+  - severity: P1
+    file: thermia-back/scripts/ingest.py
+    line: 416
+    axis: correctness
+    message: "Ingest cohere_client is a fixed snapshot — key rotation is inoperative during ingestion"
+    recommendation: "Replace the standalone cohere.Client construction with a call to embedder.get_query_embedding per batch, or pass the KeyPool into generate_embeddings and re-acquire pool.current() on each batch call so that a rotated key is actually used."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/key_pool.py
+    line: 265
+    axis: correctness
+    message: "_was_degraded and _was_exhausted flags are never reset when cool-down expires and keys recover, suppressing future log transitions"
+    recommendation: "Reset _was_degraded and _was_exhausted to False when healthy_count rises back above the threshold that originally triggered each flag. Check on every mark_failed call after computing the new healthy count, and also in _current_unlocked when a cool-down expiry re-adds a key."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/key_pool.py
+    line: 77
+    axis: correctness
+    message: "_5XX_RE regex can false-positive on large numbers containing '5xx' substrings (e.g., '15000') — the comment claims a digit-prefix guard exists but the code only range-checks the extracted 3-char value"
+    recommendation: "Use a word-boundary or negative look-behind in the regex: re.compile(r'(?<!\\d)5\\d{2}(?!\\d)') so that '500' in '15000' or '5002' does not match. Remove the misleading comment about digit-prefix detection."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 61
+    axis: design
+    message: "_get_client() has no key-tracking guard — it rebuilds only when _cohere_client is None, relying on callers to null out the singleton after rotation; this fragile implicit contract will break if a second consumer uses the pool+client"
+    recommendation: "Store the key that was used to build the current client (e.g., _cohere_client_key: str | None = None). In _get_client(), compare pool.current() to _cohere_client_key and rebuild if they differ. Remove the requirement for callers to set _cohere_client = None manually."
+
+  - severity: P2
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 290
+    axis: testing
+    message: "test_50_concurrent_threads_single_rotation asserts only the final state, not the rotation count — the comment says 'exactly 1 rotation' but rotation_count is never asserted"
+    recommendation: "Assert that pool._cooldowns has exactly one entry (key 0 in cool-down) after the concurrent run, confirming that mark_failed for an already-cooled-down key does not advance the cursor a second time. Or assert rotation_count == 1 if you track it via a mock."
+
+  - severity: P2
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 282
+    axis: testing
+    message: "No test for flag-reset behaviour: _was_degraded / _was_exhausted are not re-armed when cool-down expires, so the once-per-transition semantics cannot be confirmed for the recovery path"
+    recommendation: "Add a test that: (1) exhausts all keys so _was_exhausted fires, (2) manually resets _cooldowns to force expiry, (3) calls mark_failed again on a newly-failed key, and asserts the ERROR log fires a second time (proving the flag was re-armed)."
+
+  - severity: P2
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 133
+    axis: testing
+    message: "classify_failure edge case — a string containing a large integer with an embedded 5xx substring (e.g. '15000 items processed') is not tested and would currently return PERSISTENT_5XX incorrectly"
+    recommendation: "Add a parametrized test: test_5xx_false_positive_in_large_number that passes strings like 'processed 15000 tokens' and asserts the result is None."
+
+  - severity: P2
+    file: thermia-back/app/retrieval/key_pool.py
+    line: 207
+    axis: maintainability
+    message: "Transition-tracking flags _was_degraded and _was_exhausted conflate rotation logic with log-deduplication in a single method, reducing cohesion"
+    recommendation: "Extract the log-deduplication concern into a small _emit_state_transition(healthy_count) helper that owns the flag transitions. mark_failed calls it after updating the cursor. This makes each concern independently testable."
+
+  - severity: P3
+    file: thermia-back/scripts/ingest.py
+    line: 298
+    axis: readability
+    message: "enumerate([0, *_EMBED_RETRY_DELAYS]) is non-obvious — the zero-delay sentinel first element and the unpacking pattern are subtle for readers unfamiliar with the retry idiom"
+    recommendation: "Replace with an explicit loop: attempt = 0; for delay in [0] + list(_EMBED_RETRY_DELAYS): ... and add a brief comment: '# first pass has no delay; subsequent passes back off'."
+
+  - severity: P3
+    file: thermia-back/app/retrieval/key_pool.py
+    line: 145
+    axis: maintainability
+    message: "_DEFAULT_COOLDOWNS is a bare module-level dict — adding a new provider requires editing both _DEFAULT_COOLDOWNS and _get_cooldown_seconds, which are separated by several lines and easy to miss"
+    recommendation: "Consolidate provider defaults into a single _PROVIDER_CONFIG dict or dataclass: {provider: {cooldown_seconds: N, ...}} so _get_cooldown_seconds only reads from one place."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 4
+  P2_count: 3
+  P3_count: 3
+
+audit_entries:
+  - "reviewer-code: reviewed 6 files (key_pool.py, embedder.py, llm.py, ingest.py, test_key_pool.py, .env.example), 10 findings (P1:4, P2:3, P3:3)"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "SKILL.md loaded; five-axis review process applied; scope discipline maintained — findings only, no fixes"
+  - skill: code-review-and-quality
+    status: PASS
+    evidence: "Steps 1-4 skipped per reviewer-agent protocol; five-axis review (correctness, maintainability, readability, testing, design) completed across all 6 predecessor artifacts"
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "Test suite structure reviewed against AAA pattern, mocking correctness, fixture isolation, and parametrization guidance; gaps identified in KP-T4 concurrency test and missing recovery-path tests"
+  - skill: fastapi-python
+    status: N/A
+    evidence: "No FastAPI route handlers or dependency injection patterns were present in the reviewed files; skill guidance not applicable to pure retrieval/pool modules"
+  - skill: api-and-interface-design
+    status: PASS
+    evidence: "KeyPool public API reviewed for contract stability (from_env, current, mark_failed, healthy_count); fragile implicit client-rebuild protocol flagged as P1 design finding"
+  - skill: security-and-hardening
+    status: N/A
+    evidence: "Security-specific findings (secret exposure, injection) are in scope for the security reviewer; code-quality reviewer verified only that keys are not logged in plain text (hash used)"

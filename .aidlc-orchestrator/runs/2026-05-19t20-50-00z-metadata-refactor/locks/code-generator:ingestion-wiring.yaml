@@ -1,0 +1,6 @@
+holder: code-generator:ingestion-wiring
+acquired_at: '2026-05-20T06:23:06+00:00'
+globs:
+- thermia-back/scripts/ingest.py
+- thermia-back/tests/test_ingestion.py
+mode: write

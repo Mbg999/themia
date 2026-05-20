@@ -1,0 +1,96 @@
+status: complete
+unit_name: key-pool-fallback
+sub_stage: generated
+
+artifacts:
+  - path: thermia-back/app/retrieval/key_pool.py
+    kind: source
+    hash: ""
+  - path: thermia-back/app/retrieval/embedder.py
+    kind: source
+    hash: ""
+  - path: thermia-back/app/retrieval/llm.py
+    kind: source
+    hash: ""
+  - path: thermia-back/scripts/ingest.py
+    kind: source
+    hash: ""
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+    hash: ""
+  - path: thermia-back/.env.example
+    kind: config
+    hash: ""
+  - path: aidlc-docs/construction/plans/2026-05-19t15-11-46z-api-key-fallback-key-pool-fallback-code-generation-plan.md
+    kind: plan
+    hash: ""
+
+audit_entries:
+  - "[Resume] Resumed at KP-T6; KP-T1 through KP-T5 already complete (41 passing tests)"
+  - "[Env] Python 3.11.9 confirmed; cohere 6.1.0 installed; langchain-groq installed"
+  - "[Red T6] 3 TestEmbedderKeyPool tests collected; all failed with AttributeError: embedder has no attribute 'cohere' (lazy import issue)"
+  - "[Green T6] Rewrote embedder.py: module-level import cohere; _cohere_pool singleton; get_cohere_pool(); _get_client() rebuilt on _cohere_client=None; classify_failure() gating in retry loop; rotation after _RETRY_DELAYS budget exhausted"
+  - "[Green T6] 3/3 TestEmbedderKeyPool tests pass; 44 total pass (no regressions)"
+  - "[Red T7] 4 TestLLMKeyPool tests written and collected; failed: _groq_pool not in llm.py; api_key read from os.environ not pool"
+  - "[Green T7] Rewrote llm.py: _groq_pool singleton; get_groq_pool(); _build_llm(api_key) helper; analyze_with_llm wraps invoke in try/except classify_failure; rotate-once strategy; ChatGroq still rebuilt per call"
+  - "[Green T7] 4/4 TestLLMKeyPool pass; 48 total pass (no regressions)"
+  - "[Red T8] TestIngestKeyPool.test_ingest_main_uses_get_cohere_pool failed — COHERE_API_KEY string literal in main()"
+  - "[Green T8] Updated ingest.py main(): imports get_cohere_pool from app.retrieval.embedder; pool=get_cohere_pool(); cohere_client=cohere.Client(pool.current()); removed COHERE_API_KEY direct os.environ usage"
+  - "[Green T8] 2/2 TestIngestKeyPool pass; 50 total pass"
+  - "[KP-T9] Replaced COHERE_API_KEY/GROQ_API_KEY with COHERE_API_KEYS/GROQ_API_KEYS JSON-array form with comment blocks"
+  - "[Regression] Full test run: 75 passed, 26 failed — all 26 failures are pre-existing ModuleNotFoundError (pdfplumber, pgvector, sshtunnel) unrelated to this unit"
+  - "[Self-Review] Correctness: rotation fires after in-key budget exhausted; non-rotating 4xx re-raise verified; singleton sharing confirmed"
+  - "[Self-Review] Thread safety: KeyPool threading.Lock covers all mutations"
+  - "[Self-Review] Observability: all structured logs via key_pool logger; no raw key material in any log path"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: Scope discipline maintained — no frontend changes, no schema changes, no new HTTP endpoints; all modifications within thermia-back/
+  - skill: incremental-implementation
+    status: PASS
+    evidence: 4 sequential slices (T6->T7->T8->T9); each green before next; no code written without failing test first
+  - skill: test-driven-development
+    status: PASS
+    evidence: Red phase confirmed for T6 (3 errors), T7 (4 failures), T8 (1 failure) before Green; all slices green after implementation
+  - skill: source-driven-development
+    status: PASS
+    evidence: Read embedder.py, llm.py, ingest.py, .env.example, test_key_pool.py, key_pool.py before any modification
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: monkeypatch, patch context manager, MagicMock, caplog, AST static assertion; all test isolation via setup_method
+  - skill: api-and-interface-design
+    status: PASS
+    evidence: get_cohere_pool() and get_groq_pool() follow same pattern; public API consistent; generate_embeddings/analyze_with_llm signatures unchanged
+
+tests_added: 9
+tests_passing: 50
+commits_made: 0
+
+emitted_knowledge:
+  - kind: pattern
+    confidence: 0.82
+    title: Lazy singleton with pool injection for testable API clients
+    body: |
+      Module-level singleton (e.g. _cohere_pool) is None by default; get_cohere_pool() initialises it on first call via from_env(). Tests inject a KeyPool directly. Avoids os.environ monkey-patching; singleton still shared in production.
+    tags: ["api-keys", "testing", "singleton", "python"]
+    related_artifacts:
+      - thermia-back/app/retrieval/embedder.py
+      - thermia-back/app/retrieval/llm.py
+  - kind: pattern
+    confidence: 0.79
+    title: Rotate-once-after-budget vs rotate-immediately per call cost
+    body: |
+      Embed calls exhaust in-key retry budget (3 delays) then rotate. LLM calls rotate on first rotating failure then retry once. Right retry depth depends on call cost not just failure signal.
+    tags: ["api-keys", "fallback", "retry", "cohere", "groq"]
+    related_artifacts:
+      - thermia-back/app/retrieval/embedder.py
+      - thermia-back/app/retrieval/llm.py
+
+conflicts_detected: []
+locks_to_release:
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/.env.example
+  - thermia-back/tests/retrieval/test_key_pool.py

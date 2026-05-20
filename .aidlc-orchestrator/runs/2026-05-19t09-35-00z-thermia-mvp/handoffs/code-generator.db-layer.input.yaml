@@ -1,0 +1,45 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+stage_id: code-generator
+unit_name: db-layer
+user_request: >
+  Build Thermia MVP — Spanish legal document analyzer with hybrid RAG
+  (PostgreSQL+pgvector), FastAPI backend, Angular frontend. This unit:
+  create thermia-back/ project skeleton, SQLAlchemy Document model with
+  pgvector(1024), Alembic migrations, and SSH-tunnel-aware DB connection factory.
+predecessor_artifacts:
+  - aidlc-docs/inception/requirements/2026-05-19t09-35-00z-thermia-mvp-requirements.md
+  - aidlc-docs/inception/plans/2026-05-19t09-35-00z-thermia-mvp-execution-plan.md
+  - aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-db-layer.md
+unit_spec_path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-db-layer.md
+skills_required:
+  - using-agent-skills
+  - incremental-implementation
+  - test-driven-development
+  - source-driven-development
+  - api-and-interface-design
+  - environment-detection
+  - validator-retry
+  - codegraph-aware-exploration
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/incremental-implementation/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+  - .agents/skills/source-driven-development/SKILL.md
+  - .agents/skills/api-and-interface-design/SKILL.md
+  - .agents/skills/environment-detection/SKILL.md
+  - .agents/skills/validator-retry/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+tier: LARGE
+fast_path: false
+gates:
+  - require_human_approval
+locks_required:
+  - thermia-back/**
+  - tests/db/**
+context_pointers: []
+budget:
+  tokens_max: 200000
+  wall_clock_max_min: 30
+  retries_max: 2
+model_override: sonnet

@@ -1,0 +1,38 @@
+status: needs_human
+artifacts:
+  - path: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-embedder-migration.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-ingestion-migration.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-test-execution.md
+    kind: spec
+units_decomposed:
+  - name: key-pool-cleanup
+    file: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-key-pool-cleanup.md
+    dependencies: []
+  - name: embedder-migration
+    file: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-embedder-migration.md
+    dependencies: [key-pool-cleanup]
+  - name: ingestion-migration
+    file: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-ingestion-migration.md
+    dependencies: [key-pool-cleanup]
+  - name: test-execution
+    file: aidlc-docs/inception/units/2026-05-20t08-41-48z-bge-m3-migration-test-execution.md
+    dependencies: [embedder-migration, ingestion-migration]
+unit_count: 4
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    notes: loaded and applied meta-skill; process steps followed
+  - skill: planning-and-task-breakdown
+    status: PASS
+    notes: 4 unit specs with purpose, interfaces, dependencies, ACs, DoD
+dependency_graph:
+  - key-pool-cleanup: []
+  - embedder-migration: [key-pool-cleanup]
+  - ingestion-migration: [key-pool-cleanup]
+  - test-execution: [embedder-migration, ingestion-migration]
+cycles: false
+dangling_refs: false

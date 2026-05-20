@@ -1,0 +1,154 @@
+status: complete
+reviewer: code-quality
+findings:
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 93
+    axis: correctness
+    message: "raise last_exc when last_exc is None causes TypeError, not a domain exception"
+    recommendation: >
+      Guard the raise: assert last_exc is not None, "last_exc should never be None here"
+      or restructure the loop so the exhaustion path cannot be reached with last_exc=None.
+      Alternatively use `raise last_exc or RuntimeError('all retries exhausted')`.
+
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 41
+    axis: correctness
+    message: "_get_ollama_client() has a TOCTOU race: two threads can both see _ollama_client is None and build two clients simultaneously"
+    recommendation: >
+      Protect the check-and-rebuild block with a threading.Lock (module-level _client_lock).
+      Acquire the lock before checking _ollama_client, build inside the lock, then release.
+      This is the standard double-checked locking pattern for singleton creation.
+
+  - severity: P1
+    file: thermia-back/app/retrieval/embedder.py
+    line: 81
+    axis: correctness
+    message: "No validation of embedding dimensionality: if Ollama returns fewer than 1024 floats (e.g. wrong model loaded), the malformed vector is returned silently"
+    recommendation: >
+      After `return response["embeddings"][0]`, assert or check len == 1024 and raise a
+      descriptive error such as `ValueError(f"Expected 1024-dim vector, got {len(vec)}")`.
+      This turns a silent data corruption into a fast, diagnosable failure.
+
+  - severity: P2
+    file: thermia-back/app/retrieval/embedder.py
+    line: 90
+    axis: readability
+    message: "Trailing `continue` at the end of the except block is redundant and adds noise"
+    recommendation: >
+      Remove the `continue` statement; it is the last statement in the for-body and has no
+      semantic effect. Its presence implies intent that is not present.
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 66
+    axis: design
+    message: "_EMBED_INTER_BATCH_SLEEP is evaluated at module import time from os.environ; cannot be overridden via monkeypatch.setenv in tests without module reload"
+    recommendation: >
+      Read the env var inside generate_embeddings() at call time, or accept an optional
+      parameter for the inter-batch sleep duration. This makes the behaviour controllable
+      in tests and avoids the subtle import-time side-effect.
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 329
+    axis: maintainability
+    message: "Final retry attempt failure is not logged before the exception propagates; observability gap for operators"
+    recommendation: >
+      Move the log.info call outside the `if attempt < _EMBED_RETRY_COUNT:` guard (or add
+      a separate log.error after the retry loop at line 338) so that every failed attempt
+      is visible in logs, not just the non-final ones.
+
+  - severity: P2
+    file: thermia-back/tests/retrieval/test_embedder.py
+    line: 25
+    axis: testing
+    message: "reset_embedder_singletons fixture mutates private module attributes by name; if the attribute names change the fixture silently becomes a no-op"
+    recommendation: >
+      Expose a reset() or _reset_client() helper in embedder.py, or use importlib.reload()
+      in the fixture. Direct assignment to _ollama_client / _ollama_client_host couples
+      tests to internal naming and makes refactoring silent-failure-prone.
+
+  - severity: P2
+    file: thermia-back/tests/retrieval/test_embedder.py
+    line: 142
+    axis: readability
+    message: "Comment on line 142 says 'we need to check isinstance' but the production code uses hasattr duck-typing, not isinstance; the comment is inaccurate and misleads reviewers"
+    recommendation: >
+      Update the comment to accurately describe the detection mechanism:
+      'Non-retryable check uses hasattr(exc, "status_code") — duck-typing, not isinstance.'
+      Also remove the dead assignment `mock_ollama.ResponseError = Exception` on line 141
+      which is immediately overwritten by FakeResponseError on line 149.
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 343
+    axis: maintainability
+    message: "Class TestCohereEmbedding tests Ollama behaviour; the stale Cohere name creates confusion and will surface in any future grep for Cohere references"
+    recommendation: >
+      Rename to TestOllamaEmbedding (or TestGenerateEmbeddings). The 'git history
+      continuity' rationale does not justify ongoing confusion for every future reader.
+      Git log preserves history regardless of the class name.
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 412
+    axis: maintainability
+    message: "Class TestKeyRotation tests Ollama retry logic, not key rotation; the name is semantically wrong and misleads about what is being tested"
+    recommendation: >
+      Rename to TestGenerateEmbeddingsRetry or TestOllamaRetry. Same rationale as
+      TestCohereEmbedding finding above.
+
+  - severity: P3
+    file: thermia-back/tests/retrieval/test_key_pool.py
+    line: 285
+    axis: testing
+    message: "rotation_count is collected in test_50_concurrent_threads_single_rotation but never asserted; it is dead test scaffolding"
+    recommendation: >
+      Either assert on rotation_count (e.g. assert rotation_count >= 1 to confirm at
+      least one thread triggered a rotation) or remove the variable and rotation_lock
+      entirely to simplify the test.
+
+  - severity: P3
+    file: thermia-back/tests/retrieval/test_embedder.py
+    line: 45
+    axis: readability
+    message: "import app.retrieval.embedder as mod is placed inside the `with patch(...)` context block in test_default_host and test_custom_host; this is misleading because the module is already cached from the autouse fixture"
+    recommendation: >
+      Move the import to the top of each test method (before the with block) or to a
+      module-level import. The placement inside the patch context implies that the import
+      should pick up the patch, but Python's module cache means it does not.
+
+  - severity: P3
+    file: thermia-back/scripts/ingest.py
+    line: 317
+    axis: design
+    message: "import ollama is deferred inside generate_embeddings() while embedder.py imports ollama at module level; the deferred import rationale (test isolation) is inconsistent across the codebase"
+    recommendation: >
+      Either move the import to the top of ingest.py (accepting tests must patch
+      'scripts.ingest.ollama') for consistency with embedder.py, or add a comment
+      explicitly justifying the per-function deferred import strategy in ingest.py.
+
+findings_summary:
+  P0_count: 0
+  P1_count: 3
+  P2_count: 7
+  P3_count: 3
+
+audit_entries:
+  - "reviewer-code: reviewed 6 files (embedder.py, ingest.py, key_pool.py, test_embedder.py, test_key_pool.py, test_ingestion.py), 13 findings (0 P0, 3 P1, 7 P2, 3 P3)"
+
+skill_compliance:
+  - skill: code-review-and-quality
+    status: PASS
+    evidence: "Five-axis review complete across all 6 changed files; Steps 1-4 skipped per reviewer-agent protocol (build-test-agent already ran lint/build/tests)"
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "Test isolation, mock correctness, fixture design, and naming evaluated per skill guidance"
+  - skill: fastapi-python
+    status: PASS
+    evidence: "Thread-safety concern in _get_ollama_client flagged; FastAPI worker-thread context considered for singleton race condition finding"
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "All required skills loaded: code-review-and-quality, python-testing-patterns, fastapi-python"

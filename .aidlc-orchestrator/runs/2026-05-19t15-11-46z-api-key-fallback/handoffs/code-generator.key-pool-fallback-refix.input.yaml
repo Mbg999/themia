@@ -1,0 +1,177 @@
+run_id: 2026-05-19t15-11-46z-api-key-fallback
+stage_id: code-generator
+user_request: |
+  This is a RE-FIX pass over the key-pool-fallback unit.
+  The original request: "We are using API keys from free-tier Cohere and Groq accounts.
+  I need you to create a fallback system so that if one account starts failing due to
+  usage limits, the application automatically switches to a different API key. Use a
+  dynamic list of API keys stored in the .env file. It should support adding as many
+  API keys as needed, with no hard limit, but there must always be at least one key
+  available."
+
+  A /factory-review was completed and found 9 P1 (must-fix) findings. Fix ALL of them
+  without breaking the 50 passing tests. Add new tests for the fixed behaviour where
+  specified.
+
+  === P1 FINDINGS TO FIX ===
+
+  [P1-CQ-1] thermia-back/app/retrieval/embedder.py:61
+  _get_client() has no key-tracking guard — it rebuilds only when _cohere_client is
+  None, relying on callers to null out the singleton after rotation. This fragile
+  implicit contract will break if a second consumer uses the pool+client.
+  FIX: Store the key that was used to build the current client (_cohere_client_key:
+  str | None = None). In _get_client(), compare pool.current() to _cohere_client_key
+  and rebuild if they differ. Remove the requirement for callers to set
+  _cohere_client = None manually.
+
+  [P1-CQ-2] thermia-back/app/retrieval/key_pool.py:77
+  _5XX_RE regex can false-positive on large numbers containing '5xx' substrings
+  (e.g. '15000') — the comment claims a digit-prefix guard but the code only
+  range-checks the extracted 3-char value.
+  FIX: Use a word-boundary or negative look-behind: re.compile(r'(?<!\d)5\d{2}(?!\d)')
+  so that '500' in '15000' or '5002' does not match. Remove the misleading comment.
+  ADD TEST: test_5xx_false_positive_in_large_number — asserts classify_failure on
+  strings like 'processed 15000 tokens' returns None.
+
+  [P1-CQ-3] thermia-back/app/retrieval/key_pool.py:265
+  _was_degraded and _was_exhausted flags are never reset when cool-down expires and
+  keys recover, suppressing future log transitions.
+  FIX: Reset _was_degraded and _was_exhausted to False when healthy_count rises back
+  above the threshold that originally triggered each flag. Check on every mark_failed
+  call after computing the new healthy count, and also in _current_unlocked when a
+  cool-down expiry re-adds a key.
+  ADD TEST: verify that after key recovery (manual cooldown expiry), a subsequent
+  key failure fires the WARN/ERROR log a second time (flags were re-armed).
+
+  [P1-CQ-4] thermia-back/scripts/ingest.py:416
+  Ingest cohere_client is a fixed snapshot — key rotation is inoperative during
+  ingestion. cohere_client = cohere.Client(pool.current()) is called once at main()
+  startup and never re-queried from the pool.
+  FIX: Replace the standalone cohere.Client construction in generate_embeddings with
+  a call that queries get_cohere_pool().current() on each batch iteration, so that a
+  rotated key is actually used.
+
+  [P1-SEC-1] thermia-back/app/main.py:61
+  Authentication is entirely bypassed when THERMIA_ENV=local. If THERMIA_ENV is
+  unset or accidentally set to 'local' in a non-local environment, every POST
+  /analyze call executes without any bearer-token check.
+  FIX: Remove the environment-gated bypass. For local development, set API_KEY to
+  a well-known dev token in .env.example and document it.
+
+  [P1-SEC-2] thermia-back/app/main.py:63
+  API_KEY is read at request time from os.environ on every call. If API_KEY is
+  absent (empty string), the comparison succeeds for any request that sends
+  'Bearer ' (empty bearer), silently granting access.
+  FIX: At application startup, assert that API_KEY is non-empty (len >= 16). Raise
+  a startup error if missing or empty. Use constant-time comparison:
+  import hmac; hmac.compare_digest(token, api_key) to prevent timing attacks.
+  Read API_KEY once at startup (module-level or lifespan), not per request.
+
+  [P1-SEC-3] thermia-back/app/retrieval/embedder.py:61
+  Race condition: pool key can rotate between pool.current() and cohere.Client(
+  active_key) construction, causing the rebuilt client to use a stale key.
+  FIX: Once the key-tracking guard from P1-CQ-1 is in place, snapshot the active
+  key under the internal lock before building the client. The fix for P1-CQ-1
+  covers this — ensure the rebuild path reads pool.current() inside a section
+  where the key cannot change concurrently (or accepts the key as a parameter
+  and compares it after building).
+
+  [P1-SEC-4] thermia-back/app/retrieval/embedder.py:123
+  assert statement used to enforce runtime invariant (assert last_exc is not None).
+  In Python optimised mode (-O / PYTHONOPTIMIZE) assert statements are compiled out,
+  converting this into an UnboundLocalError crash.
+  FIX: Replace with explicit runtime guard:
+  if last_exc is None: raise RuntimeError("unexpected: no exception after retry budget")
+  Never use assert for enforcing production invariants.
+
+  [P1-SEC-5] thermia-back/app/retrieval/key_pool.py:104
+  _parse_keys_env() performs no key-format validation after JSON parsing. An empty
+  string or malformed key can enter the pool silently.
+  FIX: After JSON parsing, validate each key string: non-empty, minimum length >= 8,
+  printable ASCII only (alphanumeric + hyphens + underscores are sufficient). Raise
+  ValueError naming the offending key index if any key fails validation. Log the
+  number of keys loaded but never any key material.
+
+  === END P1 FINDINGS ===
+
+  Constraints:
+  - All 50 existing tests must continue to pass.
+  - New tests must be added for P1-CQ-2 (false-positive regex), P1-CQ-3 (flag reset
+    after recovery), P1-SEC-1 (startup rejection of missing/empty API_KEY), and
+    P1-SEC-2 (constant-time comparison used).
+  - Do NOT rewrite files wholesale. Make surgical targeted changes only.
+  - Do NOT add or remove public API signatures (get_cohere_pool, get_groq_pool,
+    KeyPool, classify_failure, AllKeysExhaustedError) unless a P1 fix explicitly
+    requires it.
+  - Python 3.11 target; keep all imports from standard library or already-present
+    packages (cohere, langchain_groq, fastapi, pytest).
+
+predecessor_artifacts:
+  - aidlc-docs/inception/plans/2026-05-19t15-11-46z-api-key-fallback-execution-plan.md
+  - aidlc-docs/construction/plans/2026-05-19t15-11-46z-api-key-fallback-key-pool-fallback-code-generation-plan.md
+  - aidlc-docs/operations/2026-05-19t15-11-46z-api-key-fallback-review-report.md
+  - .aidlc-orchestrator/runs/2026-05-19t15-11-46z-api-key-fallback/handoffs/build-test-agent.key-pool-fallback.output.yaml
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/app/main.py
+  - thermia-back/.env.example
+
+unit_name: key-pool-fallback-refix
+
+skills_required:
+  - using-agent-skills
+  - test-driven-development
+  - source-driven-development
+  - debugging-and-error-recovery
+  - python-testing-patterns
+  - security-and-hardening
+
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/incremental-implementation/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+  - .agents/skills/source-driven-development/SKILL.md
+  - .agents/skills/api-and-interface-design/SKILL.md
+  - .agents/skills/environment-detection/SKILL.md
+  - .agents/skills/validator-retry/SKILL.md
+  - .agents/skills/debugging-and-error-recovery/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/fastapi-python/SKILL.md
+  - .agents/skills/security-and-hardening/SKILL.md
+
+budget:
+  tokens_max: 80000
+  wall_clock_max_min: 30
+  retries_max: 2
+
+gates:
+  - require_human_approval
+
+context_pointers:
+  - "PRIOR: KeyPool sticky-rotate pattern — module-level singleton (_cohere_pool) initialised
+    by get_cohere_pool(); singleton shared with ingest.py to avoid double-counting cooldowns;
+    threading.Lock covers both FastAPI threads and synchronous ingest script."
+  - "PRIOR: embedder.py rotate strategy — exhaust in-key 3-retry budget (10/30/60s) before
+    rotating; non-rotating 4xx re-raised immediately; AllKeysExhaustedError propagates to
+    FastAPI Spanish error path."
+  - "PRIOR: 50/50 tests passing in test_key_pool.py — do not regress any of them."
+  - "PRIOR: 26 pre-existing ModuleNotFoundError failures in full suite (pgvector, pdfplumber,
+    sshtunnel) — these are environmental, not regressions."
+  - "PRIOR: main.py already has THERMIA_ENV=local bypass and per-request os.environ read —
+    P1-SEC-1 and P1-SEC-2 require removing the bypass and hardening the startup path."
+
+fast_path: false
+tier: MEDIUM
+
+locks_required:
+  - thermia-back/app/retrieval/key_pool.py
+  - thermia-back/app/retrieval/embedder.py
+  - thermia-back/app/retrieval/llm.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/tests/retrieval/test_key_pool.py
+  - thermia-back/app/main.py
+  - thermia-back/.env.example

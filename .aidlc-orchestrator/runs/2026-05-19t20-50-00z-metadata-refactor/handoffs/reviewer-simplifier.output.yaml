@@ -1,0 +1,67 @@
+status: complete
+reviewer: simplifier
+findings:
+  - severity: P1
+    file: thermia-back/app/ingestion/metadata_helpers.py
+    line: 91
+    simplification_pattern: dead-code
+    message: "compute_content_hash is exported in the module docstring as consumed by ingestion-wiring but is never imported or called in ingest.py or any other production module — only in tests."
+    recommendation: "Either wire compute_content_hash into ingest.py for the skip-re-embedding optimization it was designed for, or remove it from the public API docstring and mark it private (_compute_content_hash) until the optimization is actually implemented."
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 337
+    simplification_pattern: future-proofing
+    message: "The _rotated=True / while _rotated: do-while idiom in generate_embeddings is a non-obvious control-flow pattern. The variable is set True before the loop only to guarantee first entry, then immediately set False at the top of the body, then conditionally set True again to trigger a restart. This is harder to read than explicit flow control."
+    recommendation: "Replace with a while True: loop. Use a named inner function or a continue-from-outer-label equivalent: after pool.mark_failed() and key rotation, use continue on the outer for-batch loop (restarting the whole batch attempt) instead of the _rotated sentinel that restarts only the retry inner loop."
+
+  - severity: P2
+    file: thermia-back/app/retrieval/searcher.py
+    line: 19
+    simplification_pattern: future-proofing
+    message: "only_active: bool = True is defined on both vector_search and bm25_search but is never passed as False at any call site in the codebase (main.py calls both with positional args only, no only_active keyword). The parameter supports a hypothetical admin or debug use case not present in the spec."
+    recommendation: "Remove the only_active parameter and hard-code the status filter (Document.status.in_(['vigente', ''])) directly. If a future admin endpoint ever needs unfiltered results, add the parameter back at that time."
+
+  - severity: P3
+    file: thermia-back/app/ingestion/metadata_helpers.py
+    line: 31
+    simplification_pattern: single-config-key
+    message: "_FRONTMATTER_OPEN = '---\\n' is a module-level constant for a 5-character literal that is used exactly twice inside parse_frontmatter (once in startswith, once in len()). The constant name adds no domain clarity over the literal itself."
+    recommendation: "Inline '---\\n' directly in parse_frontmatter. If the opener ever needs to change, the two usages are co-located and trivially updated."
+
+  - severity: P3
+    file: thermia-back/app/main.py
+    line: 135
+    simplification_pattern: dead-code
+    message: "_QUERY_CHAR_LIMIT = 2000 is defined as a local variable inside the analyze() handler body, inconsistent with all other limits in the same file (_MAX_PDF_BYTES, _ANALYZE_RATE_LIMIT) which are module-level constants."
+    recommendation: "Move _QUERY_CHAR_LIMIT to the module level alongside the other tuneable constants so it is discoverable and configurable in one place."
+
+  - severity: P3
+    file: thermia-front/src/app/app.html
+    line: 86
+    simplification_pattern: over-validation
+    message: "The outer @if (fuente.legal_rank || fuente.status || fuente.jurisdiction) guard duplicates the truthiness checks already performed by the three inner @if blocks. If all three fields are empty the inner blocks produce no output, making the outer wrapper redundant."
+    recommendation: "Remove the outer @if guard and the wrapping div, or keep only the div without the conditional. The three inner @if blocks are sufficient to suppress empty badges. If an empty div causes a styling gap, address it with CSS (e.g. :empty { display: none })."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 1
+  P2_count: 2
+  P3_count: 3
+
+audit_entries:
+  - "reviewer-simplifier: scanned 12 predecessor artifacts across 4 units (db-schema-refactor, metadata-helpers, ingestion-wiring, sources-display)"
+  - "reviewer-simplifier: 6 findings — 1 P1 (dead exported symbol compute_content_hash), 2 P2 (only_active unused parameter, _rotated sentinel pattern), 3 P3 (inline constant, local constant inconsistency, redundant outer @if guard)"
+  - "reviewer-simplifier: no codegraph cache present — dead-code detection performed via grep of all import/call sites across thermia-back/ and thermia-front/"
+  - "reviewer-simplifier: compute_content_hash confirmed unreferenced in all production modules (ingest.py, main.py, searcher.py, context_builder.py, embedder.py, llm.py); only_active confirmed never passed as False at any call site"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "Skills protocol followed; skills loaded via Skill tool invocation at session start"
+  - skill: codegraph-aware-exploration
+    status: PASS
+    evidence: "No codegraph cache present in run directory; dead-code detection performed via live grep of all call sites as fallback per protocol"
+  - skill: code-simplification
+    status: PASS
+    evidence: "Dead-code scan, abstraction review, and over-validation check complete across all 12 predecessor artifacts; _rotated sentinel, only_active parameter, compute_content_hash, outer @if guard, and constant placement all evaluated"

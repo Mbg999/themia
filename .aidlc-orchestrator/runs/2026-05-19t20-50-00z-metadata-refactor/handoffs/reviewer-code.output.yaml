@@ -1,0 +1,165 @@
+status: complete
+reviewer: code-quality
+
+findings:
+  # ─── correctness ───────────────────────────────────────────────────────────
+
+  - severity: P1
+    file: thermia-back/alembic/versions/0003_metadata_refactor.py
+    line: 35
+    axis: correctness
+    message: "Indexes created with plain CREATE INDEX (blocking) instead of CONCURRENTLY — will take an ACCESS EXCLUSIVE table lock on a live `documents` table, blocking all reads and writes during the migration."
+    recommendation: "Use CONCURRENTLY in every CREATE INDEX statement (e.g. 'CREATE INDEX CONCURRENTLY ix_documents_status ON documents (status)') and wrap each one in its own transaction-less op.execute block using execute_with_autocommit=True or a raw DBAPI connection, as required by the SQLAlchemy/Alembic concurrent-index pattern. The same applies to the GIN index on metadata."
+
+  - severity: P1
+    file: thermia-back/scripts/ingest.py
+    line: 413
+    axis: correctness
+    message: "`upsert_documents` always passes `embedding=chunk['embedding']` to the Document constructor with no None guard. The docstring for `compute_content_hash` and the context pointer both note a hash-skip path where `chunk['embedding']` may be None, but the hash-skip is not implemented in `ingest.py`. If any future caller sets `chunk['embedding'] = None` (the documented intent), `session.merge()` will write NULL into a pgvector column, silently replacing a valid embedding."
+    recommendation: "Add a guard: only set `embedding=chunk['embedding']` when the value is not None. Pattern: create the Document without the embedding field and conditionally assign `doc.embedding = emb` before `session.merge(doc)` when `emb is not None`. This matches the context pointer's documented safety contract."
+
+  - severity: P1
+    file: thermia-back/app/retrieval/searcher.py
+    line: 46
+    axis: correctness
+    message: "The `only_active` filter uses `Document.status.in_(['vigente', ''])`, which silently excludes documents with status `'parcialmente vigente'` — a canonical value produced by `normalize_status()`. A law that is partially in force will never appear in search results."
+    recommendation: "Expand the allow-list to include 'parcialmente vigente': `Document.status.in_(['vigente', 'parcialmente vigente', ''])`. Apply the same fix to `bm25_search` (line 92)."
+
+  - severity: P1
+    file: thermia-back/scripts/ingest.py
+    line: 181
+    axis: correctness
+    message: "`extract_legal_rank` is called with `frontmatter.get('title', '')` as the law title, but the H1 law title (parsed later from body_text) is not yet known at that point. If the frontmatter has no `rank` key and the H1 title would reveal the rank (e.g. 'Ley Orgánica 3/2007'), the rank-from-title path receives an empty string or a potentially unrelated frontmatter `title`, returning `''` for every such document."
+    recommendation: "Defer rank extraction until after H1 parsing: pass `current_law_title` (the H1 heading) as the second argument to `extract_legal_rank` inside `_flush_article`, or perform a two-pass parse. Alternatively, fall back: call `extract_legal_rank(frontmatter, frontmatter.get('title', '') or current_law_title)` after the main parsing loop."
+
+  - severity: P1
+    file: thermia-back/app/main.py
+    line: 140
+    axis: correctness
+    message: "`asyncio.get_event_loop()` is deprecated in Python 3.10+ and raises a DeprecationWarning in ASGI contexts (Python 3.12+ will emit a RuntimeWarning). In FastAPI/uvicorn the running loop is already present — `get_event_loop()` may return a different loop object or log warnings in production."
+    recommendation: "Replace `loop = asyncio.get_event_loop()` and all `loop.run_in_executor(...)` calls with `await asyncio.get_event_loop().run_in_executor(...)` or, better, `await asyncio.to_thread(...)` (Python 3.9+) which is the idiomatic async FastAPI pattern. This avoids the deprecated API entirely."
+
+  - severity: P1
+    file: thermia-back/app/main.py
+    line: 167
+    axis: correctness
+    message: "The SSH tunnel is stopped in a `finally` block inside the request handler (`analyze`). Stopping the tunnel on every request tears down the SSH connection after each `/analyze` call, making the tunnel useless for all subsequent local-mode requests. The engine/tunnel should be lifecycle-managed, not per-request."
+    recommendation: "Move tunnel lifecycle to a FastAPI lifespan context manager (startup/shutdown). Do not stop the tunnel inside a request handler. The tunnel was already started in `get_engine()` at startup; only stop it on application shutdown via `@asynccontextmanager` lifespan."
+
+  # ─── maintainability ───────────────────────────────────────────────────────
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 358
+    axis: maintainability
+    message: "429 detection uses a fragile string-match heuristic: `'429' in str(exc) or 'rate limit' in str(exc).lower()`. This couples the retry logic to Cohere's current error string format. A different Cohere SDK version or a wrapped exception could silently bypass the retry path."
+    recommendation: "Check the exception type explicitly (e.g. `cohere.errors.TooManyRequestsError` or the SDK's HTTP status attribute) before falling back to string matching. Add the string match only as a last resort, and add a comment noting the specific SDK version this was tested against."
+
+  - severity: P2
+    file: thermia-back/app/ingestion/metadata_helpers.py
+    line: 91
+    axis: maintainability
+    message: "`compute_content_hash` is exported as a public helper and documented as the mechanism for hash-skip (skipping re-embedding when content hasn't changed), but it is never imported or called anywhere in `scripts/ingest.py`. The feature exists only in the helper module — it is dead from the pipeline's perspective."
+    recommendation: "Either wire `compute_content_hash` into `ingest.py` (persist the hash to `metadata_['content_hash']` and skip re-embedding on match), or document clearly in the module docstring that hash-skip is a planned feature not yet activated in the pipeline."
+
+  - severity: P2
+    file: thermia-back/tests/test_db.py
+    line: 35
+    axis: maintainability
+    message: "The docstring for `test_document_model_columns` says 'Document has all 5 columns with correct types', but the model now has 9 columns (including status, legal_rank, jurisdiction, source_metadata). The test also does not assert the presence or types of the 4 new columns."
+    recommendation: "Update the docstring to reflect the current column count, and extend the assertions to cover the new columns (status, legal_rank, jurisdiction, source_metadata) in addition to the existing five."
+
+  # ─── readability ───────────────────────────────────────────────────────────
+
+  - severity: P3
+    file: thermia-back/scripts/ingest.py
+    line: 337
+    axis: readability
+    message: "The `_rotated = True` sentinel is set before the `while _rotated:` loop to force at least one iteration. This is a non-obvious idiom — a reader unfamiliar with the pattern must trace the sentinel variable across the loop boundary to understand the control flow."
+    recommendation: "Refactor to a `while True: ... if not needs_retry: break` structure, or extract the single-batch retry logic into a named helper function `_embed_batch_with_retry(client, batch, pool)`. Either approach makes the intent self-documenting."
+
+  - severity: P3
+    file: thermia-back/app/retrieval/context_builder.py
+    line: 15
+    axis: readability
+    message: "`build_context` accepts `chunks: list` with no type annotation for the element type. The docstring specifies Document ORM objects, but the signature provides no static type information."
+    recommendation: "Annotate the parameter as `chunks: list[Document]` and add `from app.db.models import Document` at the top of the module. This enables IDE type-checking and makes the contract machine-verifiable."
+
+  - severity: P3
+    file: thermia-front/src/app/app.ts
+    line: 13
+    axis: readability
+    message: "The `App` component constructor has an unusual optional parameter pattern (`constructor(analysisService?: AnalysisService)`) that exists to support testing. This mixes injection concerns with testability in a non-idiomatic way for Angular."
+    recommendation: "Use `inject(AnalysisService)` as a class field initializer (`private readonly analysisService = inject(AnalysisService)`) and provide a mock via Angular's `TestBed` or `Injector.create` in tests — which the spec already does correctly. Remove the constructor-parameter hack."
+
+  # ─── testing ───────────────────────────────────────────────────────────────
+
+  - severity: P2
+    file: thermia-back/tests/test_retrieval.py
+    line: 254
+    axis: testing
+    message: "There are no tests for the `only_active` filter in either `vector_search` or `bm25_search`. The filter is the primary correctness mechanism for excluding derogated laws from results — but its correct behavior (include `vigente` and `''`, exclude `derogada`) is untested."
+    recommendation: "Add test cases: (1) `only_active=True` with a mocked result containing a `derogada` document — assert it is excluded; (2) `only_active=False` — assert derogada documents are included; (3) documents with `status=''` — assert they pass the filter. Mock the session/execute chain as the existing tests do."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 530
+    axis: testing
+    message: "`_make_chunk` in `TestUpsertDocuments` does not include `source_metadata` in the base chunk dict, meaning `test_upsert_writes_status_column` and `test_upsert_writes_legal_rank_column` invoke `upsert_documents` with a chunk that has no `source_metadata` key. `upsert_documents` uses `chunk.get('source_metadata')` which returns None — the tests pass but they do not validate the behavior for chunks that lack the key explicitly vs. chunks where the key is absent."
+    recommendation: "Make the missing-key scenario explicit: rename the base helper to `_make_chunk_no_source_metadata` and assert `doc.source_metadata_ is None` in those tests. The existing `test_upsert_source_metadata_none_when_absent` covers this, but the other tests should not accidentally rely on the same absent-key path."
+
+  - severity: P2
+    file: thermia-back/tests/test_ingestion.py
+    line: 269
+    axis: testing
+    message: "`test_sub_chunks_have_overlap` uses set intersection of token IDs as a proxy for overlap, which may produce false positives when unrelated words share the same token ID. The assertion `len(set(overlap_from_0) & set(tokens_1[:50])) > 0 or tokens_1[:50] == overlap_from_0` has a vacuously-true `or` branch."
+    recommendation: "Assert the direct byte-level overlap: check that the last N decoded characters of chunk[0] appear at the start of chunk[1], or compare decoded sub-strings rather than token ID sets. Remove the vacuously-true `or` branch."
+
+  # ─── design ────────────────────────────────────────────────────────────────
+
+  - severity: P2
+    file: thermia-back/scripts/ingest.py
+    line: 452
+    axis: design
+    message: "`main()` calls `get_engine()` inside the request path (`analyze` in `main.py` also calls it per-request). The engine is not a singleton in the script — it is created fresh each run, which is acceptable for a CLI script, but the tunnel management is tied to the engine instance. The comment `engine.tunnel.stop()` at line 539 accesses a non-standard attribute that may not exist for production engines, requiring the `hasattr` guard."
+    recommendation: "Formalize the tunnel lifecycle: return a `(engine, tunnel_or_None)` pair from `get_engine()` rather than attaching a `.tunnel` attribute. This makes the presence or absence of a tunnel explicit in the caller's type signature and removes the need for `hasattr` guards."
+
+  - severity: P3
+    file: thermia-back/app/ingestion/metadata_helpers.py
+    line: 111
+    axis: design
+    message: "`_RANK_PATTERNS` is a module-level compiled regex list. The function `extract_legal_rank` also normalizes frontmatter via `_normalize_rank_token`, which maps free-form strings to the same canonical set (`_KNOWN_RANKS`). The two vocabularies (regex patterns and `_KNOWN_RANKS`) must stay in sync manually — adding a new rank requires updating both structures."
+    recommendation: "Derive `_KNOWN_RANKS` from `_RANK_PATTERNS` at module load time: `_KNOWN_RANKS = {canonical for _, canonical in _RANK_PATTERNS}`. This makes it impossible for the two to diverge."
+
+findings_summary:
+  P0_count: 0
+  P1_count: 5
+  P2_count: 7
+  P3_count: 4
+
+audit_entries:
+  - "reviewer-code: reviewed 14 files across 4 units (db-schema-refactor, metadata-helpers, ingestion-wiring, sources-display)"
+  - "reviewer-code: 16 findings total — P1: 5, P2: 7, P3: 4"
+  - "reviewer-code: critical correctness findings — concurrent index missing in migration, parcialmente-vigente excluded from only_active filter, extract_legal_rank called before H1 title is known, tunnel stopped per-request, deprecated asyncio.get_event_loop"
+  - "reviewer-code: compute_content_hash is implemented and tested but never wired into the ingestion pipeline (dead feature path)"
+  - "reviewer-code: skills loaded — sqlalchemy-alembic-expert-best-practices-code-review, python-testing-patterns, fastapi-python, angular-developer"
+
+skill_compliance:
+  - skill: code-review-and-quality
+    status: PASS
+    evidence: "Five-axis review completed across all 14 predecessor artifacts; findings produced for correctness, maintainability, readability, testing, and design axes"
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "All skills listed in skills_required[] loaded: sqlalchemy-alembic-expert-best-practices-code-review, python-testing-patterns, fastapi-python, angular-developer"
+  - skill: sqlalchemy-alembic-expert-best-practices-code-review
+    status: PASS
+    evidence: "Applied only-concurrent-indexes rule to migration 0003; reviewed upsert_documents for ORM correctness; checked index definitions against query patterns"
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: "Reviewed test coverage for new only_active filter, upsert column writes, and chunk overlap assertions; identified missing test axes in test_retrieval.py"
+  - skill: fastapi-python
+    status: PASS
+    evidence: "Flagged deprecated asyncio.get_event_loop usage in async endpoint; identified per-request tunnel teardown as lifecycle design issue"
+  - skill: angular-developer
+    status: PASS
+    evidence: "Reviewed Angular component DI pattern in App constructor, @for track expressions, and ELI href binding in template"

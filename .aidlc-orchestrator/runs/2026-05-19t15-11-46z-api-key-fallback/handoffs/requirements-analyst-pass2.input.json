@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-05-19t15-11-46z-api-key-fallback",
+  "stage_id": "requirements-analyst",
+  "user_request": "We are using API keys from free-tier Cohere and Groq accounts. I need you to create a fallback system so that if one account starts failing due to usage limits, the application automatically switches to a different API key. Use a dynamic list of API keys stored in the .env file. It should support adding as many API keys as needed, with no hard limit, but there must always be at least one key available.",
+  "predecessor_artifacts": [
+    ".aidlc-orchestrator/runs/2026-05-19t15-11-46z-api-key-fallback/handoffs/workspace-scout.output.yaml"
+  ],
+  "workspace_state": {
+    "project_type": "brownfield",
+    "existing_code": true,
+    "programming_languages": ["Python", "TypeScript"],
+    "build_system": "pip (thermia-back), npm (thermia-front)",
+    "project_structure": "monorepo — thermia-back (Python/FastAPI + PostgreSQL/pgvector), thermia-front (Angular 21.2.0)",
+    "workspace_root": "/Users/miguel.belmonte/Desktop/thermia",
+    "next_phase": "requirements-analyst",
+    "reverse_engineering_artifacts_present": false
+  },
+  "skills_required": ["idea-refine", "spec-driven-development", "using-agent-skills"],
+  "skill_paths_resolved": [
+    ".agents/skills/using-agent-skills/SKILL.md",
+    ".agents/skills/spec-driven-development/SKILL.md",
+    "~/.agents/skills/idea-refine/SKILL.md"
+  ],
+  "budget": {
+    "tokens_max": 60000,
+    "wall_clock_max_min": 20,
+    "retries_max": 1
+  },
+  "gates": [],
+  "context_pointers": [
+    "aidlc-docs/inception/requirements/2026-05-19t15-11-46z-api-key-fallback-requirement-verification-questions.md"
+  ],
+  "locks_required": []
+}

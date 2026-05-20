@@ -1,0 +1,40 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+stage_id: reviewer-security
+reviewer: security
+user_request: >-
+  Build an MVP called Thermia — Spanish legal document analyzer with hybrid RAG
+  (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval pipelines.
+predecessor_artifacts:
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/code-generator.db-layer.output.yaml
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/build-test-agent.db-layer.output.yaml
+  - aidlc-docs/audit.md
+scope_paths:
+  - thermia-back/app/**/*.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/**/*.py
+  - thermia-back/tests/**/*.py
+  - thermia-front/src/app/**/*.ts
+  - thermia-front/src/app/**/*.html
+  - thermia-front/src/app/**/*.scss
+skills_required:
+  - security-and-hardening
+  - using-agent-skills
+  - codegraph-aware-exploration
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/security-and-hardening/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+context_pointers:
+  - "Construction complete: 5 units — db-layer, ingestion-pipeline, retrieval-api, frontend, docker-infra"
+  - "67 tests total: 51 backend (pytest) + 16 frontend (vitest), all passing"
+  - "SSH tunnel uses password auth with credentials from .env file"
+  - "API key auth on retrieval endpoint: X-API-Key header validated against API_KEY env var"
+  - "CORS configured from CORS_ORIGINS env var"
+budget:
+  max_tokens: 100000
+  max_wall_clock_min: 15
+gates: []
+locks_required: []
+model_override: sonnet
+codegraph_cache_path: .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/codegraph-cache.json

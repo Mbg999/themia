@@ -1,7 +1,10 @@
 # AIDLC orchestrator runtime state
-.aidlc-orchestrator/runs/
-.aidlc-orchestrator/knowledge/
-.codegraph/
+
+# i will coment those out to hand them in at the technical test
+# .aidlc-orchestrator/runs/
+# .aidlc-orchestrator/knowledge/
+# .codegraph/
+
 __pycache__/
 
 # Environment files — never commit secrets

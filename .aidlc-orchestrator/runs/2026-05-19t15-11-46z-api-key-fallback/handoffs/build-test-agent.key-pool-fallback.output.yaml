@@ -1,0 +1,52 @@
+status: needs_human
+unit_name: key-pool-fallback
+
+artifacts:
+  - path: thermia-back/app/retrieval/key_pool.py
+    kind: source
+  - path: thermia-back/app/retrieval/embedder.py
+    kind: source
+  - path: thermia-back/app/retrieval/llm.py
+    kind: source
+  - path: thermia-back/scripts/ingest.py
+    kind: source
+  - path: thermia-back/tests/retrieval/test_key_pool.py
+    kind: test
+  - path: thermia-back/.env.example
+    kind: config
+
+build_status: success
+
+tests_total: 50
+tests_passing: 50
+tests_failing: 0
+
+audit_entries:
+  - "[Env] Python 3.11.9 at /Users/miguel.belmonte/homebrew/bin/python3.11 — existing installation"
+  - "[Env] pytest 9.0.3 confirmed under Python 3.11; cohere 6.1.0; langchain_groq — all deps present"
+  - "[Env] System Python 3.14 (homebrew default) lacks pytest — correctly avoided"
+  - "[CodeGraph] no affected tests detected — full suite run"
+  - "[Validator] AST parse clean for key_pool.py, embedder.py, llm.py (pyright not installed; AST check substituted)"
+  - "[Build] No compile step — pure Python module; build_status=success"
+  - "[Test] python3.11 -m pytest tests/retrieval/test_key_pool.py: 50/50 PASSED (exit 0, wall time 0.27s)"
+  - "[Test] Full suite: 75 passed, 26 failed — all 26 failures are pre-existing ModuleNotFoundError (pgvector, pdfplumber, sshtunnel)"
+  - "[Regression] 0 new failures introduced by key-pool-fallback unit"
+
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: No source code edited; findings emitted only; scope limited to thermia-back/ retrieval module
+  - skill: test-driven-development
+    status: PASS
+    evidence: Tests ran first (50 collected); all 50 passed; no test skipped; no test patched
+  - skill: debugging-and-error-recovery
+    status: PASS
+    evidence: 26 pre-existing failures diagnosed as ModuleNotFoundError for pgvector/pdfplumber/sshtunnel; root cause is environmental not generated code; documented as non-regressions
+  - skill: python-testing-patterns
+    status: PASS
+    evidence: monkeypatch, MagicMock, patch context manager, caplog, AST static assertion, setup_method isolation, barrier-based concurrency test — full pattern coverage confirmed
+  - skill: security-and-hardening
+    status: PASS
+    evidence: No raw API key material in any log path verified; AllKeysExhaustedError surfaces Spanish error without leaking key details
+
+emitted_knowledge: []

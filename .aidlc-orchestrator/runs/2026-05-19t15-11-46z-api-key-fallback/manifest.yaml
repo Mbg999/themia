@@ -1,0 +1,32 @@
+run_id: 2026-05-19t15-11-46z-api-key-fallback
+started_at: '2026-05-19T15:11:46+00:00'
+last_checkpoint_at: '2026-05-19T20:09:46+00:00'
+user_request: We are using API keys from free-tier Cohere and Groq accounts. I need
+  you to create a fallback system so that if one account starts failing due to usage
+  limits, the application automatically switches to a different API key. Use a dynamic
+  list of API keys stored in the .env file. It should support adding as many API keys
+  as needed, with no hard limit, but there must always be at least one key available.
+project_slug: api-key-fallback
+current_stage: review
+completed_stages:
+- workspace-scout
+- requirements-analyst
+- workflow-planner
+- build-test-agent
+skipped_stages: '[reverse-engineer]'
+failed_stages: []
+orchestrator_version: unknown
+project_profile:
+  ui: false
+  api: true
+  has_legacy: true
+units: '[{name: key-pool-fallback, layer: 0, dependencies: []}]'
+skill_paths:
+  using-agent-skills: .agents/skills/using-agent-skills/SKILL.md
+  idea-refine: ~/.agents/skills/idea-refine/SKILL.md
+  spec-driven-development: .agents/skills/spec-driven-development/SKILL.md
+complexity_tier: MEDIUM
+skip_stages: '[story-writer]'
+merge_codegen_gate: false
+reviewer_pool: '[reviewer-code,reviewer-security,reviewer-simplifier]'
+skill_paths_resolved: '[.agents/skills/using-agent-skills/SKILL.md,.agents/skills/incremental-implementation/SKILL.md,.agents/skills/test-driven-development/SKILL.md,.agents/skills/source-driven-development/SKILL.md,.agents/skills/api-and-interface-design/SKILL.md,.agents/skills/environment-detection/SKILL.md,.agents/skills/validator-retry/SKILL.md,.agents/skills/debugging-and-error-recovery/SKILL.md,.agents/skills/codegraph-aware-exploration/SKILL.md,.agents/skills/python-testing-patterns/SKILL.md,.agents/skills/fastapi-python/SKILL.md,.agents/skills/security-and-hardening/SKILL.md]'

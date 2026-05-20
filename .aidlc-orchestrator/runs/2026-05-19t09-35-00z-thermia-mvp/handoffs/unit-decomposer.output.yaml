@@ -1,0 +1,49 @@
+status: needs_human
+artifacts:
+  - path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-db-layer.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-ingestion-pipeline.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-retrieval-api.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-frontend.md
+    kind: spec
+  - path: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-docker-infra.md
+    kind: spec
+units_decomposed:
+  - name: db-layer
+    file: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-db-layer.md
+    dependencies: []
+  - name: ingestion-pipeline
+    file: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-ingestion-pipeline.md
+    dependencies:
+      - db-layer
+  - name: retrieval-api
+    file: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-retrieval-api.md
+    dependencies:
+      - db-layer
+  - name: frontend
+    file: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-frontend.md
+    dependencies:
+      - retrieval-api
+  - name: docker-infra
+    file: aidlc-docs/inception/units/2026-05-19t09-35-00z-thermia-mvp-docker-infra.md
+    dependencies:
+      - retrieval-api
+      - ingestion-pipeline
+audit_entries:
+  - "[Skill] using-agent-skills: PASS — skill file resolved; process followed"
+  - "[Skill] planning-and-task-breakdown: PASS — 5 unit specs generated; all responsibilities, interfaces, dependencies, ACs, and DoD present"
+  - "[DependencyGraph] db-layer→[]; ingestion-pipeline→[db-layer]; retrieval-api→[db-layer]; frontend→[retrieval-api]; docker-infra→[retrieval-api,ingestion-pipeline]"
+  - "[DependencyCheck] no dangling refs; no cycles; factory_graph.py wave schedule: L0=[db-layer], L1=[ingestion-pipeline,retrieval-api], L2=[frontend,docker-infra]"
+  - "[Rationalization-rejected] 'frontend could depend on db-layer directly' — rejected; frontend only consumes retrieval-api's HTTP contract, not DB directly"
+skill_compliance:
+  - skill: using-agent-skills
+    status: PASS
+    evidence: "skill file at .agents/skills/using-agent-skills/SKILL.md; all protocol steps followed; rationalizations checked"
+  - skill: planning-and-task-breakdown
+    status: PASS
+    evidence: "5 unit specs; each has purpose, responsibilities, public interfaces, internal/external dependencies, tasks, ACs, DoD; dependencies form valid DAG (verified manually)"
+emitted_knowledge: []
+conflicts_detected: []
+locks_to_release: []

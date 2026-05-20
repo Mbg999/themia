@@ -1,0 +1,348 @@
+status: complete
+reviewer: code-quality
+findings:
+- severity: P1
+  file: thermia-back/app/retrieval/embedder.py
+  line: 25
+  axis: correctness
+  message: get_query_embedding has no retry or error handling for Cohere API calls,
+    unlike generate_embeddings in ingest.py which has full retry-with-backoff. Query-time
+    embedding calls will fail on rate limits (429) during peak usage, returning 500
+    errors to users.
+  recommendation: 'Add retry logic matching ingest.py''s _EMBED_RETRY_DELAYS pattern:
+    catch cohere-specific exceptions, retry with exponential backoff on 429/rate-limit
+    errors.'
+- severity: P1
+  file: thermia-back/scripts/ingest.py
+  line: 452
+  axis: correctness
+  message: Bare except Exception catches ALL exceptions including KeyboardInterrupt
+    and SystemExit due to Python's exception hierarchy. A Ctrl+C during ingestion
+    will be silently swallowed as '[error] file.md...' and processing continues. Also
+    hides real bugs making debugging difficult.
+  recommendation: Catch specific exceptions (e.g. ValueError, RuntimeError, ConnectionError)
+    or use except Exception if you must, but re-raise KeyboardInterrupt. Add logging
+    of full traceback on error.
+- severity: P1
+  file: thermia-front/src/environments/environment.ts
+  line: 3
+  axis: design
+  message: Hardcoded placeholder API key 'apikey_1234567890abcdef' embedded in client-side
+    code. The same key is in environment.prod.ts. API keys in frontend bundles are
+    visible in browser dev tools. This creates a security risk for production.
+  recommendation: Remove the apiKey from client-side code. In production, authenticate
+    via a proxy layer (nginx) or implement a proper OAuth/token exchange flow. For
+    local dev, use a runtime window variable or env-substitution at build time.
+- severity: P1
+  file: thermia-front/src/environments/environment.prod.ts
+  line: 2
+  axis: correctness
+  message: apiUrl is set to empty string in production config. The docker-compose.yml
+    exposes thermia-back on port 8000 and thermia-front on port 80, with no nginx
+    reverse-proxy configuration. The production frontend will POST to /analyze on
+    the same origin (port 80), which has no route for this path. API calls will fail
+    in production.
+  recommendation: Either (a) configure nginx to reverse-proxy /analyze and other API
+    paths to localhost:8000, (b) set apiUrl to the deployed backend URL, or (c) add
+    an nginx.conf to thermia-front that proxies /api/* to the backend.
+- severity: P2
+  file: thermia-back/app/db/connection.py
+  line: 57
+  axis: correctness
+  message: PostgreSQL URL built via f-string interpolation with db_user and db_password
+    containing potentially URL-unsafe characters (e.g. @, :, %, /). Malformed URL
+    will cause connection failures with opaque errors.
+  recommendation: Use SQLAlchemy's URL.create() utility or urllib.parse.quote_plus()
+    to safely encode credentials before URL construction.
+- severity: P2
+  file: thermia-back/app/main.py
+  line: 108
+  axis: correctness
+  message: query_text truncated at 2000 characters, not tokens. Cohere's embedding
+    model has token limits (not character limits). Truncating mid-word may cause suboptimal
+    embeddings.
+  recommendation: Replace character-based truncation with token-aware truncation using
+    tiktoken (cl100k_base, matching ingest.py) or set a more appropriate character
+    limit (e.g. 8000 chars) and add a warning log when truncation occurs.
+- severity: P2
+  file: thermia-back/app/retrieval/fusion.py
+  line: 42
+  axis: correctness
+  message: Deduplication by article key uses id(doc) as fallback when article is missing.
+    Python's id() is unique per object instance per process, not stable across the
+    two result lists. Two documents representing the same article in different search
+    result lists will get different fallback IDs and won't be deduplicated.
+  recommendation: Use a stable fallback like f'{source_file}|{law_id}|{hash(content[:100])}'
+    or ensure article metadata is always populated.
+- severity: P2
+  file: thermia-back/app/db/connection.py
+  line: 37
+  axis: correctness
+  message: Uses dict bracket access (os.environ[key]) in both local and production
+    paths which raises KeyError with no context. If environment variables are missing,
+    the traceback is opaque and doesn't indicate which var is missing. config.py defines
+    defaults but connection.py bypasses them.
+  recommendation: 'Use os.environ.get() with explicit guard/error messages, e.g. if
+    not ssh_host: raise ValueError(''SSH_HOST is required when THERMIA_ENV=local'').
+    Consider importing defaults from app.config.'
+- severity: P2
+  file: thermia-back/app/main.py
+  line: 17
+  axis: maintainability
+  message: CORS_ORIGINS is re-read directly from os.environ instead of importing from
+    app.config. This duplicates the default value and means config.py's load_dotenv()
+    side-effect is not relied upon. If config.py ever transforms values, main.py won't
+    benefit.
+  recommendation: Import CORS_ORIGINS from app.config instead of reading os.environ
+    directly. Remove the split/parse logic duplication.
+- severity: P2
+  file: thermia-back/app/retrieval/llm.py
+  line: 53
+  axis: maintainability
+  message: LLM model name 'llama-3.1-8b-instant' and system prompt (18 lines) are
+    hardcoded. Changing model or prompt requires a code deploy. The temperature is
+    hardcoded to 0.0. No environment variable or config support for model selection.
+  recommendation: Move model name and temperature to config.py (GROQ_MODEL, GROQ_TEMPERATURE).
+    Consider externalizing the system prompt to a file or config for easier iteration.
+- severity: P2
+  file: thermia-back/scripts/ingest.py
+  line: 452
+  axis: maintainability
+  message: Broad except Exception in the main ingestion loop silently skips files
+    on any error with only a log line. Operators won't be alerted to partial failures.
+    This makes it easy to have a 'successful' run that actually skipped most files.
+  recommendation: Add a counter for failed files, emit a consolidated error summary
+    at the end, and exit with non-zero code if any files failed. Use logger.exception()
+    to capture full traceback.
+- severity: P2
+  file: thermia-back/app/main.py
+  line: 56
+  axis: design
+  message: 'The /analyze endpoint violates the Single Responsibility Principle: it
+    handles auth, file validation, PDF parsing, embedding, vector search, BM25 search,
+    RRF fusion, context building, LLM analysis, and SSH tunnel lifecycle. This makes
+    the function ~70 lines with no unit-testable sub-steps.'
+  recommendation: Extract the retrieval pipeline into a dedicated service/use-case
+    class (e.g. DocumentAnalyzer) with injectable dependencies. The endpoint should
+    only handle HTTP concerns (auth, file reception, response).
+- severity: P2
+  file: thermia-back/app/config.py
+  line: 32
+  axis: design
+  message: API_KEY is an ambiguous config name that overlaps with COHERE_API_KEY and
+    GROQ_API_KEY. Its purpose (FastAPI bearer auth) is not obvious from the name.
+    This could cause confusion when adding new API keys.
+  recommendation: 'Rename to AUTH_API_KEY or FASTAPI_AUTH_KEY for clarity. Keep backward
+    compat via fallback: AUTH_API_KEY = os.environ.get(''AUTH_API_KEY'') or os.environ.get(''API_KEY'',
+    '''').'
+- severity: P2
+  file: thermia-back/app/retrieval/embedder.py
+  line: 12
+  axis: testing
+  message: get_query_embedding in embedder.py has zero test coverage. Unlike the ingestion
+    pipeline's generate_embeddings which has dedicated tests (ING-T5), the query-time
+    embedding call is untested.
+  recommendation: 'Add unit tests for get_query_embedding covering: normal response,
+    API error, rate-limited response (simulated), and empty text input. Follow the
+    mock pattern from test_ingestion.py''s TestCohereEmbedding.'
+- severity: P2
+  file: thermia-back/app/retrieval/llm.py
+  line: 30
+  axis: testing
+  message: analyze_with_llm has no direct tests. The JSON parsing error path (ValueError
+    when LLM returns non-JSON) is untested. Changes to the system prompt could break
+    the expected response format silently.
+  recommendation: 'Add unit tests with mocked ChatGroq covering: valid JSON, markdown-fenced
+    JSON, non-JSON response (ValueError edge case), empty/partial response.'
+- severity: P2
+  file: thermia-back/tests/test_ingestion.py
+  line: 364
+  axis: testing
+  message: Test imports ClauseElement but never uses it in the assert. Assert only
+    checks merged_obj.tsvector is not None, which passes even for a regular string.
+    Does not verify the SQL expression nature of tsvector.
+  recommendation: Strengthen assertion to check isinstance(merged_obj.tsvector, ClauseElement)
+    to verify the SQL expression semantic.
+- severity: P2
+  file: thermia-back/tests/
+  line: 1
+  axis: testing
+  message: No integration or end-to-end tests exist across the codebase. All 51 backend
+    + 16 frontend tests are unit tests with fully mocked dependencies. The end-to-end
+    flow (file upload, auth, PDF parse, embedding, search, fusion, context, LLM, response)
+    is never exercised as a whole.
+  recommendation: 'Add integration tests: (1) FastAPI TestClient exercising /analyze
+    with mocked retrieval internals, (2) a contract test verifying the LLM response
+    shape. For the frontend, add a component-level test with TestBed.'
+- severity: P2
+  file: thermia-front/src/app/analysis.service.spec.ts
+  line: 39
+  axis: testing
+  message: AnalysisService tests only cover the happy path (POST sent, Authorization
+    header, FormData body, response parsed). There are no tests for HTTP error responses
+    (4xx, 5xx), network failures, or timeout scenarios.
+  recommendation: 'Add test cases for: 401 response, 422 response, network error (status
+    0), unexpected non-JSON response body, and Observable error propagation.'
+- severity: P2
+  file: thermia-front/src/app/app.ts
+  line: 30
+  axis: correctness
+  message: Non-PDF file selection silently clears the file input without user feedback.
+    The HTML file input still displays the selected filename, but isAnalyzeEnabled()
+    returns false. Users get no indication why the button stays disabled or that PDF
+    is required.
+  recommendation: Set error signal with a descriptive message when non-PDF file is
+    selected, e.g. 'Solo se aceptan archivos PDF.' Clear the file input value via
+    input.value = '' after rejection.
+- severity: P2
+  file: docker-compose.yml
+  line: 12
+  axis: design
+  message: thermia-front depends_on thermia-back but has no health check. Docker's
+    depends_on only waits for container start, not service readiness. No healthcheck
+    is configured on either service.
+  recommendation: 'Add healthcheck to thermia-back (curl http://localhost:8000/health)
+    and use depends_on with condition: service_healthy on thermia-front.'
+- severity: P2
+  file: thermia-back/Dockerfile
+  line: 13
+  axis: maintainability
+  message: COPY . . copies the entire project directory including tests/, __pycache__/,
+    .env (with secrets), .pytest_cache/, and other dev artifacts into the production
+    image. No .dockerignore file exists.
+  recommendation: 'Add a .dockerignore with: __pycache__/, *.pyc, .env, .pytest_cache/,
+    tests/, .git/, .gitignore. Or use more specific COPY commands.'
+- severity: P2
+  file: thermia-back/app/db/connection.py
+  line: 46
+  axis: maintainability
+  message: SSH tunnel config (allow_agent=False, host_pkey_directories=[]) is hardcoded
+    to password-auth only. If the SSH server is reconfigured for key-based auth, this
+    code must change.
+  recommendation: Extract SSH tunnel parameters to config.py as optional variables.
+    This future-proofs for key-based auth without code changes.
+- severity: P3
+  file: thermia-back/app/retrieval/fusion.py
+  line: 38
+  axis: readability
+  message: doc_map is typed as dict[str, object] instead of dict[str, Document] despite
+    Document being imported at the top of the file. This defeats static type checking.
+  recommendation: Change type annotation to dict[str, Document].
+- severity: P3
+  file: thermia-back/app/main.py
+  line: 100
+  axis: readability
+  message: Lazy imports inside the /analyze endpoint (lines 100-105) break Python
+    convention. Rationale 'keeps startup fast' is marginal for import-once modules.
+    Import errors only surface at endpoint invocation.
+  recommendation: Move imports to module level. Or use AppConfig lifespan startup
+    event for deferred loading.
+- severity: P3
+  file: thermia-back/scripts/ingest.py
+  line: 339
+  axis: readability
+  message: uuid.NAMESPACE_URL is hardcoded as a literal UUID string instead of using
+    the standard library constant uuid.NAMESPACE_URL.
+  recommendation: 'Replace with: from uuid import NAMESPACE_URL as _NS.'
+- severity: P3
+  file: thermia-front/src/app/app.html
+  line: 65
+  axis: design
+  message: Non-null assertion (!) on result() inside @if (result()) block is a code
+    smell. Angular does not narrow type from @if guard.
+  recommendation: Use result()?.implicaciones_legales (optional chaining) or assign
+    via @let r = result().
+- severity: P3
+  file: thermia-front/src/app/app.ts
+  line: 18
+  axis: design
+  message: Optional constructor parameter with manual inject() fallback is unconventional
+    DI. Standard Angular uses field-level inject().
+  recommendation: 'Use: private readonly analysisService = inject(AnalysisService).
+    For tests, use TestBed.configureTestingModule with a mock provider.'
+- severity: P3
+  file: thermia-back/tests/test_retrieval.py
+  line: 35
+  axis: readability
+  message: TestClient is imported and constructed inside test methods rather than
+    using a shared fixture. Each test class creates TestClient(app) repeatedly.
+  recommendation: 'Use a conftest.py fixture at session scope: @pytest.fixture(scope=''module'')
+    def client(): return TestClient(app).'
+- severity: P3
+  file: thermia-front/src/app/app.routes.ts
+  line: 1
+  axis: design
+  message: Routes file exports empty array with provideRouter() already configured.
+    Angular Router infrastructure loaded unnecessarily.
+  recommendation: Either remove provideRouter from app.config.ts if no routing needed,
+    or document planned routes.
+- severity: P3
+  file: thermia-back/app/main.py
+  line: 39
+  axis: readability
+  message: The _check_auth function uses partition(' ') and manual string comparison.
+    Works but more verbose than needed.
+  recommendation: 'Use FastAPI''s HTTPBearer / HTTPAuthorizationCredentials dependency,
+    or simplify to: if not authorization or not authorization.startswith(''Bearer
+    ''): raise...'
+findings_summary:
+  P0_count: 0
+  P1_count: 4
+  P2_count: 18
+  P3_count: 8
+audit_entries:
+- '[CodeGraph] codegraph-cache.json loaded with 31 symbols indexed from 25 source
+  files'
+- '[CodeGraph] Blast-radius enrichment: ingest.py blast_radius=32 (>10) - correctness
+  finding ''broad except Exception'' severity bumped P2->P1'
+- '[CodeGraph] Blast-radius enrichment: main.py blast_radius=14, config.py blast_radius=15'
+- '[CodeGraph] Blast-radius enrichment: app.ts blast_radius=10, analysis.service.ts
+  blast_radius=6'
+- '[reviewer-code] Five-axis code-quality review complete across 5 units: db-layer,
+  ingestion-pipeline, retrieval-api, frontend, docker-infra'
+- '[reviewer-code] 30 findings total: 4 P1, 18 P2, 8 P3 - no P0 (blocking) findings'
+- '[reviewer-code] Axes: correctness (8), design (7), maintainability (5), readability
+  (5), testing (5)'
+- '[reviewer-code] Key gap: get_query_embedding (embedder.py) and analyze_with_llm
+  (llm.py) have zero test coverage'
+- '[reviewer-code] Key gap: environment.prod.ts has empty apiUrl - production deployment
+  will break without nginx proxy config'
+- '[reviewer-code] Key gap: Cohere API key hardcoded in frontend environment files
+  - visible in browser dev tools'
+skill_compliance:
+- skill: code-review-and-quality
+  status: PASS
+  evidence: Five-axis review completed across 25 source files in 5 units. Emitted
+    30 findings covering correctness, maintainability, readability, testing, and design.
+    No code fixed - findings only.
+- skill: using-agent-skills
+  status: PASS
+  evidence: Correctly identified review phase and loaded code-review-and-quality as
+    primary skill. Loaded all dependent skills from skills_required list.
+- skill: codegraph-aware-exploration
+  status: PASS
+  evidence: 'CodeGraph db exists (.codegraph/codegraph.db). Loaded codegraph-cache.json
+    with 31 symbols from 25 files. Used blast_radius data for severity bumps: ingest.py
+    blast_radius=32 triggered P2->P1 bump.'
+- skill: angular-developer
+  status: PASS
+  evidence: Reviewed 6 Angular TypeScript files, 2 spec files, 1 template, 1 stylesheet.
+    Assessed signal usage, DI pattern, and template control flow.
+- skill: frontend-ui-engineering
+  status: PASS
+  evidence: Reviewed app.html template and app.scss stylesheet. Assessed responsive
+    design, accessibility (aria-live, role), loading/error/empty states. Found missing
+    user feedback for non-PDF selection.
+- skill: api-and-interface-design
+  status: PASS
+  evidence: Reviewed /analyze endpoint contract, AnalysisService interface, and auth
+    pattern. Found CORS_ORIGINS bypasses config module, ambiguous API_KEY naming,
+    SRP violation in endpoint.
+- skill: python-testing-patterns
+  status: PASS
+  evidence: Reviewed 3 test files (51 tests). Found weak assertion in test_tsvector_populated_via_sql_expression,
+    missing tests for embedder.py and llm.py, TestClient recreated per method.
+- skill: vitest
+  status: PASS
+  evidence: Reviewed 2 frontend spec files (16 tests). Found service tests only cover
+    happy path - no tests for HTTP errors, network failures, or timeout scenarios.

@@ -1,0 +1,52 @@
+run_id: 2026-05-19t09-35-00z-thermia-mvp
+stage_id: reviewer-code
+reviewer: code-quality
+user_request: >-
+  Build an MVP called Thermia — Spanish legal document analyzer with hybrid RAG
+  (PostgreSQL+pgvector), FastAPI backend, Angular frontend, ingestion+retrieval pipelines.
+predecessor_artifacts:
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/code-generator.db-layer.output.yaml
+  - .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/handoffs/build-test-agent.db-layer.output.yaml
+  - aidlc-docs/audit.md
+scope_paths:
+  - thermia-back/app/**/*.py
+  - thermia-back/scripts/ingest.py
+  - thermia-back/alembic/**/*.py
+  - thermia-back/tests/**/*.py
+  - thermia-front/src/app/**/*.ts
+  - thermia-front/src/app/**/*.html
+  - thermia-front/src/app/**/*.scss
+skills_required:
+  - code-review-and-quality
+  - using-agent-skills
+  - codegraph-aware-exploration
+  - angular-developer
+  - frontend-ui-engineering
+  - api-and-interface-design
+  - python-testing-patterns
+  - vitest
+skill_paths_resolved:
+  - .agents/skills/using-agent-skills/SKILL.md
+  - .agents/skills/code-review-and-quality/SKILL.md
+  - .agents/skills/codegraph-aware-exploration/SKILL.md
+  - .agents/skills/angular-developer/SKILL.md
+  - .agents/skills/frontend-ui-engineering/SKILL.md
+  - .agents/skills/api-and-interface-design/SKILL.md
+  - .agents/skills/python-testing-patterns/SKILL.md
+  - .agents/skills/vitest/SKILL.md
+  - .agents/skills/test-driven-development/SKILL.md
+context_pointers:
+  - "Construction complete: 5 units — db-layer, ingestion-pipeline, retrieval-api, frontend, docker-infra"
+  - "67 tests total: 51 backend (pytest) + 16 frontend (vitest), all passing"
+  - "Runtime fixes applied post-construction: CORSMiddleware, LangChain import path, pgvector ORM cast, Cohere batching with 429 retry"
+  - "SSH tunnel uses password auth: allow_agent=False, host_pkey_directories=[] required"
+  - "Year extraction in ingest.py broadened to 1000-2099 range; BOE filename-first extraction added"
+  - "paramiko<3 pinned; sshtunnel 0.4.0 compatibility"
+  - "Alembic env.py routes through get_engine() for SSH tunnel support"
+budget:
+  max_tokens: 100000
+  max_wall_clock_min: 15
+gates: []
+locks_required: []
+model_override: sonnet
+codegraph_cache_path: .aidlc-orchestrator/runs/2026-05-19t09-35-00z-thermia-mvp/codegraph-cache.json
