@@ -13,6 +13,13 @@ export interface Fuente {
   status: string;
   jurisdiction: string;
   eli: string;
+  title?: string;
+  rank?: string;
+  country?: string;
+  source?: string;
+  url?: string;
+  url_eli?: string;
+  [key: string]: unknown;
 }
 
 export interface AnalysisResponse {

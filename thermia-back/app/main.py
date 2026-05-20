@@ -161,6 +161,7 @@ async def analyze(
     result = await asyncio.to_thread(analyze_with_llm, context, query_text)
     result["fuentes"] = [
         {
+            **(doc.source_metadata_ or {}),
             "law_id": doc.metadata_.get("law_id", ""),
             "law_title": doc.metadata_.get("law_title", ""),
             "article": doc.metadata_.get("article", ""),
