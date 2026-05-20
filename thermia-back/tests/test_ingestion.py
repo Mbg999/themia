@@ -246,6 +246,12 @@ class TestChunkArticle:
         chunks = chunk_article(short_text, article="Artículo 1", law_title="Ley X", law_id="LEY-1")
         assert chunks[0]["metadata"]["chunk_type"] == "article"
 
+    def test_short_article_chunk_index_is_zero(self):
+        chunk_article = self._import()
+        short_text = "Este es un artículo corto con pocos tokens."
+        chunks = chunk_article(short_text, article="Artículo 1", law_title="Ley X", law_id="LEY-1")
+        assert chunks[0]["metadata"]["chunk_index"] == 0
+
     def test_long_article_produces_multiple_chunks(self):
         chunk_article = self._import()
         chunks = chunk_article(LONG_ARTICLE_TEXT, article="Artículo 99", law_title="Ley X", law_id="LEY-1")
@@ -256,6 +262,12 @@ class TestChunkArticle:
         chunks = chunk_article(LONG_ARTICLE_TEXT, article="Artículo 99", law_title="Ley X", law_id="LEY-1")
         for chunk in chunks:
             assert chunk["metadata"]["chunk_type"] == "sub_article"
+
+    def test_sub_chunks_have_sequential_chunk_indices(self):
+        chunk_article = self._import()
+        chunks = chunk_article(LONG_ARTICLE_TEXT, article="Artículo 99", law_title="Ley X", law_id="LEY-1")
+        indices = [c["metadata"]["chunk_index"] for c in chunks]
+        assert indices == list(range(len(chunks)))
 
     def test_sub_chunks_are_at_most_512_tokens(self):
         import tiktoken
@@ -468,7 +480,7 @@ class TestUpsertDocuments:
         from scripts.ingest import upsert_documents
         return upsert_documents
 
-    def _make_chunk(self, article="Artículo 1", source_file="test.md"):
+    def _make_chunk(self, article="Artículo 1", source_file="test.md", chunk_index=0):
         return {
             "content": "Texto del artículo.",
             "embedding": [0.1] * 1024,
@@ -478,6 +490,7 @@ class TestUpsertDocuments:
                 "article": article,
                 "section": "Título I",
                 "chunk_type": "article",
+                "chunk_index": chunk_index,
                 "source_file": source_file,
                 "jurisdiction": "ES",
                 "year": "2020",
@@ -598,3 +611,100 @@ class TestUpsertDocuments:
         assert isinstance(merged_obj.tsvector, ClauseElement), (
             f"Expected SQLAlchemy ClauseElement, got {type(merged_obj.tsvector)}"
         )
+
+    def test_sub_chunks_of_same_article_get_distinct_uuids(self):
+        """Two sub-chunks with the same (source_file, article) but different
+        chunk_index must produce different stable UUIDs so both rows survive."""
+        upsert_documents = self._import()
+        mock_session = MagicMock()
+        mock_session.__enter__ = MagicMock(return_value=mock_session)
+        mock_session.__exit__ = MagicMock(return_value=False)
+        mock_session_maker = MagicMock(return_value=mock_session)
+
+        chunk_a = self._make_chunk(article="Artículo 1", chunk_index=0)
+        chunk_b = self._make_chunk(article="Artículo 1", chunk_index=1)
+        chunk_b["content"] = "Texto del segundo sub-chunk."
+        upsert_documents(mock_session_maker, [chunk_a, chunk_b])
+
+        assert mock_session.merge.call_count == 2
+        id_a = mock_session.merge.call_args_list[0][0][0].id
+        id_b = mock_session.merge.call_args_list[1][0][0].id
+        assert id_a != id_b, "Sub-chunks of the same article must have distinct UUIDs"
+
+    def test_same_chunk_produces_stable_uuid_across_calls(self):
+        """Re-running upsert with the same chunk must produce the same UUID
+        so session.merge() updates rather than inserts a duplicate row."""
+        upsert_documents = self._import()
+
+        def _run():
+            mock_session = MagicMock()
+            mock_session.__enter__ = MagicMock(return_value=mock_session)
+            mock_session.__exit__ = MagicMock(return_value=False)
+            upsert_documents(MagicMock(return_value=mock_session), [self._make_chunk()])
+            return mock_session.merge.call_args[0][0].id
+
+        assert _run() == _run(), "UUID must be deterministic for the same (source_file, article, chunk_index)"
+
+
+# ---------------------------------------------------------------------------
+# TestParseShard tests: --shard CLI flag
+# ---------------------------------------------------------------------------
+
+class TestParseShard:
+    """_parse_shard validates and parses the INDEX/TOTAL shard spec."""
+
+    def _import(self):
+        from scripts.ingest import _parse_shard
+        return _parse_shard
+
+    def test_valid_shard_0_of_2(self):
+        _parse_shard = self._import()
+        assert _parse_shard("0/2") == (0, 2)
+
+    def test_valid_shard_1_of_2(self):
+        _parse_shard = self._import()
+        assert _parse_shard("1/2") == (1, 2)
+
+    def test_valid_shard_3_of_4(self):
+        _parse_shard = self._import()
+        assert _parse_shard("3/4") == (3, 4)
+
+    def test_single_shard_0_of_1(self):
+        _parse_shard = self._import()
+        assert _parse_shard("0/1") == (0, 1)
+
+    def test_invalid_format_no_slash_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("02")
+
+    def test_invalid_format_extra_parts_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("0/2/3")
+
+    def test_total_zero_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("0/0")
+
+    def test_index_equals_total_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("2/2")
+
+    def test_negative_index_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("-1/2")
+
+    def test_non_integer_raises(self):
+        import argparse
+        _parse_shard = self._import()
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_shard("a/2")

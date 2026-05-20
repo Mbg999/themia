@@ -58,9 +58,32 @@ Run the ingestion pipeline to load documents into the vector store:
 cd thermia-back
 source .venv/bin/activate
 python scripts/ingest.py --help        # show available options
-python scripts/ingest.py <path>        # ingest a file or directory
-python scripts/ingest.py --reset       # truncates documents table before ingesting 
+python scripts/ingest.py               # ingest the full legal corpus
+python scripts/ingest.py --reset       # truncate documents table then ingest
 ```
+
+### Parallel ingestion
+
+Use `--shard INDEX/TOTAL` to split the file list round-robin across N processes.
+Each instance picks every N-th file starting at INDEX, so the work is evenly distributed
+regardless of file ordering.
+
+```bash
+# In two separate terminals (run --reset separately first if needed):
+python scripts/ingest.py --shard 0/2
+python scripts/ingest.py --shard 1/2
+```
+
+Scale to more instances by increasing TOTAL:
+
+```bash
+python scripts/ingest.py --shard 0/4
+python scripts/ingest.py --shard 1/4
+python scripts/ingest.py --shard 2/4
+python scripts/ingest.py --shard 3/4
+```
+
+> **Note:** `--reset` truncates the table and should only be run once before launching the shards.
 
 ---
 

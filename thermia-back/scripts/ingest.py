@@ -126,12 +126,13 @@ def chunk_article(
         return [
             {
                 "content": text,
-                "metadata": {**base_metadata, "chunk_type": "article"},
+                "metadata": {**base_metadata, "chunk_type": "article", "chunk_index": 0},
             }
         ]
 
     # Sub-chunking with overlap
     chunks: list[dict[str, Any]] = []
+    chunk_index = 0
     start = 0
     while start < len(tokens):
         end = min(start + _SUB_CHUNK_SIZE, len(tokens))
@@ -140,9 +141,10 @@ def chunk_article(
         chunks.append(
             {
                 "content": chunk_text,
-                "metadata": {**base_metadata, "chunk_type": "sub_article"},
+                "metadata": {**base_metadata, "chunk_type": "sub_article", "chunk_index": chunk_index},
             }
         )
+        chunk_index += 1
         if end == len(tokens):
             break
         # advance by (SUB_CHUNK_SIZE - OVERLAP) so next chunk overlaps by 50 tokens
@@ -393,8 +395,11 @@ def upsert_documents(session_maker: Any, chunks: list[dict[str, Any]]) -> None:
     with session_maker() as session:
         for chunk in chunks:
             meta = chunk["metadata"]
-            # Derive a stable UUID from (source_file, article) so re-runs merge
-            stable_id = _uuid.uuid5(_NAMESPACE_URL, f"{meta['source_file']}|{meta['article']}")
+            chunk_index = meta.get("chunk_index", 0)
+            # Derive a stable UUID from (source_file, article, chunk_index) so re-runs merge.
+            # chunk_index disambiguates sub-chunks of the same article without shifting
+            # when unrelated articles are added earlier in the same file.
+            stable_id = _uuid.uuid5(_NAMESPACE_URL, f"{meta['source_file']}|{meta['article']}|{chunk_index}")
 
             doc = Document(
                 id=stable_id,
@@ -438,12 +443,36 @@ def _scan_md_files(repo_dir: Path) -> list[Path]:
     return sorted(repo_dir.rglob("*.md"))
 
 
+def _parse_shard(value: str) -> tuple[int, int]:
+    """Parse 'INDEX/TOTAL' shard spec, e.g. '0/2' or '1/2'."""
+    try:
+        idx_str, total_str = value.split("/")
+        idx, total = int(idx_str), int(total_str)
+    except (ValueError, AttributeError):
+        raise argparse.ArgumentTypeError("--shard must be INDEX/TOTAL, e.g. 0/2")
+    if total < 1:
+        raise argparse.ArgumentTypeError("TOTAL must be >= 1")
+    if not (0 <= idx < total):
+        raise argparse.ArgumentTypeError(f"INDEX must be 0..{total - 1}, got {idx}")
+    return idx, total
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Thermia legal corpus ingestion pipeline.")
     parser.add_argument(
         "--reset",
         action="store_true",
         help="Truncate the documents table before ingesting.",
+    )
+    parser.add_argument(
+        "--shard",
+        metavar="INDEX/TOTAL",
+        type=_parse_shard,
+        default=None,
+        help=(
+            "Process only a round-robin slice of the file list. "
+            "Run two instances with --shard 0/2 and --shard 1/2 to parallelise ingestion."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -470,6 +499,11 @@ def main(argv: list[str] | None = None) -> None:
 
     md_files = _scan_md_files(_REPO_DIR)
     log.info("Found %d .md files.", len(md_files))
+
+    if args.shard is not None:
+        shard_idx, shard_total = args.shard
+        md_files = md_files[shard_idx::shard_total]
+        log.info("Shard %d/%d — processing %d file(s).", shard_idx, shard_total, len(md_files))
 
     total_inserted = 0
     failed_files: list[str] = []
