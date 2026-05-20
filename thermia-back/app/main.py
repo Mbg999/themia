@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 import app.config  # noqa: F401 — side-effect: load_dotenv()
+from app.constants.constants import default_invalid_resume_msg
 from app.db.connection import get_engine
 from app.retrieval.context_builder import build_context
 from app.retrieval.embedder import get_query_embedding
@@ -52,10 +53,6 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
-_LEGAL_KEYWORDS = {
-    "artículo", "ley", "decreto", "código", "título",
-    "capítulo", "disposición", "reglamento",
-}
 _PDF_MAGIC = b"%PDF-"
 _MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
 # Rate limit for /analyze — override via ANALYZE_RATE_LIMIT env var
@@ -71,10 +68,6 @@ if len(_API_KEY) < 16:
         "Set it in your .env file (see .env.example). "
         "Auth is always enforced — do not leave API_KEY empty or too short."
     )
-
-
-def _is_legal_text(text: str) -> bool:
-    return any(kw in text.lower() for kw in _LEGAL_KEYWORDS)
 
 
 def _check_auth(authorization: str | None) -> None:
@@ -139,12 +132,6 @@ async def analyze(
         pages_text = [p.extract_text() or "" for p in pdf.pages]
     full_text = "\n".join(pages_text).strip()
 
-    if not full_text or not _is_legal_text(full_text):
-        raise HTTPException(
-            status_code=422,
-            detail="El documento no contiene contenido legal reconocible.",
-        )
-
     _QUERY_CHAR_LIMIT = 2000
     if len(full_text) > _QUERY_CHAR_LIMIT:
         log.warning("PDF text truncated from %d to %d chars for embedding.", len(full_text), _QUERY_CHAR_LIMIT)
@@ -173,6 +160,6 @@ async def analyze(
             "eli": doc.metadata_.get("eli") or "",
         }
         for doc in top_docs
-    ]
+    ] if result.get("resumen") != default_invalid_resume_msg else []
 
     return JSONResponse(content=result)

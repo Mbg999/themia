@@ -59,23 +59,27 @@
           <p class="result-text">{{ r.resumen }}</p>
         </div>
 
-        <div class="result-card">
-          <h2 class="section-heading">Implicaciones Legales</h2>
-          <ul class="result-list">
-            @for (item of r.implicaciones_legales; track $index) {
-              <li class="result-list-item">{{ item }}</li>
-            }
-          </ul>
-        </div>
+        @if (r.implicaciones_legales.length) {
+          <div class="result-card">
+            <h2 class="section-heading">Implicaciones Legales</h2>
+            <ul class="result-list">
+              @for (item of r.implicaciones_legales; track $index) {
+                <li class="result-list-item">{{ item }}</li>
+              }
+            </ul>
+          </div>
+        }
 
-        <div class="result-card">
-          <h2 class="section-heading">Fundamento Jurídico</h2>
-          <ul class="result-list citation-list">
-            @for (item of r.fundamento_juridico; track $index) {
-              <li class="result-list-item">{{ item }}</li>
-            }
-          </ul>
-        </div>
+        @if (r.fundamento_juridico.length) {
+          <div class="result-card">
+            <h2 class="section-heading">Fundamento Jurídico</h2>
+            <ul class="result-list citation-list">
+              @for (item of r.fundamento_juridico; track $index) {
+                <li class="result-list-item">{{ item }}</li>
+              }
+            </ul>
+          </div>
+        }
 
         @if (r.fuentes?.length) {
           <div class="result-card">
@@ -83,29 +87,47 @@
             <ul class="source-list">
               @for (fuente of r.fuentes; track $index) {
                 <li class="source-item">
-                  @if (fuente.rank || fuente.legal_rank || fuente.status || fuente.country || fuente.jurisdiction) {
+                  @if (
+                    fuente.rank ||
+                    fuente.legal_rank ||
+                    fuente.status ||
+                    fuente.country ||
+                    fuente.jurisdiction
+                  ) {
                     <div class="source-badges">
                       @if (fuente.rank || fuente.legal_rank) {
-                        <span class="source-badge source-badge--rank">{{ formatRank(fuente.rank || fuente.legal_rank) }}</span>
+                        <span class="source-badge source-badge--rank">{{
+                          formatRank(fuente.rank || fuente.legal_rank)
+                        }}</span>
                       }
                       @if (fuente.status) {
                         <span
                           class="source-badge"
                           [class.source-badge--vigente]="fuente.status === 'vigente'"
                           [class.source-badge--derogada]="fuente.status === 'derogada'"
-                        >{{ fuente.status }}</span>
+                          >{{ fuente.status }}</span
+                        >
                       }
                       @if (fuente.country || fuente.jurisdiction) {
-                        <span class="source-badge">{{ (fuente.country || fuente.jurisdiction).toUpperCase() }}</span>
+                        <span class="source-badge">{{
+                          (fuente.country || fuente.jurisdiction).toUpperCase()
+                        }}</span>
                       }
                     </div>
                   }
                   @if (fuente.eli) {
-                    <a class="source-title source-link" [href]="fuente.url_eli" target="_blank" rel="noopener noreferrer">
+                    <a
+                      class="source-title source-link"
+                      [href]="fuente.url_eli"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       {{ fuente.title || fuente.law_title || fuente.law_id }}
                     </a>
                   } @else {
-                    <span class="source-title">{{ fuente.title || fuente.law_title || fuente.law_id }}</span>
+                    <span class="source-title">{{
+                      fuente.title || fuente.law_title || fuente.law_id
+                    }}</span>
                   }
                   @if (fuente.article || fuente.section) {
                     <span class="source-meta">{{ formatSourceLocation(fuente) }}</span>
