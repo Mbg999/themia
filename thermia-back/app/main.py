@@ -155,6 +155,10 @@ async def analyze(
                 "article": doc.metadata_.get("article", ""),
                 "section": doc.metadata_.get("section", ""),
                 "hierarchy_path": doc.metadata_.get("hierarchy_path", ""),
+                "legal_rank": doc.legal_rank or "",
+                "status": doc.status or "",
+                "jurisdiction": doc.jurisdiction or "",
+                "eli": doc.metadata_.get("eli") or "",
             }
             for doc in top_docs
         ]

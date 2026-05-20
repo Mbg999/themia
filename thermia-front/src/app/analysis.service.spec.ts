@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { of, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { AnalysisResponse } from './analysis.service';
+import { AnalysisResponse, Fuente } from './analysis.service';
 
 /**
  * Unit-test AnalysisService by constructing it in an Angular injection context
@@ -46,6 +46,7 @@ describe('AnalysisService', () => {
       resumen: 'Test summary',
       implicaciones_legales: ['Item 1'],
       fundamento_juridico: ['Art. 1'],
+      fuentes: [],
     };
     postSpy.mockReturnValue(of(mockResponse));
 
@@ -85,6 +86,7 @@ describe('AnalysisService', () => {
       resumen: 'Legal document summary',
       implicaciones_legales: ['Clause A', 'Clause B'],
       fundamento_juridico: ['Art. 1823 CC'],
+      fuentes: [],
     };
     postSpy.mockReturnValue(of(expected));
 
@@ -95,6 +97,38 @@ describe('AnalysisService', () => {
     expect(result?.resumen).toBe('Legal document summary');
     expect(result?.implicaciones_legales.length).toBe(2);
     expect(result?.fundamento_juridico.length).toBe(1);
+  });
+
+  it('should pass through enriched fuentes with all metadata fields', () => {
+    const file = new File(['%PDF-content'], 'test.pdf', { type: 'application/pdf' });
+    const fuente: Fuente = {
+      law_id: 'BOE-A-2007-2273',
+      law_title: 'Ley Orgánica 3/2007 para la igualdad efectiva de mujeres y hombres',
+      article: '3',
+      section: 'Principio de igualdad de trato entre mujeres y hombres',
+      hierarchy_path: 'Título I > Capítulo I',
+      legal_rank: 'ley_organica',
+      status: 'vigente',
+      jurisdiction: 'ES',
+      eli: 'https://www.boe.es/eli/es/lo/2007/03/22/3',
+    };
+    const expected: AnalysisResponse = {
+      resumen: 'r',
+      implicaciones_legales: [],
+      fundamento_juridico: [],
+      fuentes: [fuente],
+    };
+    postSpy.mockReturnValue(of(expected));
+
+    let result: AnalysisResponse | undefined;
+    service.analyze(file).subscribe((r) => (result = r));
+
+    expect(result?.fuentes).toHaveLength(1);
+    const f = result?.fuentes?.[0];
+    expect(f?.legal_rank).toBe('ley_organica');
+    expect(f?.status).toBe('vigente');
+    expect(f?.jurisdiction).toBe('ES');
+    expect(f?.eli).toBe('https://www.boe.es/eli/es/lo/2007/03/22/3');
   });
 
   it('should propagate 401 error from server', () => {

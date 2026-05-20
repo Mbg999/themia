@@ -1,6 +1,6 @@
 import { Component, signal, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { AnalysisService, AnalysisResponse } from './analysis.service';
+import { AnalysisService, AnalysisResponse, Fuente } from './analysis.service';
 
 @Component({
   selector: 'app-root',
@@ -59,6 +59,17 @@ export class App {
         this.isLoading.set(false);
       },
     });
+  }
+
+  formatRank(rank: string): string {
+    return rank.replace(/_/g, ' ');
+  }
+
+  formatSourceLocation(fuente: Fuente): string {
+    const parts: string[] = [];
+    if (fuente.article) parts.push(`Art. ${fuente.article}`);
+    if (fuente.section) parts.push(fuente.section);
+    return parts.join(' · ');
   }
 
   private mapError(err: HttpErrorResponse): string {

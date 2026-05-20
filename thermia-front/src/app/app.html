@@ -83,7 +83,33 @@
             <ul class="source-list">
               @for (fuente of r.fuentes; track $index) {
                 <li class="source-item">
-                  <span class="source-title">{{ fuente.law_title || fuente.law_id }}</span>
+                  @if (fuente.legal_rank || fuente.status || fuente.jurisdiction) {
+                    <div class="source-badges">
+                      @if (fuente.legal_rank) {
+                        <span class="source-badge source-badge--rank">{{ formatRank(fuente.legal_rank) }}</span>
+                      }
+                      @if (fuente.status) {
+                        <span
+                          class="source-badge"
+                          [class.source-badge--vigente]="fuente.status === 'vigente'"
+                          [class.source-badge--derogada]="fuente.status === 'derogada'"
+                        >{{ fuente.status }}</span>
+                      }
+                      @if (fuente.jurisdiction) {
+                        <span class="source-badge">{{ fuente.jurisdiction }}</span>
+                      }
+                    </div>
+                  }
+                  @if (fuente.eli) {
+                    <a class="source-title source-link" [href]="fuente.eli" target="_blank" rel="noopener noreferrer">
+                      {{ fuente.law_title || fuente.law_id }}
+                    </a>
+                  } @else {
+                    <span class="source-title">{{ fuente.law_title || fuente.law_id }}</span>
+                  }
+                  @if (fuente.article || fuente.section) {
+                    <span class="source-meta">{{ formatSourceLocation(fuente) }}</span>
+                  }
                   @if (fuente.hierarchy_path) {
                     <span class="source-path">{{ fuente.hierarchy_path }}</span>
                   }

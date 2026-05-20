@@ -11,7 +11,13 @@ from sqlalchemy.orm import Session
 from app.db.models import Document
 
 
-def vector_search(engine: Engine, embedding: list[float], top_k: int = 10) -> list[Document]:
+def vector_search(
+    engine: Engine,
+    embedding: list[float],
+    top_k: int = 10,
+    *,
+    only_active: bool = True,
+) -> list[Document]:
     """Return the *top_k* documents closest to *embedding* by cosine similarity.
 
     Uses pgvector's ``<=>`` cosine-distance operator via SQLAlchemy ORM so that
@@ -25,14 +31,21 @@ def vector_search(engine: Engine, embedding: list[float], top_k: int = 10) -> li
         Query embedding vector (1024 floats).
     top_k:
         Number of results to return.
+    only_active:
+        When True (default), exclude documents with a known non-active status
+        (e.g. ``derogada``).  Documents with an empty or unknown status are
+        included so that laws without frontmatter are not silently dropped.
 
     Returns
     -------
     list[Document]
         ORM Document objects ordered by ascending cosine distance.
     """
+    stmt = select(Document)
+    if only_active:
+        stmt = stmt.where(Document.status.in_(["vigente", ""]))
     stmt = (
-        select(Document)
+        stmt
         .order_by(Document.embedding.op("<=>")(cast(embedding, Vector(1024))))
         .limit(top_k)
     )
@@ -44,7 +57,13 @@ def vector_search(engine: Engine, embedding: list[float], top_k: int = 10) -> li
         return list(rows)
 
 
-def bm25_search(engine: Engine, query_text: str, top_k: int = 10) -> list[Document]:
+def bm25_search(
+    engine: Engine,
+    query_text: str,
+    top_k: int = 10,
+    *,
+    only_active: bool = True,
+) -> list[Document]:
     """Return the *top_k* documents matching *query_text* via full-text search.
 
     Uses PostgreSQL ``tsvector @@ plainto_tsquery('spanish', ...)`` with
@@ -58,6 +77,9 @@ def bm25_search(engine: Engine, query_text: str, top_k: int = 10) -> list[Docume
         Plain-text query string (Spanish).
     top_k:
         Number of results to return.
+    only_active:
+        When True (default), exclude documents with a known non-active status.
+        Documents with an empty or unknown status are included.
 
     Returns
     -------
@@ -65,12 +87,10 @@ def bm25_search(engine: Engine, query_text: str, top_k: int = 10) -> list[Docume
         ORM Document objects ordered by descending BM25 rank.
     """
     tsquery = func.plainto_tsquery("spanish", query_text)
-    stmt = (
-        select(Document)
-        .where(Document.tsvector.op("@@")(tsquery))
-        .order_by(func.ts_rank(Document.tsvector, tsquery).desc())
-        .limit(top_k)
-    )
+    stmt = select(Document).where(Document.tsvector.op("@@")(tsquery))
+    if only_active:
+        stmt = stmt.where(Document.status.in_(["vigente", ""]))
+    stmt = stmt.order_by(func.ts_rank(Document.tsvector, tsquery).desc()).limit(top_k)
     with Session(engine) as session:
         rows = session.execute(stmt).scalars().all()
         return list(rows)

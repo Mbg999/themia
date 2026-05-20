@@ -9,13 +9,17 @@ export interface Fuente {
   article: string;
   section: string;
   hierarchy_path: string;
+  legal_rank: string;
+  status: string;
+  jurisdiction: string;
+  eli: string;
 }
 
 export interface AnalysisResponse {
   resumen: string;
   implicaciones_legales: string[];
   fundamento_juridico: string[];
-  fuentes: Fuente[];
+  fuentes?: Fuente[];
 }
 
 @Injectable({
