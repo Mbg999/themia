@@ -170,6 +170,9 @@ def _invoke_and_parse(llm: ChatGroq, context: str, query: str) -> dict:
     print(messages)  # DEBUG <- improvement: observability
 
     raw_response = llm.invoke(messages)
+    
+    print(raw_response)  # DEBUG <- improvement: observability
+    
     json_string = raw_response.content
 
     try:
