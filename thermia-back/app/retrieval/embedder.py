@@ -34,7 +34,7 @@ def _validate_host(host: str) -> None:
     """Raise RuntimeError if a non-localhost host does not use https://."""
     parsed = urlparse(host)
     hostname = parsed.hostname or ""
-    is_local = hostname in ("localhost", "127.0.0.1", "::1") or hostname.startswith("127.")
+    is_local = hostname in ("localhost", "127.0.0.1", "::1", "host.docker.internal") or hostname.startswith("127.")
     if not is_local and parsed.scheme != "https":
         raise RuntimeError(
             f"OLLAMA_HOST must use https:// for non-localhost targets, got: {host!r}"
