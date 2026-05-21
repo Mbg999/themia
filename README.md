@@ -98,6 +98,14 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
 
 dejo en /test_files algunos PDFs de ejemplo para probar el sistema, aunque el sistema debería funcionar con cualquier PDF legal en español, teniendo en cuenta las limitaciones de imágenes, etc, también se puede usar ese enpdoint de /analyze/text para probar con texto plano sin necesidad de PDF, pensado para debugging. (requiere de autenticación con API key, se puede copiar la de (environment.prod.ts)[/thermia-front/src/environments/environment.prod.ts])
 
+```
+curl --request POST \
+  --url https://themiabackend.cvbooster.es/analyze/text \
+  --header 'Authorization: Bearer <API_KEY>' \
+  --header 'Content-Type: application/json' \
+  --data '{"text": "hola"}'
+```
+
 ------------
 ## descripciones sobre como usar este repositorio
 ------------
