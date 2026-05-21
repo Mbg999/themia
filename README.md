@@ -91,7 +91,7 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
     * observabilidad, tanto a nivel del modelo llm, como de logs del sistema, métricas, etc, podría usarse datadog, azure insights, aws cloudwatch, langsmith o cualquiera.
     * los datos tienen mucho potencial, se podría escalar bastante más, con un chatbot, orientarlo más hacia profesionales legales como herramienta de apoyo, infraestructura más escalable en la nube, etc.
     * mejor gestión del workspace o separación de back y front en diferentes repositorios.
-    * no he cargado todas las leyes en la base de datos por tiempo de procesamiento, ya que mi capacidad de cómputo para el modelo de embeddings es bastante limitada y tardaría como 1 día completo en poder procesar todas las leyes 🥲 solo he cargado las nacionales (/es/) las autonómicas me las he saltado, dejo una [lista que indexa las cargadas en la base de datos](/leyes_cargadas_bdd.txt).
+    * no he cargado todas las leyes en la base de datos por tiempo de procesamiento, ya que mi capacidad de cómputo para el modelo de embeddings es bastante limitada y tardaría como 1 día completo en poder procesar todas las leyes 🥲 solo he cargado las nacionales (/es/) las autonómicas me las he saltado.
 
 
 ### archivos para probar
