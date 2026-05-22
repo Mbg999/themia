@@ -39,7 +39,7 @@ El diseño se basa en un RAG híbrido: semantic + BM25 + metadatos + fusión con
     * langchain v0.3.0
 - Frontend:
     * Angular v21.2.0
-    * diseño basado en [DESIGN.md](/DESIGN.md) estilo Apple extraido de la biblioteca (https://styles.refero.design)[https://styles.refero.design/style/c9cabb96-32fa-4896-837a-f2497ce1c856]
+    * diseño basado en [DESIGN.md](/DESIGN.md) estilo Apple extraido de la biblioteca [https://styles.refero.design](https://styles.refero.design/style/c9cabb96-32fa-4896-837a-f2497ce1c856)
 - Base de datos: PostgreSQL + pgvector (hosteada en VPS remoto)
 - modelo de embeddings: bge-m3 hosteado en VPS remoto sobre Ollama
 - LLMs para análisis: llama-3.3-70b-versatile sobre Groq via API
